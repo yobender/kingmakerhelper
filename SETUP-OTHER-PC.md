@@ -33,6 +33,29 @@ Use this if you want the repo and local build workflow on the other PC.
 5. Start the desktop app:
    - `npm run start`
 
+## One-click repo setup
+
+From the repo root on the other PC:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\setup-other-pc.ps1 -CreateShortcut
+```
+
+What it does:
+
+1. Runs `npm install`
+2. Builds the PF2e Ollama models
+3. Creates a desktop shortcut
+
+Optional flags:
+
+- Build a portable `.exe` too:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\setup-other-pc.ps1 -BuildPortable -CreateShortcut`
+- Skip model build:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\setup-other-pc.ps1 -SkipModelBuild`
+- Force the shortcut to use the source launcher instead of the portable exe:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\setup-other-pc.ps1 -CreateShortcut -PreferSourceShortcut`
+
 ## Build the portable app on the other PC
 
 If you want a fresh `.exe` there:
@@ -103,6 +126,14 @@ This builds:
 5. Reconnect your PDF folder
 6. Run one quick PDF search
 7. Ask Loremaster a short PF2e prompt to confirm it is responding
+
+## Desktop shortcut only
+
+If you only want the shortcut:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\create-desktop-shortcut.ps1
+```
 
 ## If something fails
 

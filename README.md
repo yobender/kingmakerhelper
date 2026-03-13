@@ -103,6 +103,11 @@ Detailed checklist:
 
 - See `SETUP-OTHER-PC.md`
 
+Helpful scripts:
+
+- `scripts\setup-other-pc.ps1`
+- `scripts\create-desktop-shortcut.ps1`
+
 Best practical path:
 
 1. Use the portable build for the app itself.
