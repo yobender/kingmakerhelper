@@ -99,6 +99,10 @@ In the app:
 
 ## Move To Another PC
 
+Detailed checklist:
+
+- See `SETUP-OTHER-PC.md`
+
 Best practical path:
 
 1. Use the portable build for the app itself.
