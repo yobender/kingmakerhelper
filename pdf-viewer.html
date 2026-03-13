@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF Viewer</title>
+    <link rel="stylesheet" href="./node_modules/pdfjs-dist/web/pdf_viewer.css" />
+    <link rel="stylesheet" href="./pdf-viewer.css" />
+  </head>
+  <body>
+    <header class="viewer-toolbar">
+      <div class="toolbar-group">
+        <button id="prevPageBtn" type="button">Prev</button>
+        <label class="page-label">
+          Page
+          <input id="pageInput" type="number" min="1" value="1" />
+        </label>
+        <span id="pageTotal">/ 0</span>
+        <button id="nextPageBtn" type="button">Next</button>
+      </div>
+      <div class="toolbar-group">
+        <span id="statusText" class="status-text">Loading...</span>
+      </div>
+    </header>
+
+    <main id="viewerContainer">
+      <div id="viewer" class="pdfViewer"></div>
+    </main>
+
+    <script type="module" src="./pdf-viewer.js"></script>
+  </body>
+</html>

@@ -1,0 +1,18 @@
+node_modules/
+dist/
+out/
+.DS_Store
+Thumbs.db
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Electron / local app state
+*.tmp
+*.temp
+coverage/
+
+# Keep machine-specific runtime data out of source control
+Local Storage/
+User Data/

@@ -1,0 +1,34 @@
+{
+  "name": "dm-helper",
+  "version": "0.1.0",
+  "description": "Desktop GM companion with local PDF indexing and Foundry export.",
+  "author": "Chris Bender",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "node ./scripts/start-electron.cjs",
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.chrisbender.dmhelper",
+    "productName": "DM Helper",
+    "files": [
+      "**/*",
+      "!node_modules/.cache/**"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "portable"
+      ]
+    }
+  },
+  "dependencies": {
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^4.10.38"
+  },
+  "devDependencies": {
+    "electron": "^35.2.0",
+    "electron-builder": "^24.13.3"
+  }
+}
