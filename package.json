@@ -12,11 +12,13 @@
   "build": {
     "appId": "com.chrisbender.dmhelper",
     "productName": "DM Helper",
+    "icon": "build/icon.png",
     "files": [
       "**/*",
       "!node_modules/.cache/**"
     ],
     "win": {
+      "icon": "build/icon.png",
       "signAndEditExecutable": false,
       "target": [
         "portable"

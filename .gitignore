@@ -16,3 +16,6 @@ coverage/
 # Keep machine-specific runtime data out of source control
 Local Storage/
 User Data/
+
+# Temporary extracted icon used during local icon setup
+build/icon.ico
