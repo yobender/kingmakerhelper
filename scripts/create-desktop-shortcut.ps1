@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [string]$ShortcutName = 'DM Helper',
+  [string]$ShortcutName = 'Kingmaker Companion',
   [string]$ShortcutPath,
   [string]$TargetPath,
   [switch]$PreferSourceLauncher
@@ -9,9 +9,9 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$sourceLauncher = Join-Path $PSScriptRoot 'launch-dm-helper.cmd'
-$portableExe = Join-Path $repoRoot 'dist\DM Helper 0.1.0.exe'
-$unpackedExe = Join-Path $repoRoot 'dist\win-unpacked\DM Helper.exe'
+$sourceLauncher = Join-Path $PSScriptRoot 'launch-kingmaker-companion.cmd'
+$portableExe = Join-Path $repoRoot 'dist\Kingmaker Companion 0.1.0.exe'
+$unpackedExe = Join-Path $repoRoot 'dist\win-unpacked\Kingmaker Companion.exe'
 $shortcutIcon = Join-Path $repoRoot 'build\icon.ico'
 $electronExe = Join-Path $repoRoot 'node_modules\electron\dist\electron.exe'
 
@@ -67,7 +67,7 @@ $shortcut = $shell.CreateShortcut($ShortcutPath)
 $shortcut.TargetPath = $TargetPath
 $shortcut.WorkingDirectory = $workingDirectory
 $shortcut.IconLocation = $iconLocation
-$shortcut.Description = 'Launch DM Helper'
+$shortcut.Description = 'Launch Kingmaker Companion'
 $shortcut.Save()
 
 Write-Host "Shortcut created: $ShortcutPath"

@@ -1,13 +1,13 @@
 # Setup On Another PC
 
-Use this checklist to move `DM Helper` to a second Windows PC with the same campaign data and PF2e local models.
+Use this checklist to move `Kingmaker Companion` to a second Windows PC with the same campaign data and PF2e local models.
 
 ## Option A: Fastest path
 
 Use this if you just want the app running quickly.
 
 1. Copy the portable app:
-   - `dist\DM Helper 0.1.0.exe`
+   - `dist\Kingmaker Companion 0.1.0.exe`
 2. Run the `.exe` on the other PC.
 3. In the current app, export your campaign:
    - `Export Campaign JSON`
@@ -63,7 +63,7 @@ If you want a fresh `.exe` there:
 1. From the repo root:
    - `npm run dist`
 2. Output:
-   - `dist\DM Helper 0.1.0.exe`
+   - `dist\Kingmaker Companion 0.1.0.exe`
 
 ## Restore campaign data
 
@@ -77,7 +77,7 @@ Recommended:
 Optional advanced copy:
 
 - Indexed PDF summary cache:
-  - `C:\Users\Chris Bender\AppData\Roaming\dm-helper\pdf-index-cache.v1.json`
+  - `C:\Users\Chris Bender\AppData\Roaming\kingmaker-companion\pdf-index-cache.v1.json`
 
 You do not need that cache file if you are fine re-indexing and re-summarizing PDFs.
 

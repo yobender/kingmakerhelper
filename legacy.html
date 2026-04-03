@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kingmaker Companion Legacy Workspace</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="legacy-banner">
+      <div class="legacy-banner-copy">
+        <strong>Legacy Workspace</strong>
+        <span>React rebuild in progress. Use this view for tabs that have not been ported yet.</span>
+      </div>
+      <button id="legacy-return-btn" class="btn btn-secondary" type="button">Return to New Workspace</button>
+    </header>
+
+    <div class="bg-orb orb-a"></div>
+    <div class="bg-orb orb-b"></div>
+
+    <header class="topbar">
+      <div>
+        <h1>Kingmaker Companion</h1>
+        <p>Standalone Kingmaker planning, kingdom tracking, hexcrawl support, and source-aware prep.</p>
+      </div>
+      <div class="top-actions">
+        <button id="seed-btn" class="btn btn-secondary">Load Starter Data</button>
+        <button id="export-btn" class="btn btn-secondary">Export Campaign JSON</button>
+        <button id="import-btn" class="btn btn-primary">Import Campaign JSON</button>
+        <input id="import-file" type="file" accept=".json,application/json" hidden />
+      </div>
+    </header>
+
+    <nav id="tabs" class="tabs"></nav>
+    <main id="app" class="app"></main>
+
+    <script src="./legacy-bootstrap.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -1,4 +1,4 @@
-﻿const STORAGE_KEY = "km_gm_studio_v2";
+﻿const STORAGE_KEY = "kingmaker_companion_v1";
 const AI_HISTORY_LIMIT = 180;
 const AI_MODEL_LABELS = Object.freeze({
   "lorebound-pf2e:latest": "LoreBound PF2e Deep (20B)",
@@ -26,28 +26,114 @@ const RULE_STORE_KIND_LABELS = Object.freeze({
   canon_memory: "Canon Memory",
 });
 
+const WORLD_COLLECTIONS = ["companions", "events", "npcs", "quests", "locations"];
+const QUEST_STATUS_OPTIONS = ["open", "in-progress", "watch", "blocked", "completed", "failed"];
+const QUEST_PRIORITY_OPTIONS = ["Now", "Soon", "Later", "Someday"];
+const SESSION_TYPE_OPTIONS = ["expedition", "travel", "settlement", "kingdom", "companion", "downtime", "crisis"];
+const SESSION_TYPE_LABELS = Object.freeze({
+  expedition: "Expedition",
+  travel: "Travel",
+  settlement: "Settlement",
+  kingdom: "Kingdom Turn",
+  companion: "Companion Beat",
+  downtime: "Downtime",
+  crisis: "Crisis",
+});
+const COMPANION_STATUS_OPTIONS = ["prospective", "recruited", "traveling", "kingdom-role", "departed"];
+const EVENT_CATEGORY_OPTIONS = ["kingdom", "companion", "quest", "travel", "threat", "story"];
+const EVENT_STATUS_OPTIONS = ["seeded", "active", "escalated", "cooldown", "resolved", "failed"];
+const EVENT_ADVANCE_OPTIONS = ["turn", "manual"];
+const EVENT_IMPACT_SCOPE_OPTIONS = ["always", "claimed-hex", "none"];
+const QUEST_PRIORITY_RANKS = Object.freeze({ now: 0, soon: 1, later: 2, someday: 3 });
+const COMPANION_STATUS_RANKS = Object.freeze({
+  traveling: 0,
+  recruited: 1,
+  "kingdom-role": 2,
+  prospective: 3,
+  departed: 4,
+});
+const KINGDOM_LEADERSHIP_ROLES = Object.freeze(["Ruler", "Counselor", "Emissary", "General", "Magister", "Treasurer", "Viceroy", "Warden"]);
+const KINGMAKER_CHAPTER_REFERENCES = Object.freeze([
+  { number: 1, title: "Chapter 1: A Call for Heroes", fileName: "Adventure Path.pdf", page: 16 },
+  { number: 2, title: "Chapter 2: Into the Wild", fileName: "Adventure Path.pdf", page: 44 },
+  { number: 3, title: "Chapter 3: Stolen Lands", fileName: "Adventure Path.pdf", page: 162 },
+  { number: 4, title: "Chapter 4: Rivers Run Red", fileName: "Adventure Path.pdf", page: 186 },
+  { number: 5, title: "Chapter 5: Cult of the Bloom", fileName: "Adventure Path.pdf", page: 216 },
+  { number: 6, title: "Chapter 6: The Varnhold Vanishing", fileName: "Adventure Path.pdf", page: 250 },
+  { number: 7, title: "Chapter 7: Blood for Blood", fileName: "Adventure Path.pdf", page: 288 },
+  { number: 8, title: "Chapter 8: War of the River Kings", fileName: "Adventure Path.pdf", page: 332 },
+  { number: 9, title: "Chapter 9: They Lurk Below", fileName: "Adventure Path.pdf", page: 398 },
+  { number: 10, title: "Chapter 10: Sound of a Thousand Screams", fileName: "Adventure Path.pdf", page: 424 },
+  { number: 11, title: "Chapter 11: Curse of the Lantern King", fileName: "Adventure Path.pdf", page: 480 },
+]);
+const KINGMAKER_COMPANION_GUIDE_PAGES = Object.freeze({
+  Amiri: 7,
+  Ekundayo: 21,
+  Jubilost: 33,
+  Linzi: 45,
+  "Nok-Nok": 57,
+  Tristian: 69,
+  Valerie: 83,
+  Harrim: 95,
+  Jaethal: 97,
+  "Kalikke and Kanerah": 99,
+  Octavia: 103,
+  Regongar: 105,
+});
+const KINGMAKER_DEFAULT_START_DATE = "4710-02-24";
+const KINGMAKER_DEFAULT_START_LABEL = "Restov charter issued";
+const GOLARION_MONTHS = Object.freeze([
+  { name: "Abadius", shortName: "Aba", days: 31 },
+  { name: "Calistril", shortName: "Cal", days: 28 },
+  { name: "Pharast", shortName: "Pha", days: 31 },
+  { name: "Gozran", shortName: "Goz", days: 30 },
+  { name: "Desnus", shortName: "Des", days: 31 },
+  { name: "Sarenith", shortName: "Sar", days: 30 },
+  { name: "Erastus", shortName: "Era", days: 31 },
+  { name: "Arodus", shortName: "Aro", days: 31 },
+  { name: "Rova", shortName: "Rov", days: 30 },
+  { name: "Lamashan", shortName: "Lam", days: 31 },
+  { name: "Neth", shortName: "Net", days: 30 },
+  { name: "Kuthona", shortName: "Kut", days: 31 },
+]);
+const GOLARION_WEEKDAYS = Object.freeze(["Sunday", "Moonday", "Toilday", "Wealday", "Oathday", "Fireday", "Starday"]);
+
 const tabs = [
-  { id: "dashboard", label: "Dashboard", group: "Run Game" },
-  { id: "sessions", label: "Session Runner", group: "Run Game" },
-  { id: "capture", label: "Live Capture HUD", group: "Run Game" },
-  { id: "writing", label: "Writing Helper", group: "Run Game" },
+  { id: "dashboard", label: "Command Center", group: "Campaign" },
+  { id: "sessions", label: "Adventure Log", group: "Campaign" },
+  { id: "capture", label: "Table Notes", group: "Campaign" },
+  { id: "writing", label: "Scene Forge", group: "Campaign" },
   { id: "kingdom", label: "Kingdom", group: "World" },
   { id: "hexmap", label: "Hex Map", group: "World" },
+  { id: "companions", label: "Companions", group: "World" },
+  { id: "events", label: "Events", group: "World" },
   { id: "npcs", label: "NPCs", group: "World" },
   { id: "quests", label: "Quests", group: "World" },
   { id: "locations", label: "Locations", group: "World" },
-  { id: "rules", label: "PF2e Rules", group: "Tools" },
-  { id: "pdf", label: "PDF Intel", group: "Tools" },
-  { id: "obsidian", label: "Obsidian Vault", group: "Tools" },
-  { id: "foundry", label: "Foundry Export", group: "Tools" },
+  { id: "rules", label: "Rules Reference", group: "Reference" },
+  { id: "pdf", label: "Source Library", group: "Reference" },
+  { id: "obsidian", label: "Vault Sync", group: "Links" },
+  { id: "foundry", label: "Exports & Links", group: "Links" },
 ];
 
-const tabGroups = ["Run Game", "World", "Tools"];
+const tabGroups = ["Campaign", "World", "Reference", "Links"];
+
+function createEmptyWorldUiState() {
+  return Object.fromEntries(WORLD_COLLECTIONS.map((collection) => [collection, ""]));
+}
 
 const desktopApi = window.kmDesktop || null;
 const kingdomRulesData = await loadKingdomRulesData();
 
-let activeTab = "dashboard";
+function resolveLegacyRequestedTab() {
+  const bootstrapValue = str(window.__KINGMAKER_LEGACY_TAB__);
+  if (tabs.some((tab) => tab.id === bootstrapValue)) return bootstrapValue;
+  const rawHash = str(window.location.hash).replace(/^#/, "");
+  const requested = rawHash.startsWith("tab=") ? rawHash.slice(4) : rawHash;
+  return tabs.some((tab) => tab.id === requested) ? requested : "";
+}
+
+let activeTab = resolveLegacyRequestedTab() || "dashboard";
 let state = null;
 const ui = {
   pdfBusy: false,
@@ -91,26 +177,10 @@ const ui = {
     input: "",
     output: "",
   },
-  worldSelection: {
-    npcs: "",
-    quests: "",
-    locations: "",
-  },
-  worldMessages: {
-    npcs: "",
-    quests: "",
-    locations: "",
-  },
-  worldNewFolder: {
-    npcs: "",
-    quests: "",
-    locations: "",
-  },
-  worldFolderDraft: {
-    npcs: "",
-    quests: "",
-    locations: "",
-  },
+  worldSelection: createEmptyWorldUiState(),
+  worldMessages: createEmptyWorldUiState(),
+  worldNewFolder: createEmptyWorldUiState(),
+  worldFolderDraft: createEmptyWorldUiState(),
   obsidianMessage: "",
   obsidianBusy: false,
   hexMapMessage: "",
@@ -177,18 +247,18 @@ function handleStartupFailure(err) {
   const message = readableError(err);
   if (ui.startupError === message) return;
   ui.startupError = message;
-  console.error("DM Helper startup failed:", err);
+  console.error("Kingmaker Companion startup failed:", err);
   try {
     state = createStarterState();
     render();
     renderStartupRecoveryBanner(message);
   } catch (fallbackErr) {
-    console.error("DM Helper startup fallback failed:", fallbackErr);
+    console.error("Kingmaker Companion startup fallback failed:", fallbackErr);
     tabsEl.innerHTML = "";
     appEl.innerHTML = `
       <section class="panel fatal-panel">
         <h2>Startup Error</h2>
-        <p>DM Helper could not finish loading.</p>
+        <p>Kingmaker Companion could not finish loading.</p>
         <pre>${escapeHtml(message)}</pre>
         <p>Close the app and send this error text back here.</p>
       </section>
@@ -201,7 +271,7 @@ function renderStartupRecoveryBanner(message) {
   const warning = `
     <section class="panel startup-warning">
       <h2>Recovery Mode</h2>
-      <p>Saved app state failed to load. DM Helper started with safe starter data for this launch.</p>
+      <p>Saved app state failed to load. Kingmaker Companion started with safe starter data for this launch.</p>
       <details>
         <summary>Startup error details</summary>
         <pre>${summary}</pre>
@@ -350,26 +420,10 @@ function wireGlobalEvents() {
       input: "",
       output: "",
     };
-    ui.worldSelection = {
-      npcs: "",
-      quests: "",
-      locations: "",
-    };
-    ui.worldMessages = {
-      npcs: "",
-      quests: "",
-      locations: "",
-    };
-    ui.worldNewFolder = {
-      npcs: "",
-      quests: "",
-      locations: "",
-    };
-    ui.worldFolderDraft = {
-      npcs: "",
-      quests: "",
-      locations: "",
-    };
+    ui.worldSelection = createEmptyWorldUiState();
+    ui.worldMessages = createEmptyWorldUiState();
+    ui.worldNewFolder = createEmptyWorldUiState();
+    ui.worldFolderDraft = createEmptyWorldUiState();
     ui.obsidianMessage = "";
     ui.obsidianBusy = false;
     ui.hexMapMessage = "";
@@ -378,7 +432,7 @@ function wireGlobalEvents() {
   });
 
   exportBtn.addEventListener("click", () => {
-    downloadJson(state, `dm-helper-campaign-${dateStamp()}.json`);
+    downloadJson(state, `kingmaker-companion-campaign-${dateStamp()}.json`);
   });
 
   importBtn.addEventListener("click", () => importFile.click());
@@ -420,26 +474,10 @@ function wireGlobalEvents() {
         input: "",
         output: "",
       };
-      ui.worldSelection = {
-        npcs: "",
-        quests: "",
-        locations: "",
-      };
-      ui.worldMessages = {
-        npcs: "",
-        quests: "",
-        locations: "",
-      };
-      ui.worldNewFolder = {
-        npcs: "",
-        quests: "",
-        locations: "",
-      };
-      ui.worldFolderDraft = {
-        npcs: "",
-        quests: "",
-        locations: "",
-      };
+      ui.worldSelection = createEmptyWorldUiState();
+      ui.worldMessages = createEmptyWorldUiState();
+      ui.worldNewFolder = createEmptyWorldUiState();
+      ui.worldFolderDraft = createEmptyWorldUiState();
       ui.obsidianMessage = "";
       ui.obsidianBusy = false;
       ui.hexMapMessage = "";
@@ -468,6 +506,23 @@ function wireGlobalEvents() {
     const collection = button.dataset.collection;
     const id = button.dataset.id;
 
+    if (action === "go-tab") {
+      const nextTab = str(button.dataset.tab);
+      if (!tabs.some((entry) => entry.id === nextTab)) return;
+      const changed = nextTab !== activeTab;
+      activeTab = nextTab;
+      render();
+      if (changed) {
+        void maybeAutoRunCopilotOnTabChange("dashboard-link");
+      }
+      return;
+    }
+
+    if (action === "dashboard-open-source") {
+      void openDashboardSourceReference(button.dataset.file, button.dataset.page);
+      return;
+    }
+
     if (action === "delete" && collection && id) {
       deleteEntity(collection, id);
       return;
@@ -480,6 +535,51 @@ function wireGlobalEvents() {
 
     if (action === "world-add-folder" && collection) {
       addWorldFolderFromDraft(collection);
+      return;
+    }
+
+    if (action === "event-clock-adjust" && id) {
+      const eventItem = state.events.find((entry) => entry.id === id);
+      if (!eventItem) return;
+      const delta = coerceInteger(button.dataset.delta, 0);
+      const result = adjustEventClock(eventItem, delta, {
+        summary: `${eventItem.title || "Event"} clock ${delta >= 0 ? "advanced" : "rewound"} manually.`,
+      });
+      let message = `${eventItem.title || "Event"} clock is now ${formatEventClockSummary(eventItem)}.`;
+      if (result.changed && getEventClockValue(eventItem) >= getEventClockMax(eventItem) && !["resolved", "failed", "escalated"].includes(str(eventItem.status).toLowerCase())) {
+        const consequence = triggerKingdomEventConsequence(eventItem, {
+          turnTitle: getKingdomState().currentTurnLabel,
+          summary: `${eventItem.title || "Event"} reached its limit through manual clock adjustment.`,
+        });
+        message = consequence.summary || message;
+      }
+      ui.worldMessages.events = message;
+      saveState();
+      render();
+      return;
+    }
+
+    if (action === "event-trigger-consequence" && id) {
+      const eventItem = state.events.find((entry) => entry.id === id);
+      if (!eventItem) return;
+      const result = triggerKingdomEventConsequence(eventItem, {
+        turnTitle: getKingdomState().currentTurnLabel,
+      });
+      ui.worldMessages.events = result.summary || `${eventItem.title || "Event"} consequence triggered.`;
+      ui.kingdomMessage = result.summary || ui.kingdomMessage;
+      saveState();
+      render();
+      return;
+    }
+
+    if (action === "event-resolve" && id) {
+      const eventItem = state.events.find((entry) => entry.id === id);
+      if (!eventItem) return;
+      const outcome = str(button.dataset.outcome).toLowerCase() === "failed" ? "failed" : "resolved";
+      const result = resolveKingdomEvent(eventItem, outcome);
+      ui.worldMessages.events = result.summary || `${eventItem.title || "Event"} marked ${outcome}.`;
+      saveState();
+      render();
       return;
     }
 
@@ -736,7 +836,7 @@ function wireGlobalEvents() {
       ui.copilotDraft.input = buildRulesQuestionPrompt(ui.rulesSearchQuery || "");
       ui.copilotDraft.output = "";
       ui.copilotRetrievalPreview = null;
-      ui.copilotMessage = "Loaded the current PF2e rules query into Loremaster.";
+      ui.copilotMessage = "Loaded the current PF2e rules query into Companion AI.";
       render();
       return;
     }
@@ -941,10 +1041,10 @@ function wireGlobalEvents() {
     }
 
     if (action === "capture-clear") {
-      if (!confirm("Clear all live capture entries?")) return;
+      if (!confirm("Clear all table notes?")) return;
       state.liveCapture = [];
       saveState();
-      ui.captureMessage = "Live capture log cleared.";
+      ui.captureMessage = "Table notes cleared.";
       render();
       return;
     }
@@ -1412,6 +1512,8 @@ function render() {
   if (activeTab === "writing") content = renderWritingHelper();
   if (activeTab === "kingdom") content = renderKingdom();
   if (activeTab === "hexmap") content = renderHexMap();
+  if (activeTab === "companions") content = renderCompanions();
+  if (activeTab === "events") content = renderEvents();
   if (activeTab === "npcs") content = renderNpcs();
   if (activeTab === "quests") content = renderQuests();
   if (activeTab === "locations") content = renderLocations();
@@ -1470,7 +1572,7 @@ function renderGlobalAiCopilot() {
   if (!ui.copilotOpen) {
     return `
       <div class="copilot-layer">
-        <button class="copilot-launch" data-action="ai-copilot-toggle">Loremaster (${escapeHtml(tabLabel)})</button>
+        <button class="copilot-launch" data-action="ai-copilot-toggle">Companion AI (${escapeHtml(tabLabel)})</button>
         ${message ? `<p class="small copilot-mini-status"${messageTitleAttr}>${escapeHtml(message)}</p>` : ""}
       </div>
     `;
@@ -1481,7 +1583,7 @@ function renderGlobalAiCopilot() {
       <section class="copilot-shell">
         <div class="copilot-head">
           <div>
-            <strong>Loremaster</strong>
+            <strong>Companion AI</strong>
             <span class="small"> • ${escapeHtml(tabLabel)}</span>
           </div>
           <button class="btn btn-secondary" data-action="ai-copilot-toggle">Hide</button>
@@ -1554,7 +1656,7 @@ function renderGlobalAiCopilot() {
           </label>
           <label style="margin-top:8px;">
             <input type="checkbox" data-ai-field="autoRunTabs" ${aiConfig.autoRunTabs ? "checked" : ""} />
-            Auto-run Loremaster on tab switch
+            Auto-run Companion AI on tab switch
           </label>
           <label style="margin-top:8px;">
             <input type="checkbox" data-ai-field="usePdfContext" ${aiConfig.usePdfContext ? "checked" : ""} />
@@ -1638,7 +1740,7 @@ function renderCopilotChatLog(turns, isBusy = false) {
 
 function renderCopilotChatTurn(turn) {
   const role = turn.role === "assistant" ? "assistant" : "user";
-  const roleLabel = role === "assistant" ? "Loremaster" : "You";
+  const roleLabel = role === "assistant" ? "Companion AI" : "You";
   const bubbleClass = turn.pending ? `${role} pending` : role;
   const body = role === "assistant"
     ? renderReadableContent(str(turn.text))
@@ -1757,44 +1859,677 @@ function renderAiMemoryCard(title, text) {
   `;
 }
 
+function getDashboardQuestPriorityRank(priority) {
+  const clean = str(priority).toLowerCase();
+  return Object.prototype.hasOwnProperty.call(QUEST_PRIORITY_RANKS, clean) ? QUEST_PRIORITY_RANKS[clean] : 8;
+}
+
+function getDashboardCompanionStatusRank(status) {
+  const clean = str(status).toLowerCase();
+  return Object.prototype.hasOwnProperty.call(COMPANION_STATUS_RANKS, clean) ? COMPANION_STATUS_RANKS[clean] : 8;
+}
+
+function extractKingmakerChapterNumber(text) {
+  const match = str(text).match(/\bchapter\s*([0-9]{1,2})\b/i);
+  return match ? Number.parseInt(match[1], 10) || 0 : 0;
+}
+
+function getKingmakerChapterReference(chapterNumber) {
+  return KINGMAKER_CHAPTER_REFERENCES.find((entry) => entry.number === chapterNumber) || null;
+}
+
+function getKingmakerCompanionGuidePage(name) {
+  const clean = str(name).toLowerCase();
+  if (!clean) return 0;
+  const match = Object.entries(KINGMAKER_COMPANION_GUIDE_PAGES).find(([key]) => key.toLowerCase() === clean);
+  return match ? Number.parseInt(String(match[1] || "0"), 10) || 0 : 0;
+}
+
+function isAssignedKingdomLeader(leader) {
+  const role = str(leader?.role);
+  const name = str(leader?.name);
+  if (!role || !name) return false;
+  return !/^choose\b/i.test(name);
+}
+
+function getDashboardClaimedRegionCount(regions) {
+  return (Array.isArray(regions) ? regions : []).filter((region) => {
+    const status = str(region?.status).toLowerCase();
+    return status === "claimed" || status === "settlement" || status === "work site";
+  }).length;
+}
+
+function getDashboardActiveQuests() {
+  return [...(Array.isArray(state.quests) ? state.quests : [])]
+    .filter((quest) => !["completed", "failed"].includes(str(quest?.status).toLowerCase()))
+    .sort(
+      (a, b) =>
+        getDashboardQuestPriorityRank(a?.priority) - getDashboardQuestPriorityRank(b?.priority) ||
+        safeDate(b?.updatedAt || b?.createdAt) - safeDate(a?.updatedAt || a?.createdAt)
+    );
+}
+
+function getDashboardActiveEvents() {
+  return [...(Array.isArray(state.events) ? state.events : [])]
+    .filter((eventItem) => !["resolved", "failed"].includes(str(eventItem?.status).toLowerCase()))
+    .sort((a, b) => {
+      const urgencyDelta = (Number(b?.urgency || 0) || 0) - (Number(a?.urgency || 0) || 0);
+      if (urgencyDelta) return urgencyDelta;
+      const progressA = getEventClockValue(a) / Math.max(1, getEventClockMax(a));
+      const progressB = getEventClockValue(b) / Math.max(1, getEventClockMax(b));
+      if (progressA !== progressB) return progressB - progressA;
+      return safeDate(b?.updatedAt || b?.createdAt) - safeDate(a?.updatedAt || a?.createdAt);
+    });
+}
+
+function getDashboardCompanionWatchList() {
+  return [...(Array.isArray(state.companions) ? state.companions : [])]
+    .filter((companion) => {
+      const status = str(companion?.status).toLowerCase();
+      return status !== "departed" || Number(companion?.influence || 0) > 0 || str(companion?.personalQuest);
+    })
+    .sort(
+      (a, b) =>
+        getDashboardCompanionStatusRank(a?.status) - getDashboardCompanionStatusRank(b?.status) ||
+        (Number(b?.influence || 0) || 0) - (Number(a?.influence || 0) || 0) ||
+        safeDate(b?.updatedAt || b?.createdAt) - safeDate(a?.updatedAt || a?.createdAt)
+    );
+}
+
+function buildDashboardAdventureLanes(openQuests, activeEvents, latestSession) {
+  const laneMap = new Map();
+  const allQuests = Array.isArray(state.quests) ? state.quests : [];
+
+  const addLane = (chapterNumber, sourceLabel, recordTitle, rank) => {
+    const reference = getKingmakerChapterReference(chapterNumber);
+    if (!reference) return;
+    const key = String(reference.number);
+    const existing = laneMap.get(key);
+    if (existing) {
+      existing.rank = Math.min(existing.rank, rank);
+      if (recordTitle) existing.records.push(`${sourceLabel}: ${recordTitle}`);
+      return;
+    }
+    laneMap.set(key, {
+      chapterNumber: reference.number,
+      title: reference.title,
+      fileName: reference.fileName,
+      page: reference.page,
+      rank,
+      records: recordTitle ? [`${sourceLabel}: ${recordTitle}`] : [],
+    });
+  };
+
+  openQuests.slice(0, 10).forEach((quest, index) => {
+    addLane(extractKingmakerChapterNumber(quest?.chapter), "Quest", quest?.title, getDashboardQuestPriorityRank(quest?.priority) * 10 + index);
+  });
+
+  activeEvents.slice(0, 8).forEach((eventItem, index) => {
+    const linkedQuest = allQuests.find((quest) => str(quest?.title).toLowerCase() === str(eventItem?.linkedQuest).toLowerCase());
+    addLane(extractKingmakerChapterNumber(linkedQuest?.chapter), "Event", eventItem?.title, index + 1);
+  });
+
+  if (!laneMap.size) {
+    addLane(extractKingmakerChapterNumber(`${latestSession?.arc || ""} ${latestSession?.title || ""}`), "Session", latestSession?.title, 80);
+  }
+
+  const lanes = [...laneMap.values()]
+    .sort((a, b) => a.rank - b.rank || a.chapterNumber - b.chapterNumber)
+    .map((lane) => ({
+      ...lane,
+      preview: lane.records.slice(0, 3).join(" • "),
+    }))
+    .slice(0, 4);
+
+  if (lanes.length) return lanes;
+
+  return [
+    {
+      chapterNumber: 0,
+      title: "Running Kingmaker",
+      fileName: "Adventure Path.pdf",
+      page: 7,
+      rank: 999,
+      records: ["Guide: No chapter lane pinned yet. Re-anchor the sandbox before the next session."],
+      preview: "Keep the next likely beats visible instead of trying to prep the whole map at once.",
+    },
+  ];
+}
+
+async function openDashboardSourceReference(fileName, pageRaw) {
+  const targetFile = str(fileName);
+  const page = Math.max(0, Number.parseInt(String(pageRaw || "0"), 10) || 0);
+  if (!targetFile) return;
+
+  if (!desktopApi) {
+    activeTab = "pdf";
+    ui.dashboardMessage = "Direct PDF jumps require the desktop app. Use Source Library in this runtime instead.";
+    ui.pdfMessage = ui.dashboardMessage;
+    render();
+    return;
+  }
+
+  let folder = str(state?.meta?.pdfFolder);
+  if (!folder && typeof desktopApi.getDefaultPdfFolder === "function") {
+    try {
+      folder = str(await desktopApi.getDefaultPdfFolder());
+      if (folder) state.meta.pdfFolder = folder;
+    } catch {
+      // Ignore fallback lookup errors and handle missing folder below.
+    }
+  }
+
+  if (!folder) {
+    activeTab = "pdf";
+    ui.dashboardMessage = "PDF folder not set. Open Source Library and point the app at the Kingmaker bundle first.";
+    ui.pdfMessage = ui.dashboardMessage;
+    render();
+    return;
+  }
+
+  const normalizedFolder = folder.replace(/[\\/]+$/, "");
+  const normalizedFile = targetFile.replace(/^[\\/]+/, "");
+  const path = `${normalizedFolder}\\${normalizedFile}`;
+
+  try {
+    if (page > 0 && typeof desktopApi.openPathAtPage === "function") {
+      await desktopApi.openPathAtPage(path, page);
+    } else if (typeof desktopApi.openPath === "function") {
+      await desktopApi.openPath(path);
+    }
+    ui.dashboardMessage = `${targetFile}${page ? ` opened at page ${page}` : " opened"}.`;
+    saveState();
+  } catch (err) {
+    ui.dashboardMessage = `Couldn't open ${targetFile}: ${readableError(err)}`;
+  }
+
+  render();
+}
+
+function renderDashboardSourceButton(label, fileName, page, variant = "btn-secondary") {
+  return `<button class="btn ${variant}" data-action="dashboard-open-source" data-file="${escapeHtml(fileName)}" data-page="${escapeHtml(
+    String(page || 0)
+  )}">${escapeHtml(label)}</button>`;
+}
+
+function renderDashboardTabButton(label, tabId, variant = "btn-secondary") {
+  return `<button class="btn ${variant}" data-action="go-tab" data-tab="${escapeHtml(tabId)}">${escapeHtml(label)}</button>`;
+}
+
 function renderDashboard() {
   const aiMemory = buildAiMemoryDigests(state);
   state.meta.aiMemory = aiMemory;
-  const openQuests = state.quests.filter((q) => q.status !== "completed" && q.status !== "failed");
-  const recentSessions = [...state.sessions]
-    .sort((a, b) => safeDate(b.date) - safeDate(a.date))
-    .slice(0, 4);
+  const latestSession = getLatestSession();
+  const openQuests = getDashboardActiveQuests();
+  const activeEvents = getDashboardActiveEvents();
+  const companionWatch = getDashboardCompanionWatchList();
+  const kingdom = getKingdomState();
+  const party = getHexMapParty(getHexMapState());
+  const currentRegion = party.hex ? getKingdomRegionByHex(party.hex) : null;
+  const currentHexLocations = party.hex ? getHexLinkedLocations(party.hex) : [];
+  const currentHexQuests = party.hex ? getHexLinkedQuests(party.hex) : [];
+  const currentHexEvents = party.hex ? getHexLinkedEvents(party.hex) : [];
+  const currentHexCompanions = party.hex ? getHexLinkedCompanions(party.hex) : [];
+  const adventureLanes = buildDashboardAdventureLanes(openQuests, activeEvents, latestSession);
+  const assignedLeaderRoles = new Set(
+    (Array.isArray(kingdom?.leaders) ? kingdom.leaders : [])
+      .filter((leader) => isAssignedKingdomLeader(leader))
+      .map((leader) => str(leader.role).toLowerCase())
+  );
+  const missingLeaderRoles = KINGDOM_LEADERSHIP_ROLES.filter((role) => !assignedLeaderRoles.has(role.toLowerCase()));
+  const kingdomEvents = activeEvents.filter(
+    (eventItem) => str(eventItem?.category).toLowerCase() === "kingdom" || str(eventItem?.impactScope).toLowerCase() !== "none"
+  );
+  const claimedRegionCount = getDashboardClaimedRegionCount(kingdom?.regions);
+  const indexedCount = Number.parseInt(String(state?.meta?.pdfIndexedCount || state?.meta?.pdfIndexedFiles?.length || 0), 10) || 0;
+  const elapsedDays = diffGolarionDates(kingdom?.calendarStartDate, kingdom?.currentDate);
+  const prepSummary = compactLine(
+    latestSession?.nextPrep ||
+      openQuests[0]?.nextBeat ||
+      activeEvents[0]?.trigger ||
+      kingdom?.pendingProjects?.[0] ||
+      "No immediate prep beat recorded yet. Use Adventure Log to pin the next frontier move.",
+    220
+  );
+  const heroSummary = compactLine(
+    latestSession?.summary ||
+      openQuests[0]?.objective ||
+      activeEvents[0]?.fallout ||
+      "The charter is live. Keep the next session's story lane, travel pressure, and kingdom fallout visible in one place.",
+    260
+  );
+  const runSheet = [
+    latestSession?.nextPrep
+      ? { label: "Prep", title: latestSession.title || "Latest Session", detail: latestSession.nextPrep }
+      : null,
+    activeEvents[0]
+      ? {
+          label: "Pressure",
+          title: activeEvents[0].title || "Active Event",
+          detail: activeEvents[0].trigger || activeEvents[0].consequenceSummary || activeEvents[0].fallout || "Advance this clock the next time the party delays.",
+        }
+      : null,
+    openQuests[0]
+      ? {
+          label: "Quest",
+          title: openQuests[0].title || "Open Quest",
+          detail: openQuests[0].nextBeat || openQuests[0].objective || openQuests[0].stakes || "Clarify the next step for this thread.",
+        }
+      : null,
+    party.hex
+      ? {
+          label: "Travel",
+          title: `${party.label || "Party"} @ ${party.hex}`,
+          detail:
+            currentHexLocations[0]?.whatChanged ||
+            currentRegion?.notes ||
+            party.notes ||
+            "Campsites and weather are active subsystems once the party is roaming the Stolen Lands.",
+        }
+      : null,
+    kingdom?.pendingProjects?.[0]
+      ? {
+          label: "Kingdom",
+          title: kingdom.currentTurnLabel || "Current Turn",
+          detail: kingdom.pendingProjects[0],
+        }
+      : null,
+    companionWatch[0]
+      ? {
+          label: "Companion",
+          title: companionWatch[0].name || "Companion Beat",
+          detail: companionWatch[0].personalQuest || companionWatch[0].notes || "Keep influence and travel state visible.",
+        }
+      : null,
+  ].filter(Boolean);
+  const workstreams = [
+    {
+      title: "Adventure Log",
+      meta: latestSession?.title || "No session recorded yet",
+      detail: compactLine(latestSession?.nextPrep || latestSession?.summary || "Prep, recap, and closeout live here.", 120),
+      tab: "sessions",
+      button: "Open Adventure Log",
+    },
+    {
+      title: "Hex Map",
+      meta: party.hex ? `${party.label || "Party"} at ${party.hex}` : "Party not pinned yet",
+      detail: compactLine(
+        party.hex
+          ? `${currentHexLocations.length} locations, ${currentHexEvents.length} events, ${currentHexQuests.length} quests, ${currentHexCompanions.length} companions linked here.`
+          : "Set the party hex so travel and exploration stay grounded in the atlas.",
+        120
+      ),
+      tab: "hexmap",
+      button: "Open Hex Map",
+    },
+    {
+      title: "Kingdom",
+      meta: `${kingdom.currentTurnLabel || "Turn"} • ${formatGolarionDate(kingdom.currentDate)}`,
+      detail: compactLine(
+        `Unrest ${kingdom.unrest}, Control DC ${kingdom.controlDC}, ${missingLeaderRoles.length} open leadership role${missingLeaderRoles.length === 1 ? "" : "s"}.`,
+        120
+      ),
+      tab: "kingdom",
+      button: "Open Kingdom",
+    },
+    {
+      title: "Source Library",
+      meta: indexedCount ? `${indexedCount} indexed PDF${indexedCount === 1 ? "" : "s"}` : "Library not indexed yet",
+      detail: compactLine(
+        indexedCount
+          ? "Quick jumps are ready for rule checks, chapter refreshers, and map lookups."
+          : "Index the Kingmaker bundle so every tab can jump straight into the books.",
+        120
+      ),
+      tab: "pdf",
+      button: indexedCount ? "Open Source Library" : "Index PDFs",
+    },
+  ];
 
   return `
     <div class="page-stack">
-      ${renderPageIntro("Dashboard", "Quick campaign snapshot and the two things you likely need next: open threads and prep focus.")}
+      ${renderPageIntro("Command Center", "Open the campaign with one glance: active pressure, prep focus, and the records most likely to matter next.")}
+      <section class="grid grid-2 dashboard-hero-grid">
+        <article class="panel flow-panel dashboard-hero-panel">
+          <div class="panel-head">
+            <h2>Campaign Pulse</h2>
+            <div class="toolbar">
+              ${renderDashboardTabButton("Adventure Log", "sessions")}
+              ${renderDashboardTabButton("Hex Map", "hexmap")}
+              ${renderDashboardTabButton("Kingdom", "kingdom")}
+              ${renderDashboardTabButton("Source Library", "pdf")}
+              <button class="btn btn-primary" data-action="ai-memory-refresh">Refresh Memory</button>
+            </div>
+          </div>
+          <p class="dashboard-hero-summary">${escapeHtml(heroSummary)}</p>
+          <p class="small">${escapeHtml(prepSummary)}</p>
+          ${ui.dashboardMessage ? `<p class="small">${escapeHtml(ui.dashboardMessage)}</p>` : ""}
+          <div class="kingdom-chip-row">
+            <span class="chip chip-accent">${escapeHtml(formatGolarionDate(kingdom.currentDate))}</span>
+            <span class="chip">${escapeHtml(kingdom.currentTurnLabel || "Turn Unset")}</span>
+            <span class="chip">${escapeHtml(party.hex ? `${party.label || "Party"} @ ${party.hex}` : "Party hex not pinned")}</span>
+            <span class="chip">${escapeHtml(`${adventureLanes.length} active lane${adventureLanes.length === 1 ? "" : "s"}`)}</span>
+            <span class="chip">${escapeHtml(`${indexedCount} indexed source${indexedCount === 1 ? "" : "s"}`)}</span>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Continue Working</h2>
+          <p class="small">Borrowing the useful part of Kanka and LegendKeeper dashboards: each card should take you straight back into the next piece of work.</p>
+          <div class="dashboard-continue-grid">
+            ${workstreams
+              .map(
+                (item) => `
+                  <article class="entry dashboard-continue-card">
+                    <div class="entry-head">
+                      <span class="entry-title">${escapeHtml(item.title)}</span>
+                      <span class="entry-meta">${escapeHtml(item.meta)}</span>
+                    </div>
+                    <p>${escapeHtml(item.detail)}</p>
+                    <div class="toolbar">
+                      ${renderDashboardTabButton(item.button, item.tab, "btn-primary")}
+                    </div>
+                  </article>
+                `
+              )
+              .join("")}
+          </div>
+        </article>
+      </section>
+
       <section class="grid grid-3">
         <article class="panel stat">
-          <span class="small">Sessions Logged</span>
-          <span class="stat-value">${state.sessions.length}</span>
+          <span class="small">Days Since Charter</span>
+          <span class="stat-value">${escapeHtml(String(elapsedDays))}</span>
         </article>
         <article class="panel stat">
           <span class="small">Active Quests</span>
           <span class="stat-value">${openQuests.length}</span>
         </article>
         <article class="panel stat">
-          <span class="small">Tracked NPCs</span>
-          <span class="stat-value">${state.npcs.length}</span>
+          <span class="small">Active Event Clocks</span>
+          <span class="stat-value">${activeEvents.length}</span>
+        </article>
+        <article class="panel stat">
+          <span class="small">Companion Beats</span>
+          <span class="stat-value">${companionWatch.length}</span>
+        </article>
+        <article class="panel stat">
+          <span class="small">Claimed / Held Regions</span>
+          <span class="stat-value">${claimedRegionCount}</span>
+        </article>
+        <article class="panel stat">
+          <span class="small">Kingdom Unrest</span>
+          <span class="stat-value">${escapeHtml(String(kingdom.unrest || 0))}</span>
+        </article>
+      </section>
+
+      <section class="grid grid-2">
+        <article class="panel">
+          <h2>Tonight's Run Sheet</h2>
+          <p class="small">Kingmaker works best when the next likely beats stay visible instead of vanishing into general notes.</p>
+          ${
+            runSheet.length
+              ? `<div class="dashboard-run-list">${runSheet
+                  .map(
+                    (item) => `
+                      <article class="entry dashboard-run-item">
+                        <div class="entry-head">
+                          <span class="entry-title">${escapeHtml(item.title)}</span>
+                          <span class="chip">${escapeHtml(item.label)}</span>
+                        </div>
+                        <p>${escapeHtml(compactLine(item.detail, 180))}</p>
+                      </article>
+                    `
+                  )
+                  .join("")}</div>`
+              : `<p class="empty">No run-sheet items yet. Add a session prep note or open quest beat first.</p>`
+          }
+        </article>
+
+        <article class="panel">
+          <h2>Adventure Lanes</h2>
+          <p class="small">These lanes are inferred from open quests and linked pressure so the Command Center stays tied to the campaign book.</p>
+          <div class="dashboard-lane-list">
+            ${adventureLanes
+              .map(
+                (lane) => `
+                  <article class="entry dashboard-lane-card">
+                    <div class="entry-head">
+                      <span class="entry-title">${escapeHtml(lane.title)}</span>
+                      <span class="entry-meta">${escapeHtml(lane.chapterNumber ? `Adventure Path p.${lane.page}` : `Guide p.${lane.page}`)}</span>
+                    </div>
+                    <p>${escapeHtml(lane.preview || "No linked records yet.")}</p>
+                    <div class="toolbar">
+                      ${renderDashboardSourceButton("Open Book Page", lane.fileName, lane.page, "btn-primary")}
+                    </div>
+                  </article>
+                `
+              )
+              .join("")}
+          </div>
         </article>
       </section>
 
       <section class="grid grid-2">
         <article class="panel">
           <div class="panel-head">
-            <h2>AI Memory Layer</h2>
+            <h2>Frontier Pressure</h2>
+            <div class="toolbar">
+              ${renderDashboardTabButton("Open Events", "events")}
+              ${renderDashboardTabButton("Open Quests", "quests")}
+            </div>
+          </div>
+          <div class="dashboard-pressure-grid">
+            <article class="memory-card">
+              <h3>Active Events</h3>
+              ${
+                activeEvents.length
+                  ? `<div class="dashboard-pressure-list">${activeEvents
+                      .slice(0, 4)
+                      .map(
+                        (eventItem) => `
+                          <article class="entry">
+                            <div class="entry-head">
+                              <span class="entry-title">${escapeHtml(eventItem.title || "Untitled Event")}</span>
+                              <span class="entry-meta">${escapeHtml(`Urgency ${eventItem.urgency || 0} • Clock ${formatEventClockSummary(eventItem)}${eventItem.hex ? ` • ${eventItem.hex}` : ""}`)}</span>
+                            </div>
+                            <p>${escapeHtml(compactLine(eventItem.trigger || eventItem.consequenceSummary || eventItem.fallout || "No pressure text yet.", 160))}</p>
+                          </article>
+                        `
+                      )
+                      .join("")}</div>`
+                  : `<p class="empty">No active event clocks tracked.</p>`
+              }
+            </article>
+
+            <article class="memory-card">
+              <h3>Open Quests</h3>
+              ${
+                openQuests.length
+                  ? `<div class="dashboard-pressure-list">${openQuests
+                      .slice(0, 4)
+                      .map(
+                        (quest) => `
+                          <article class="entry">
+                            <div class="entry-head">
+                              <span class="entry-title">${escapeHtml(quest.title || "Untitled Quest")}</span>
+                              <span class="entry-meta">${escapeHtml(`${quest.priority || "Soon"}${quest.hex ? ` • ${quest.hex}` : ""}${quest.chapter ? ` • ${quest.chapter}` : ""}`)}</span>
+                            </div>
+                            <p>${escapeHtml(compactLine(quest.nextBeat || quest.objective || quest.stakes || "No quest beat recorded yet.", 160))}</p>
+                          </article>
+                        `
+                      )
+                      .join("")}</div>`
+                  : `<p class="empty">No open quests tracked.</p>`
+              }
+            </article>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Travel & Exploration</h2>
+            <div class="toolbar">
+              ${renderDashboardTabButton("Open Hex Map", "hexmap")}
+              ${party.hex ? `<button class="btn btn-secondary" data-action="hexmap-center-party">Center On Party</button>` : ""}
+            </div>
+          </div>
+          <div class="kingdom-chip-row">
+            <span class="chip chip-accent">${escapeHtml(party.hex ? `${party.label || "Party"} @ ${party.hex}` : "Party not placed")}</span>
+            <span class="chip">${escapeHtml(currentRegion ? currentRegion.status || "Region" : "No region pinned")}</span>
+            <span class="chip">${escapeHtml(`${party.trail.length || 0} trail node${party.trail.length === 1 ? "" : "s"}`)}</span>
+            <span class="chip">${escapeHtml(currentRegion?.terrain || "Terrain unset")}</span>
+          </div>
+          <p class="small">The Companion Guide treats campsites, camping activities, and weather as active play systems. This panel keeps travel context close to the session focus.</p>
+          <div class="dashboard-travel-grid">
+            <article class="memory-card">
+              <h3>Current Hex Snapshot</h3>
+              <div class="memory-block">${renderMultilineText(
+                party.hex
+                  ? [
+                      currentHexLocations.length
+                        ? `Locations: ${currentHexLocations.map((entry) => entry.name).join(", ")}`
+                        : "Locations: none linked here.",
+                      currentHexEvents.length
+                        ? `Events: ${currentHexEvents.map((entry) => `${entry.title} (${formatEventClockSummary(entry)})`).join(", ")}`
+                        : "Events: none linked here.",
+                      currentHexQuests.length
+                        ? `Quests: ${currentHexQuests.map((entry) => entry.title).join(", ")}`
+                        : "Quests: none linked here.",
+                      currentHexCompanions.length
+                        ? `Companions: ${currentHexCompanions.map((entry) => entry.name).join(", ")}`
+                        : "Companions: none linked here.",
+                    ].join("\n")
+                  : "Pin the party on the Hex Map so the Command Center can anchor current travel context."
+              )}</div>
+            </article>
+            <article class="memory-card">
+              <h3>Reference Jump</h3>
+              <div class="toolbar">
+                ${renderDashboardSourceButton("Hexploration p.44", "Adventure Path.pdf", 44, "btn-primary")}
+                ${renderDashboardSourceButton("Campsites p.108", "Companion Guide.pdf", 108)}
+                ${renderDashboardSourceButton("Weather p.122", "Companion Guide.pdf", 122)}
+              </div>
+            </article>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid grid-2">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Companion Watch</h2>
+            <div class="toolbar">
+              ${renderDashboardTabButton("Open Companions", "companions")}
+              ${renderDashboardSourceButton("Companion Rules p.6", "Companion Guide.pdf", 6)}
+            </div>
+          </div>
+          <p class="small">The Companion Guide makes influence, downtime, personal quests, and kingdom-role fit first-class GM tools, so they belong on the cockpit.</p>
+          ${
+            companionWatch.length
+              ? `<div class="dashboard-companion-grid">${companionWatch
+                  .slice(0, 4)
+                  .map((companion) => {
+                    const guidePage = getKingmakerCompanionGuidePage(companion.name);
+                    const linkedQuestCount = openQuests.filter(
+                      (quest) => str(quest.linkedCompanion).toLowerCase() === str(companion.name).toLowerCase()
+                    ).length;
+                    const linkedEventCount = activeEvents.filter(
+                      (eventItem) => str(eventItem.linkedCompanion).toLowerCase() === str(companion.name).toLowerCase()
+                    ).length;
+                    return `
+                      <article class="entry">
+                        <div class="entry-head">
+                          <span class="entry-title">${escapeHtml(companion.name || "Unnamed Companion")}</span>
+                          <span class="entry-meta">${escapeHtml(`${companion.status || "prospective"} • Influence ${companion.influence ?? 0}`)}</span>
+                        </div>
+                        <p>${escapeHtml(compactLine(companion.personalQuest || companion.notes || "No companion beat recorded yet.", 150))}</p>
+                        <div class="kingdom-chip-row">
+                          ${companion.currentHex ? `<span class="chip">${escapeHtml(companion.currentHex)}</span>` : ""}
+                          ${companion.kingdomRole ? `<span class="chip">${escapeHtml(companion.kingdomRole)}</span>` : ""}
+                          <span class="chip">${escapeHtml(`${linkedQuestCount} linked quest${linkedQuestCount === 1 ? "" : "s"}`)}</span>
+                          <span class="chip">${escapeHtml(`${linkedEventCount} linked event${linkedEventCount === 1 ? "" : "s"}`)}</span>
+                        </div>
+                        ${
+                          guidePage
+                            ? `<div class="toolbar">${renderDashboardSourceButton("Open Companion Page", "Companion Guide.pdf", guidePage)}</div>`
+                            : ""
+                        }
+                      </article>
+                    `;
+                  })
+                  .join("")}</div>`
+              : `<p class="empty">No companion beats tracked yet.</p>`
+          }
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Kingdom Pulse</h2>
+            <div class="toolbar">
+              ${renderDashboardTabButton("Open Kingdom", "kingdom")}
+              ${renderDashboardSourceButton("Running a Kingdom p.43", "Players Guide.pdf", 43, "btn-primary")}
+              ${renderDashboardSourceButton("Tracker Quick Ref p.13", "Kingdom Tracker.pdf", 13)}
+            </div>
+          </div>
+          <div class="kingdom-chip-row">
+            <span class="chip chip-accent">${escapeHtml(formatGolarionDate(kingdom.currentDate))}</span>
+            <span class="chip">${escapeHtml(`Level ${kingdom.level || 1}`)}</span>
+            <span class="chip">${escapeHtml(`Size ${kingdom.size || 1}`)}</span>
+            <span class="chip">${escapeHtml(`Control DC ${kingdom.controlDC || 0}`)}</span>
+            <span class="chip">${escapeHtml(`Unrest ${kingdom.unrest || 0}`)}</span>
+            <span class="chip">${escapeHtml(`Consumption ${kingdom.consumption || 0}`)}</span>
+          </div>
+          <div class="dashboard-kingdom-grid">
+            <article class="memory-card">
+              <h3>Leadership + Projects</h3>
+              <div class="memory-block">${renderMultilineText(
+                [
+                  missingLeaderRoles.length
+                    ? `Open Roles: ${missingLeaderRoles.join(", ")}`
+                    : "Open Roles: all core leadership seats are filled.",
+                  kingdom.pendingProjects?.length
+                    ? `Pending: ${kingdom.pendingProjects.slice(0, 3).join("; ")}`
+                    : "Pending: no kingdom project queue recorded.",
+                  kingdomEvents.length
+                    ? `Kingdom Pressure: ${kingdomEvents
+                        .slice(0, 3)
+                        .map((eventItem) => `${eventItem.title} (${formatEventClockSummary(eventItem)})`)
+                        .join("; ")}`
+                    : "Kingdom Pressure: no active kingdom event clocks.",
+                ].join("\n")
+              )}</div>
+            </article>
+            <article class="memory-card">
+              <h3>Commodities</h3>
+              <div class="kingdom-chip-row">
+                <span class="chip">${escapeHtml(`Food ${kingdom.commodities?.food || 0}`)}</span>
+                <span class="chip">${escapeHtml(`Lumber ${kingdom.commodities?.lumber || 0}`)}</span>
+                <span class="chip">${escapeHtml(`Luxuries ${kingdom.commodities?.luxuries || 0}`)}</span>
+                <span class="chip">${escapeHtml(`Ore ${kingdom.commodities?.ore || 0}`)}</span>
+                <span class="chip">${escapeHtml(`Stone ${kingdom.commodities?.stone || 0}`)}</span>
+              </div>
+              <div class="toolbar">
+                ${renderDashboardSourceButton("Event Table p.1", "Kingdom Management Screen.pdf", 1)}
+                ${renderDashboardSourceButton("Kingdom Events p.59", "Players Guide.pdf", 59)}
+              </div>
+            </article>
+          </div>
+        </article>
+      </section>
+
+      <section class="grid grid-2">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Companion AI Memory</h2>
             <div class="toolbar">
               <button class="btn btn-secondary" data-action="ai-memory-refresh">Refresh Memory</button>
             </div>
           </div>
           <p class="small">Last updated ${escapeHtml(aiMemory.updatedAt || "never")} • sources: ${escapeHtml(
-            `sessions ${aiMemory.sourceCounts.sessions}, open quests ${aiMemory.sourceCounts.openQuests}, NPCs ${aiMemory.sourceCounts.npcs}, locations ${aiMemory.sourceCounts.locations}, rule entries ${aiMemory.sourceCounts.ruleEntries}, canon ${aiMemory.sourceCounts.canonEntries}`
+            `sessions ${aiMemory.sourceCounts.sessions}, open quests ${aiMemory.sourceCounts.openQuests}, companions ${aiMemory.sourceCounts.companions}, events ${aiMemory.sourceCounts.events}, NPCs ${aiMemory.sourceCounts.npcs}, locations ${aiMemory.sourceCounts.locations}, canon ${aiMemory.sourceCounts.canonEntries}`
           )}</p>
-          ${ui.dashboardMessage ? `<p class="small">${escapeHtml(ui.dashboardMessage)}</p>` : ""}
           <div class="memory-grid">
             ${renderAiMemoryCard("Campaign Summary", aiMemory.campaignSummary)}
             ${renderAiMemoryCard("Recent Session Summary", aiMemory.recentSessionSummary)}
@@ -1806,7 +2541,7 @@ function renderDashboard() {
 
         <article class="panel">
           <h2>Rulings / House Rules Digest</h2>
-          <p class="small">This is the authoritative manual digest Loremaster should prefer when a PF2e ruling or house-rule question comes up. If left blank, DM Helper falls back to recent Rule / Retcon capture entries.</p>
+          <p class="small">This is the authoritative manual digest Companion AI should prefer when a PF2e ruling or house-rule question comes up. If left blank, Kingmaker Companion falls back to recent Rule / Retcon capture entries.</p>
           <form data-form="ai-memory-rulings">
             <label>Manual Rulings Digest
               <textarea name="manualRulings" placeholder="Example: Hero Point rerolls must be declared before any new info is revealed. Persistent damage from house-rule fire traps ticks at end of round, not end of turn.">${escapeHtml(
@@ -1823,41 +2558,192 @@ function renderDashboard() {
           </div>
         </article>
       </section>
-
-      <section class="grid grid-2">
-        <article class="panel">
-          <h2>Open Threads</h2>
-          ${
-            openQuests.length
-              ? `<ul class="list">${openQuests
-                  .map((q) => `<li><strong>${escapeHtml(q.title)}</strong> <span class="small">(${escapeHtml(q.status)})</span></li>`)
-                  .join("")}</ul>`
-              : `<p class="empty">No open quests tracked.</p>`
-          }
-        </article>
-
-        <article class="panel">
-          <h2>Latest Session Prep Notes</h2>
-          ${
-            recentSessions.length
-              ? `<ul class="list">${recentSessions
-                  .map(
-                    (s) =>
-                      `<li><strong>${escapeHtml(s.title)}</strong>: ${escapeHtml(
-                        (s.nextPrep || "").slice(0, 110) || "No prep note yet"
-                      )}</li>`
-                  )
-                  .join("")}</ul>`
-              : `<p class="empty">No sessions yet.</p>`
-          }
-        </article>
-      </section>
     </div>
   `;
 }
 
+function normalizeSessionType(value) {
+  const clean = str(value).trim().toLowerCase();
+  if (SESSION_TYPE_OPTIONS.includes(clean)) return clean;
+  if (!clean) return "expedition";
+  if (clean.includes("kingdom")) return "kingdom";
+  if (clean.includes("travel")) return "travel";
+  if (clean.includes("camp") || clean.includes("exploration") || clean.includes("expedition")) return "expedition";
+  if (clean.includes("companion")) return "companion";
+  if (clean.includes("settlement") || clean.includes("council")) return "settlement";
+  if (clean.includes("down")) return "downtime";
+  if (clean.includes("crisis") || clean.includes("attack") || clean.includes("war")) return "crisis";
+  return "expedition";
+}
+
+function normalizeSessionDate(value) {
+  const clean = str(value);
+  if (!clean) return "";
+  const parsed = parseGolarionDate(clean);
+  return parsed ? buildGolarionIsoDate(parsed.year, parsed.month, parsed.day) : clean;
+}
+
+function normalizeSessionRecord(rawSession = {}) {
+  const createdAt = str(rawSession?.createdAt) || new Date().toISOString();
+  const updatedAt = str(rawSession?.updatedAt || rawSession?.createdAt) || createdAt;
+  const focusHex = normalizeHexCoordinate(rawSession?.focusHex || rawSession?.hex) || "";
+  return {
+    ...rawSession,
+    id: str(rawSession?.id) || uid(),
+    title: str(rawSession?.title),
+    date: normalizeSessionDate(rawSession?.date),
+    type: normalizeSessionType(rawSession?.type || (str(rawSession?.kingdomTurn) ? "kingdom" : "")),
+    arc: str(rawSession?.arc),
+    chapter: str(rawSession?.chapter),
+    kingdomTurn: str(rawSession?.kingdomTurn),
+    focusHex,
+    leadCompanion: str(rawSession?.leadCompanion),
+    travelObjective: str(rawSession?.travelObjective),
+    weather: str(rawSession?.weather),
+    pressure: str(rawSession?.pressure),
+    summary: str(rawSession?.summary),
+    nextPrep: str(rawSession?.nextPrep),
+    createdAt,
+    updatedAt,
+  };
+}
+
+function getSessionTypeLabel(value) {
+  const normalized = normalizeSessionType(value);
+  return SESSION_TYPE_LABELS[normalized] || "Expedition";
+}
+
+function getSessionReferenceText(session) {
+  return [
+    session?.title,
+    session?.date,
+    session?.type,
+    session?.arc,
+    session?.chapter,
+    session?.kingdomTurn,
+    session?.focusHex,
+    session?.leadCompanion,
+    session?.travelObjective,
+    session?.weather,
+    session?.pressure,
+    session?.summary,
+    session?.nextPrep,
+  ]
+    .map((value) => str(value))
+    .join(" ");
+}
+
+function getSessionDisplayDate(session) {
+  const clean = normalizeSessionDate(session?.date);
+  if (!clean) return "No date";
+  return formatGolarionDate(clean, { fallback: str(session?.date) || "No date" });
+}
+
+function getSessionChapterReference(session) {
+  const chapterNumber = extractKingmakerChapterNumber(
+    `${str(session?.chapter)} ${str(session?.arc)} ${str(session?.title)}`
+  );
+  return chapterNumber ? getKingmakerChapterReference(chapterNumber) : null;
+}
+
+function isSameGolarionMonth(left, right) {
+  const leftDate = parseGolarionDate(left);
+  const rightDate = parseGolarionDate(right);
+  return !!leftDate && !!rightDate && leftDate.year === rightDate.year && leftDate.month === rightDate.month;
+}
+
+function getAdventureLogMonthContext(kingdom = getKingdomState()) {
+  const currentDate = normalizeKingdomDate(
+    kingdom?.currentDate || kingdom?.calendarStartDate || KINGMAKER_DEFAULT_START_DATE
+  );
+  const parsed = parseGolarionDate(currentDate) || parseGolarionDate(KINGMAKER_DEFAULT_START_DATE);
+  const monthData = getGolarionMonthData(parsed?.month || 1, parsed?.year || 4710);
+  const daysRemaining = Math.max(0, monthData.days - (parsed?.day || 1));
+  const sessionsThisMonth = (state.sessions || []).filter((session) => isSameGolarionMonth(session?.date, currentDate));
+  const turnsThisMonth = (Array.isArray(kingdom?.turns) ? kingdom.turns : []).filter((turn) => isSameGolarionMonth(turn?.date, currentDate));
+  const isClosingWindow = daysRemaining <= 5;
+  return {
+    currentDate,
+    monthLabel: getGolarionMonthYearLabel(currentDate),
+    monthData,
+    day: parsed?.day || 1,
+    daysRemaining,
+    sessionsThisMonth,
+    turnsThisMonth,
+    kingdomTurnLogged: turnsThisMonth.length > 0,
+    kingdomTurnDueSoon: isClosingWindow && !turnsThisMonth.length,
+  };
+}
+
+function getSessionAdventureFrameLines(session) {
+  const lines = [];
+  if (!session) return lines;
+  if (session.date) lines.push(`- Campaign date: ${getSessionDisplayDate(session)}`);
+  lines.push(`- Session type: ${getSessionTypeLabel(session.type)}`);
+  if (str(session.chapter) || str(session.arc)) lines.push(`- Chapter lane: ${str(session.chapter) || str(session.arc)}`);
+  if (session.focusHex) lines.push(`- Focus hex: ${session.focusHex}`);
+  if (session.travelObjective) lines.push(`- Travel objective: ${session.travelObjective}`);
+  if (session.weather) lines.push(`- Weather / camp conditions: ${session.weather}`);
+  if (session.pressure) lines.push(`- Frontier pressure: ${session.pressure}`);
+  if (session.leadCompanion) lines.push(`- Companion beat: ${session.leadCompanion}`);
+  if (session.kingdomTurn) lines.push(`- Kingdom turn marker: ${session.kingdomTurn}`);
+  return lines;
+}
+
 function renderSessions() {
-  const sessions = [...state.sessions].sort((a, b) => safeDate(b.date) - safeDate(a.date));
+  const sessions = [...state.sessions].sort((a, b) => sessionSortKey(b) - sessionSortKey(a));
+  const latestSession = sessions[0] || null;
+  const openQuests = getDashboardActiveQuests();
+  const activeEvents = getDashboardActiveEvents();
+  const companionWatch = getDashboardCompanionWatchList();
+  const kingdom = getKingdomState();
+  const party = getHexMapParty(getHexMapState());
+  const currentRegion = party.hex ? getKingdomRegionByHex(party.hex) : null;
+  const currentHexLocations = party.hex ? getHexLinkedLocations(party.hex) : [];
+  const currentHexQuests = party.hex ? getHexLinkedQuests(party.hex) : [];
+  const currentHexEvents = party.hex ? getHexLinkedEvents(party.hex) : [];
+  const currentHexCompanions = party.hex ? getHexLinkedCompanions(party.hex) : [];
+  const monthContext = getAdventureLogMonthContext(kingdom);
+  const chapterReference =
+    getSessionChapterReference(latestSession) ||
+    getKingmakerChapterReference(extractKingmakerChapterNumber(openQuests[0]?.chapter));
+  const laneLabel =
+    str(latestSession?.chapter) ||
+    str(latestSession?.arc) ||
+    str(openQuests[0]?.chapter) ||
+    chapterReference?.title ||
+    "No chapter lane pinned yet";
+  const travelObjective =
+    str(latestSession?.travelObjective) ||
+    str(openQuests[0]?.nextBeat) ||
+    (party.hex ? `Push outward from ${party.hex} and decide the next route before play starts.` : "Pin the party's current hex before next prep.");
+  const topPressure = str(latestSession?.pressure) || str(activeEvents[0]?.title) || "No explicit frontier pressure is pinned yet.";
+  const weatherSummary = str(latestSession?.weather) || "Weather and campsite conditions are not pinned yet.";
+  const companionFocus = str(latestSession?.leadCompanion) || str(companionWatch[0]?.name) || "";
+  const currentHexSummary = [
+    party.hex ? `${party.label || "Party"} at ${party.hex}` : "Party hex not pinned yet",
+    currentRegion ? `${currentRegion.status || "region"} • ${currentRegion.terrain || "terrain unset"}` : "",
+    currentHexLocations.length ? `${currentHexLocations.length} location${currentHexLocations.length === 1 ? "" : "s"} linked` : "",
+    currentHexQuests.length ? `${currentHexQuests.length} quest${currentHexQuests.length === 1 ? "" : "s"} linked` : "",
+    currentHexEvents.length ? `${currentHexEvents.length} event${currentHexEvents.length === 1 ? "" : "s"} linked` : "",
+    currentHexCompanions.length ? `${currentHexCompanions.length} companion${currentHexCompanions.length === 1 ? "" : "s"} in hex` : "",
+  ]
+    .filter(Boolean)
+    .join(" • ");
+  const monthStatus = monthContext.kingdomTurnLogged
+    ? `A kingdom turn is already logged for ${monthContext.monthLabel}.`
+    : monthContext.kingdomTurnDueSoon
+      ? `Month-end is ${monthContext.daysRemaining} day${monthContext.daysRemaining === 1 ? "" : "s"} away. Plan to resolve the kingdom turn after adventuring.`
+      : `No kingdom turn logged yet for ${monthContext.monthLabel}. Keep the month-end handoff visible while you adventure.`;
+  const runSheetItems = [
+    `Open on the active lane: ${laneLabel}.`,
+    `Make the route concrete: ${travelObjective}.`,
+    `Either escalate or resolve this pressure: ${topPressure}.`,
+    companionFocus
+      ? `Surface one influence or relationship beat for ${companionFocus}.`
+      : "Pick one companion beat even if the session is mostly exploration.",
+    monthStatus,
+  ];
   const checklistItems = generateSmartChecklist();
   const customChecklistIds = new Set(ensureCustomChecklistItems().map((item) => item.id));
   const checklistChecks = ensureChecklistChecks();
@@ -1872,191 +2758,477 @@ function renderSessions() {
   const prepQueue = generatePrepQueue(prepMode);
   const prepChecks = ensurePrepQueueChecks();
   const prepDone = prepQueue.filter((task) => prepChecks[task.id]).length;
+  const defaultSessionDate = normalizeSessionDate(kingdom.currentDate || latestSession?.date || KINGMAKER_DEFAULT_START_DATE);
+  const defaultSessionType = normalizeSessionType(latestSession?.type || (str(latestSession?.kingdomTurn) ? "kingdom" : ""));
+  const defaultSessionArc = str(latestSession?.arc) || str(openQuests[0]?.chapter) || chapterReference?.title || "";
+  const defaultSessionChapter = str(latestSession?.chapter) || str(openQuests[0]?.chapter) || chapterReference?.title || "";
+  const defaultFocusHex = normalizeHexCoordinate(party.hex || latestSession?.focusHex || openQuests[0]?.hex) || "";
+  const defaultLeadCompanion = companionFocus;
+  const defaultTravelObjective = str(latestSession?.travelObjective) || str(openQuests[0]?.nextBeat) || "";
+  const defaultWeather = str(latestSession?.weather);
+  const defaultPressure = str(latestSession?.pressure) || str(activeEvents[0]?.title);
+  const view = {
+    sessions,
+    latestSession,
+    openQuests,
+    activeEvents,
+    companionWatch,
+    kingdom,
+    party,
+    currentRegion,
+    currentHexLocations,
+    currentHexQuests,
+    currentHexEvents,
+    currentHexCompanions,
+    monthContext,
+    chapterReference,
+    laneLabel,
+    travelObjective,
+    topPressure,
+    weatherSummary,
+    companionFocus,
+    currentHexSummary,
+    monthStatus,
+    runSheetItems,
+    checklistItems,
+    customChecklistIds,
+    checklistChecks,
+    checklistArchived,
+    allChecklistItems,
+    checkedVisibleItems,
+    archivedItems,
+    archivedCount,
+    completedChecklist,
+    checklistAiBusyAttr,
+    prepMode,
+    prepQueue,
+    prepChecks,
+    prepDone,
+    defaultSessionDate,
+    defaultSessionType,
+    defaultSessionArc,
+    defaultSessionChapter,
+    defaultFocusHex,
+    defaultLeadCompanion,
+    defaultTravelObjective,
+    defaultWeather,
+    defaultPressure,
+  };
 
   return `
     <div class="page-stack">
       ${renderPageIntro(
-        "Session Runner",
-        "Use this in order: Step 1 prep before game, Step 2 log what happened, Step 3 close and generate your next prep packet."
+        "Adventure Log",
+        "Run Kingmaker as a living expedition record: current lane, current route, active pressure, and the month-end kingdom handoff all in one place."
       )}
-
-      <section class="panel flow-panel">
-        <h2>Run Order</h2>
-        <ol class="flow-list">
-          <li><strong>Step 1 Prep:</strong> complete checklist and time-boxed prep queue.</li>
-          <li><strong>Step 2 Run + Log:</strong> create/update session log during or right after play.</li>
-          <li><strong>Step 3 Close:</strong> run wrap-up wizard, then export next-session packet.</li>
-        </ol>
-        ${ui.sessionMessage ? `<p class="small">${escapeHtml(ui.sessionMessage)}</p>` : ""}
-      </section>
-
-      <section class="panel step-card">
-        <div class="step-head">
-          <span class="step-badge">1</span>
-          <h2>Prep Before Session</h2>
-        </div>
-        <section class="step-grid">
-          <article class="step-sub">
-            <h3>Smart Checklist</h3>
-            <p class="small mono">Progress: ${completedChecklist}/${checklistItems.length}</p>
-            <ul class="checklist-list">
-              ${
-                checklistItems.length
-                  ? checklistItems
-                      .map(
-                        (item) => `
-                        <li>
-                          <div class="check-row check-edit-row">
-                            <input type="checkbox" data-check-id="${item.id}" ${checklistChecks[item.id] ? "checked" : ""} />
-                            <input class="check-label-input" data-check-edit-id="${item.id}" value="${escapeHtml(item.label)}" />
-                            ${
-                              customChecklistIds.has(item.id)
-                                ? `<button class="btn btn-danger check-row-delete" data-action="checklist-custom-delete" data-id="${item.id}">X</button>`
-                                : ""
-                            }
-                          </div>
-                        </li>
-                      `
-                      )
-                      .join("")
-                  : `<li class="empty">No checklist items yet.</li>`
-              }
-            </ul>
-            <div class="toolbar">
-              <button class="btn btn-secondary" data-action="session-reset-checklist">Reset Checks</button>
-              <button class="btn btn-secondary" data-action="checklist-archive-completed">Archive Completed</button>
-              <button class="btn btn-secondary" data-action="checklist-unarchive-all" ${archivedCount ? "" : "disabled"}>
-                Unarchive (${archivedCount})
-              </button>
-              <button class="btn btn-secondary" data-action="checklist-remove-old-custom" ${
-                customChecklistIds.size ? "" : "disabled"
-              }>Remove Old Custom</button>
-            </div>
-            <div class="toolbar">
-              <input data-custom-check-draft value="${escapeHtml(ui.customChecklistDraft || "")}" placeholder="Add custom checklist item..." />
-              <button class="btn btn-secondary" data-action="checklist-custom-add">Add Custom Item</button>
-              <button class="btn btn-primary" data-action="checklist-ai-generate" ${checklistAiBusyAttr}>
-                ${ui.checklistAiBusy ? "AI Generating..." : "AI Create Checklist"}
-              </button>
-            </div>
-            ${archivedCount ? `<p class="small">Archived items are hidden until you click Unarchive.</p>` : ""}
-            <details class="world-create" style="margin-top:10px;">
-              <summary>Completed / Archived Checklist</summary>
-              <div style="margin-top:8px;">
-                <p class="small"><strong>Checked (current):</strong> ${checkedVisibleItems.length}</p>
-                ${
-                  checkedVisibleItems.length
-                    ? `<ul class="list">${checkedVisibleItems.map((item) => `<li>${escapeHtml(item.label)}</li>`).join("")}</ul>`
-                    : `<p class="empty">No currently checked items.</p>`
-                }
-                <p class="small" style="margin-top:8px;"><strong>Archived (hidden):</strong> ${archivedItems.length}</p>
-                ${
-                  archivedItems.length
-                    ? `<ul class="list">${archivedItems
-                        .map(
-                          (item) =>
-                            `<li>${escapeHtml(item.label)} <button class="btn btn-secondary" data-action="checklist-unarchive-one" data-id="${item.id}">Restore</button></li>`
-                        )
-                        .join("")}</ul>`
-                    : `<p class="empty">No archived checklist items.</p>`
-                }
-              </div>
-            </details>
-          </article>
-          <article class="step-sub">
-            <h3>Prep Queue (${prepMode}m)</h3>
-            <p class="small mono">Progress: ${prepDone}/${prepQueue.length}</p>
-            <div class="toolbar">
-              <button class="btn ${prepMode === 30 ? "btn-primary" : "btn-secondary"}" data-action="prep-queue-mode" data-mode="30">30m</button>
-              <button class="btn ${prepMode === 60 ? "btn-primary" : "btn-secondary"}" data-action="prep-queue-mode" data-mode="60">60m</button>
-              <button class="btn ${prepMode === 90 ? "btn-primary" : "btn-secondary"}" data-action="prep-queue-mode" data-mode="90">90m</button>
-              <button class="btn btn-secondary" data-action="prep-queue-reset">Reset Queue Checks</button>
-            </div>
-            <ul class="checklist-list" style="margin-top:10px;">
-              ${
-                prepQueue.length
-                  ? prepQueue
-                      .map(
-                        (task) => `
-                        <li>
-                          <div class="check-row">
-                            <input type="checkbox" data-prep-id="${task.id}" ${prepChecks[task.id] ? "checked" : ""} />
-                            <span>${escapeHtml(task.label)} <span class="small mono">(${task.minutes}m)</span></span>
-                          </div>
-                        </li>
-                      `
-                      )
-                      .join("")
-                  : `<li class="empty">No prep queue items yet.</li>`
-              }
-            </ul>
-          </article>
-        </section>
-      </section>
-
-      <section class="panel step-card">
-        <div class="step-head">
-          <span class="step-badge">2</span>
-          <h2>Run + Log Session</h2>
-        </div>
-        <section class="step-grid sessions-step-grid">
-          <article class="step-sub">
-            <h3>Create Session Log</h3>
-            <form data-form="sessions">
-              <div class="row">
-                <label>Session Title
-                  <input name="title" required placeholder="Session 07 - Echoes at Blackbridge" />
-                </label>
-                <label>Date
-                  <input name="date" type="date" required />
-                </label>
-              </div>
-              <div class="row">
-                <label>Campaign Arc
-                  <input name="arc" placeholder="Frontier Arc / Court Arc / Campaign Turn" />
-                </label>
-                <label>Campaign Turn
-                  <input name="kingdomTurn" placeholder="Turn 3 (optional)" />
-                </label>
-              </div>
-              <label>What Happened
-                <textarea name="summary" placeholder="Fast bullets from table play: scenes, consequences, hooks..."></textarea>
-              </label>
-              <label>Next Session Prep
-                <textarea name="nextPrep" placeholder="Cold open, likely encounters, NPCs to prep, PDFs to recheck..."></textarea>
-              </label>
-              <div class="toolbar">
-                <button class="btn btn-primary" type="submit">Add Session</button>
-              </div>
-            </form>
-          </article>
-          <article class="step-sub">
-            <h3>Session Logs</h3>
-            <div class="card-list">
-              ${
-                sessions.length
-                  ? sessions.map((s) => sessionEntry(s)).join("")
-                  : `<p class="empty">No sessions tracked yet.</p>`
-              }
-            </div>
-          </article>
-        </section>
-      </section>
-
-      <section class="panel step-card">
-        <div class="step-head">
-          <span class="step-badge">3</span>
-          <h2>Close Session + Export</h2>
-        </div>
-        <p class="small">When play ends, generate wrap-up bullets, scene openers, and a prep packet for next game.</p>
-        <div class="toolbar">
-          <button class="btn btn-primary" data-action="session-wrapup-latest">Smart Wrap-Up Latest Session</button>
-          <button class="btn btn-primary" data-action="session-wizard-open-latest">Open Session Close Wizard</button>
-          <button class="btn btn-secondary" data-action="session-export-packet-latest">Export Next Session Packet</button>
-        </div>
-        ${ui.wizardOpen ? renderSessionCloseWizard(sessions) : ""}
-      </section>
+      ${renderAdventureLogHero(view)}
+      ${renderAdventureLogKpis(view)}
+      ${renderAdventureLogFocus(view)}
+      ${renderAdventureLogPrep(view)}
+      ${renderAdventureLogRun(view)}
+      ${renderAdventureLogClose(view)}
     </div>
+  `;
+}
+
+function renderAdventureLogHero(view) {
+  return `
+    <section class="grid adventurelog-hero-grid">
+      <article class="panel flow-panel adventurelog-hero-panel">
+        <h2>Adventure Pulse</h2>
+        <p class="adventurelog-hero-summary">Keep the sandbox narrowed to one playable lane at a time. This page should tell you where the party is, what pressure is moving, which companion beat matters, and whether the month is about to hand off into kingdom play.</p>
+        <div class="kingdom-chip-row">
+          <span class="chip chip-accent">${escapeHtml(formatGolarionDate(view.monthContext.currentDate))}</span>
+          <span class="chip">${escapeHtml(view.party.hex ? `${view.party.label || "Party"} @ ${view.party.hex}` : "Party hex not pinned")}</span>
+          <span class="chip">${escapeHtml(`${view.openQuests.length} active quest${view.openQuests.length === 1 ? "" : "s"}`)}</span>
+          <span class="chip">${escapeHtml(`${view.activeEvents.length} active pressure clock${view.activeEvents.length === 1 ? "" : "s"}`)}</span>
+          <span class="chip">${escapeHtml(`${view.monthContext.daysRemaining} day${view.monthContext.daysRemaining === 1 ? "" : "s"} to month end`)}</span>
+        </div>
+        ${ui.sessionMessage ? `<p class="small">${escapeHtml(ui.sessionMessage)}</p>` : ""}
+      </article>
+
+      <article class="panel adventurelog-hero-panel">
+        <h2>Open The Right Sources</h2>
+        <p class="small">Adventure Log should stay anchored to the actual Kingmaker loop: sandbox lane, hex travel, campsites, weather, and the month-end kingdom turn.</p>
+        <div class="toolbar">
+          ${view.chapterReference ? renderDashboardSourceButton(view.chapterReference.title, view.chapterReference.fileName, view.chapterReference.page, "btn-primary") : ""}
+          ${renderDashboardSourceButton("Running the Campaign p.7", "Adventure Path.pdf", 7)}
+          ${renderDashboardSourceButton("Hexploration p.44", "Adventure Path.pdf", 44)}
+          ${renderDashboardSourceButton("Quest Sidebars p.8", "Adventure Path.pdf", 8)}
+          ${renderDashboardSourceButton("Campsites p.108", "Companion Guide.pdf", 108)}
+          ${renderDashboardSourceButton("Weather p.122", "Companion Guide.pdf", 122)}
+          ${renderDashboardSourceButton("Running a Kingdom p.43", "Players Guide.pdf", 43)}
+          ${renderDashboardSourceButton("Tracker Quick Ref p.13", "Kingdom Tracker.pdf", 13)}
+        </div>
+      </article>
+    </section>
+  `;
+}
+
+function renderAdventureLogKpis(view) {
+  return `
+    <section class="adventurelog-kpi-grid">
+      <article class="panel stat">
+        <span class="small">Logged Sessions</span>
+        <span class="stat-value">${escapeHtml(String(view.sessions.length))}</span>
+      </article>
+      <article class="panel stat">
+        <span class="small">Current Lane</span>
+        <span class="stat-value" style="font-size:1.2rem;">${escapeHtml(view.laneLabel)}</span>
+      </article>
+      <article class="panel stat">
+        <span class="small">Party Hex</span>
+        <span class="stat-value">${escapeHtml(view.party.hex || "-")}</span>
+      </article>
+      <article class="panel stat">
+        <span class="small">Kingdom This Month</span>
+        <span class="stat-value" style="font-size:1.2rem;">${escapeHtml(view.monthContext.kingdomTurnLogged ? "Recorded" : "Pending")}</span>
+      </article>
+    </section>
+  `;
+}
+
+function renderAdventureLogFocus(view) {
+  return `
+    <section class="panel flow-panel">
+      <h2>Tonight's Run Sheet</h2>
+      <ul class="dashboard-run-list">
+        ${view.runSheetItems.map((item) => `<li class="entry">${escapeHtml(item)}</li>`).join("")}
+      </ul>
+    </section>
+
+    <section class="adventurelog-run-grid">
+      <article class="panel adventurelog-card">
+        <h2>Adventure Lane</h2>
+        <p>${escapeHtml(view.laneLabel)}</p>
+        <ul class="list">
+          ${
+            view.openQuests.length
+              ? view.openQuests
+                  .slice(0, 3)
+                  .map((quest) => `<li><strong>${escapeHtml(quest.title || "Untitled quest")}</strong>${quest.priority ? ` • ${escapeHtml(quest.priority)}` : ""}${quest.chapter ? ` • ${escapeHtml(quest.chapter)}` : ""}</li>`)
+                  .join("")
+              : `<li>No active quests are pinned yet. Use Quests to decide what the party is actually chasing.</li>`
+          }
+        </ul>
+        <div class="toolbar">
+          ${renderDashboardTabButton("Quests", "quests")}
+          ${renderDashboardTabButton("Command Center", "dashboard")}
+        </div>
+      </article>
+
+      <article class="panel adventurelog-card">
+        <h2>Expedition Handoff</h2>
+        <p>${escapeHtml(view.travelObjective)}</p>
+        <div class="kingdom-chip-row">
+          <span class="chip chip-accent">${escapeHtml(getSessionDisplayDate({ date: view.monthContext.currentDate }))}</span>
+          <span class="chip">${escapeHtml(view.currentHexSummary || "No hex state pinned yet")}</span>
+        </div>
+        <p class="small">${escapeHtml(view.weatherSummary)}</p>
+        <div class="toolbar">
+          ${renderDashboardTabButton("Hex Map", "hexmap", "btn-primary")}
+          ${renderDashboardTabButton("Locations", "locations")}
+        </div>
+      </article>
+
+      <article class="panel adventurelog-card">
+        <h2>Frontier Pressure</h2>
+        <p>${escapeHtml(view.topPressure)}</p>
+        <div class="card-list">
+          ${
+            view.activeEvents.length
+              ? view.activeEvents
+                  .slice(0, 3)
+                  .map((eventItem) => {
+                    const turnsToConsequence = getEventTurnsToConsequence(eventItem);
+                    return `
+                      <article class="entry">
+                        <div class="entry-head">
+                          <span class="entry-title">${escapeHtml(eventItem.title || "Untitled Event")}</span>
+                          <span class="entry-meta">${escapeHtml(eventItem.status || "active")}</span>
+                        </div>
+                        <div class="kingdom-chip-row">
+                          <span class="chip">Clock ${escapeHtml(formatEventClockSummary(eventItem))}</span>
+                          ${eventItem.hex ? `<span class="chip">${escapeHtml(eventItem.hex)}</span>` : ""}
+                          ${turnsToConsequence === null ? "" : `<span class="chip">${escapeHtml(`${turnsToConsequence} turn(s) to consequence`)}</span>`}
+                        </div>
+                      </article>
+                    `;
+                  })
+                  .join("")
+              : `<p class="empty">No active event clocks yet.</p>`
+          }
+        </div>
+        <div class="toolbar">
+          ${renderDashboardTabButton("Events", "events", "btn-primary")}
+          ${renderDashboardSourceButton("Thorn River Timer p.169", "Adventure Path.pdf", 169)}
+        </div>
+      </article>
+
+      <article class="panel adventurelog-card">
+        <h2>Companion Watch</h2>
+        <p>${escapeHtml(view.companionFocus ? `${view.companionFocus} is the clearest companion beat to surface next.` : "No companion beat is pinned yet.")}</p>
+        <div class="card-list">
+          ${
+            view.companionWatch.length
+              ? view.companionWatch
+                  .slice(0, 3)
+                  .map((companion) => `
+                    <article class="entry">
+                      <div class="entry-head">
+                        <span class="entry-title">${escapeHtml(companion.name || "Unnamed Companion")}</span>
+                        <span class="entry-meta">${escapeHtml(companion.status || "watch")}</span>
+                      </div>
+                      <div class="kingdom-chip-row">
+                        <span class="chip">${escapeHtml(`Influence ${String(companion.influence ?? 0)}`)}</span>
+                        ${companion.currentHex ? `<span class="chip">${escapeHtml(companion.currentHex)}</span>` : ""}
+                        ${companion.kingdomRole ? `<span class="chip">${escapeHtml(companion.kingdomRole)}</span>` : ""}
+                      </div>
+                    </article>
+                  `)
+                  .join("")
+              : `<p class="empty">No companions tracked yet.</p>`
+          }
+        </div>
+        <div class="toolbar">
+          ${renderDashboardTabButton("Companions", "companions", "btn-primary")}
+          ${renderDashboardSourceButton("Companion Rules p.6", "Companion Guide.pdf", 6)}
+        </div>
+      </article>
+
+      <article class="panel adventurelog-card">
+        <h2>Month-End Kingdom Handoff</h2>
+        <p>${escapeHtml(view.monthStatus)}</p>
+        <ul class="list">
+          <li><strong>Current month:</strong> ${escapeHtml(view.monthContext.monthLabel)}</li>
+          <li><strong>Sessions this month:</strong> ${escapeHtml(String(view.monthContext.sessionsThisMonth.length))}</li>
+          <li><strong>Kingdom turn entries:</strong> ${escapeHtml(String(view.monthContext.turnsThisMonth.length))}</li>
+          <li><strong>Current turn label:</strong> ${escapeHtml(view.kingdom.currentTurnLabel || "Not set")}</li>
+        </ul>
+        <div class="toolbar">
+          ${renderDashboardTabButton("Kingdom", "kingdom", "btn-primary")}
+          ${renderDashboardSourceButton("Running a Kingdom p.43", "Players Guide.pdf", 43)}
+          ${renderDashboardSourceButton("Tracker Quick Ref p.13", "Kingdom Tracker.pdf", 13)}
+        </div>
+      </article>
+    </section>
+  `;
+}
+
+function renderAdventureLogPrep(view) {
+  return `
+    <section class="panel step-card">
+      <div class="step-head">
+        <span class="step-badge">1</span>
+        <h2>Prep Before Session</h2>
+      </div>
+      <p class="small">Use this like a preflight: opening scene, route, pressure clocks, companion beat, then the kingdom handoff if the month is closing.</p>
+      <div class="toolbar">
+        ${renderDashboardSourceButton("Hexploration p.44", "Adventure Path.pdf", 44, "btn-primary")}
+        ${renderDashboardSourceButton("Campsites p.108", "Companion Guide.pdf", 108)}
+        ${renderDashboardSourceButton("Weather p.122", "Companion Guide.pdf", 122)}
+        ${renderDashboardSourceButton("Running a Kingdom p.43", "Players Guide.pdf", 43)}
+      </div>
+      <section class="step-grid">
+        <article class="step-sub">
+          <h3>Table-Ready Checklist</h3>
+          <p class="small mono">Progress: ${view.completedChecklist}/${view.checklistItems.length}</p>
+          <ul class="checklist-list">
+            ${
+              view.checklistItems.length
+                ? view.checklistItems
+                    .map(
+                      (item) => `
+                      <li>
+                        <div class="check-row check-edit-row">
+                          <input type="checkbox" data-check-id="${item.id}" ${view.checklistChecks[item.id] ? "checked" : ""} />
+                          <input class="check-label-input" data-check-edit-id="${item.id}" value="${escapeHtml(item.label)}" />
+                          ${
+                            view.customChecklistIds.has(item.id)
+                              ? `<button class="btn btn-danger check-row-delete" data-action="checklist-custom-delete" data-id="${item.id}">X</button>`
+                              : ""
+                          }
+                        </div>
+                      </li>
+                    `
+                    )
+                    .join("")
+                : `<li class="empty">No checklist items yet.</li>`
+            }
+          </ul>
+          <div class="toolbar">
+            <button class="btn btn-secondary" data-action="session-reset-checklist">Reset Checks</button>
+            <button class="btn btn-secondary" data-action="checklist-archive-completed">Archive Completed</button>
+            <button class="btn btn-secondary" data-action="checklist-unarchive-all" ${view.archivedCount ? "" : "disabled"}>Unarchive (${view.archivedCount})</button>
+            <button class="btn btn-secondary" data-action="checklist-remove-old-custom" ${view.customChecklistIds.size ? "" : "disabled"}>Remove Old Custom</button>
+          </div>
+          <div class="toolbar">
+            <input data-custom-check-draft value="${escapeHtml(ui.customChecklistDraft || "")}" placeholder="Add custom prep item..." />
+            <button class="btn btn-secondary" data-action="checklist-custom-add">Add Custom Item</button>
+            <button class="btn btn-primary" data-action="checklist-ai-generate" ${view.checklistAiBusyAttr}>${ui.checklistAiBusy ? "AI Generating..." : "AI Create Checklist"}</button>
+          </div>
+          ${view.archivedCount ? `<p class="small">Archived checklist items stay hidden until restored.</p>` : ""}
+          <details class="world-create" style="margin-top:10px;">
+            <summary>Completed / Archived Checklist</summary>
+            <div style="margin-top:8px;">
+              <p class="small"><strong>Checked (current):</strong> ${view.checkedVisibleItems.length}</p>
+              ${
+                view.checkedVisibleItems.length
+                  ? `<ul class="list">${view.checkedVisibleItems.map((item) => `<li>${escapeHtml(item.label)}</li>`).join("")}</ul>`
+                  : `<p class="empty">No currently checked items.</p>`
+              }
+              <p class="small" style="margin-top:8px;"><strong>Archived (hidden):</strong> ${view.archivedItems.length}</p>
+              ${
+                view.archivedItems.length
+                  ? `<ul class="list">${view.archivedItems
+                      .map(
+                        (item) =>
+                          `<li>${escapeHtml(item.label)} <button class="btn btn-secondary" data-action="checklist-unarchive-one" data-id="${item.id}">Restore</button></li>`
+                      )
+                      .join("")}</ul>`
+                  : `<p class="empty">No archived checklist items.</p>`
+              }
+            </div>
+          </details>
+        </article>
+
+        <article class="step-sub">
+          <h3>Prep Queue (${view.prepMode}m)</h3>
+          <p class="small mono">Progress: ${view.prepDone}/${view.prepQueue.length}</p>
+          <div class="toolbar">
+            <button class="btn ${view.prepMode === 30 ? "btn-primary" : "btn-secondary"}" data-action="prep-queue-mode" data-mode="30">30m</button>
+            <button class="btn ${view.prepMode === 60 ? "btn-primary" : "btn-secondary"}" data-action="prep-queue-mode" data-mode="60">60m</button>
+            <button class="btn ${view.prepMode === 90 ? "btn-primary" : "btn-secondary"}" data-action="prep-queue-mode" data-mode="90">90m</button>
+            <button class="btn btn-secondary" data-action="prep-queue-reset">Reset Queue Checks</button>
+          </div>
+          <ul class="checklist-list" style="margin-top:10px;">
+            ${
+              view.prepQueue.length
+                ? view.prepQueue
+                    .map(
+                      (task) => `
+                      <li>
+                        <div class="check-row">
+                          <input type="checkbox" data-prep-id="${task.id}" ${view.prepChecks[task.id] ? "checked" : ""} />
+                          <span>${escapeHtml(task.label)} <span class="small mono">(${task.minutes}m)</span></span>
+                        </div>
+                      </li>
+                    `
+                    )
+                    .join("")
+                : `<li class="empty">No prep queue items yet.</li>`
+            }
+          </ul>
+        </article>
+      </section>
+    </section>
+  `;
+}
+
+function renderAdventureLogRun(view) {
+  return `
+    <section class="panel step-card">
+      <div class="step-head">
+        <span class="step-badge">2</span>
+        <h2>Run + Log Session</h2>
+      </div>
+      <p class="small">Create each session as a lane record, not just a recap. If you log the route, pressure, companion beat, and kingdom handoff now, the next prep pass gets much easier.</p>
+      <section class="step-grid sessions-step-grid">
+        <article class="step-sub">
+          <h3>Create Adventure Record</h3>
+          <form data-form="sessions">
+            <div class="row">
+              <label>Session Title
+                <input name="title" required placeholder="Session 07 - Into the Narlmarches" />
+              </label>
+              <label>Campaign Date
+                <input name="date" type="date" required value="${escapeHtml(view.defaultSessionDate)}" />
+              </label>
+            </div>
+            <div class="row">
+              <label>Session Type
+                <select name="type">
+                  ${SESSION_TYPE_OPTIONS.map((value) => `<option value="${value}" ${value === view.defaultSessionType ? "selected" : ""}>${escapeHtml(getSessionTypeLabel(value))}</option>`).join("")}
+                </select>
+              </label>
+              <label>Kingdom Turn Marker
+                <input name="kingdomTurn" value="${escapeHtml(str(view.latestSession?.kingdomTurn))}" placeholder="Turn 3 or leave blank until month-end" />
+              </label>
+            </div>
+            <div class="row">
+              <label>Campaign Arc
+                <input name="arc" value="${escapeHtml(view.defaultSessionArc)}" placeholder="Greenbelt sweep / kingdom council / companion quest" />
+              </label>
+              <label>Chapter Lane
+                <input name="chapter" value="${escapeHtml(view.defaultSessionChapter)}" placeholder="Chapter 2: Into the Wild" />
+              </label>
+            </div>
+            <div class="row">
+              <label>Focus Hex
+                <input name="focusHex" value="${escapeHtml(view.defaultFocusHex)}" placeholder="B4" />
+              </label>
+              <label>Lead Companion
+                <input name="leadCompanion" value="${escapeHtml(view.defaultLeadCompanion)}" placeholder="Linzi / Amiri / leave blank" />
+              </label>
+            </div>
+            <label>Travel Objective / Next Route
+              <input name="travelObjective" value="${escapeHtml(view.defaultTravelObjective)}" placeholder="Reach Oleg, sweep the Thorn River, or push into a new zone" />
+            </label>
+            <div class="row">
+              <label>Weather / Camp Conditions
+                <input name="weather" value="${escapeHtml(view.defaultWeather)}" placeholder="Cold rain, swollen ford, rough campsite, clear skies" />
+              </label>
+              <label>Frontier Pressure
+                <input name="pressure" value="${escapeHtml(view.defaultPressure)}" placeholder="Bandits hit again if ignored for a month" />
+              </label>
+            </div>
+            <label>What Happened
+              <textarea name="summary" placeholder="Table-facing summary: scenes, discoveries, route changes, companion beats, and consequences."></textarea>
+            </label>
+            <label>Next Session Prep
+              <textarea name="nextPrep" placeholder="Opening scene, likely route, travel hazards, NPC reactions, rules pages to recheck, and kingdom handoff."></textarea>
+            </label>
+            <div class="toolbar">
+              <button class="btn btn-primary" type="submit">Add Session</button>
+            </div>
+          </form>
+        </article>
+
+        <article class="step-sub">
+          <h3>Adventure Records</h3>
+          <div class="card-list">
+            ${
+              view.sessions.length
+                ? view.sessions.map((session) => sessionEntry(session)).join("")
+                : `<p class="empty">No sessions tracked yet.</p>`
+            }
+          </div>
+        </article>
+      </section>
+    </section>
+  `;
+}
+
+function renderAdventureLogClose(view) {
+  return `
+    <section class="panel step-card">
+      <div class="step-head">
+        <span class="step-badge">3</span>
+        <h2>Close Session + Export</h2>
+      </div>
+      <p class="small">When play ends, close the session while the route, pressure, and player intent are still fresh. The goal is to hand the next session a ready-made opening instead of making yourself rebuild momentum from memory.</p>
+      <div class="toolbar">
+        <button class="btn btn-primary" data-action="session-wrapup-latest">Smart Wrap-Up Latest Session</button>
+        <button class="btn btn-primary" data-action="session-wizard-open-latest">Open Session Close Wizard</button>
+        <button class="btn btn-secondary" data-action="session-export-packet-latest">Export Next Session Packet</button>
+      </div>
+      <div class="toolbar">
+        ${renderDashboardSourceButton("Running the Campaign p.7", "Adventure Path.pdf", 7, "btn-primary")}
+        ${renderDashboardSourceButton("Quest Sidebars p.8", "Adventure Path.pdf", 8)}
+        ${renderDashboardSourceButton("Running a Kingdom p.43", "Players Guide.pdf", 43)}
+      </div>
+      ${ui.wizardOpen ? renderSessionCloseWizard(view.sessions) : ""}
+    </section>
   `;
 }
 
@@ -2065,7 +3237,7 @@ function renderSessionCloseWizard(sessions) {
   return `
     <section class="panel session-wizard-panel">
       <h2>Session Close Wizard (3-Step)</h2>
-      <p class="small">Answer the three prompts, then the app auto-generates wrap-up bullets and 3 scene openers.</p>
+      <p class="small">Capture the frontier beats before they cool off, then the app turns them into wrap-up bullets and next-session openers.</p>
       <form data-form="session-close-wizard">
         <label>Target Session
           <select name="sessionId" data-wizard-field="sessionId">
@@ -2079,18 +3251,18 @@ function renderSessionCloseWizard(sessions) {
               .join("")}
           </select>
         </label>
-        <label>Step 1: Biggest moments tonight
-          <textarea name="highlights" data-wizard-field="highlights" placeholder="What happened that must matter next session?">${escapeHtml(
+        <label>Step 1: Biggest frontier beats tonight
+          <textarea name="highlights" data-wizard-field="highlights" placeholder="Which discoveries, NPC reactions, travel choices, or companion moments must matter next session?">${escapeHtml(
             ui.wizardDraft.highlights || ""
           )}</textarea>
         </label>
-        <label>Step 2: Cliffhanger or unresolved pressure
-          <textarea name="cliffhanger" data-wizard-field="cliffhanger" placeholder="What tension is still hanging?">${escapeHtml(
+        <label>Step 2: Unresolved pressure or consequence
+          <textarea name="cliffhanger" data-wizard-field="cliffhanger" placeholder="What timer, danger, or political fallout is still hanging over the party?">${escapeHtml(
             ui.wizardDraft.cliffhanger || ""
           )}</textarea>
         </label>
-        <label>Step 3: What players want to do next
-          <textarea name="playerIntent" data-wizard-field="playerIntent" placeholder="What did players say they want next?">${escapeHtml(
+        <label>Step 3: Route or kingdom action players want next
+          <textarea name="playerIntent" data-wizard-field="playerIntent" placeholder="What destination, companion beat, settlement plan, or kingdom action did the players point at next?">${escapeHtml(
             ui.wizardDraft.playerIntent || ""
           )}</textarea>
         </label>
@@ -2110,10 +3282,10 @@ function renderCaptureHUD() {
 
   return `
     <div class="page-stack">
-      ${renderPageIntro("Live Capture HUD", "Fast in-session notes with clear tags, then push them into your session log when ready.")}
+      ${renderPageIntro("Table Notes", "Capture fast table-side notes, then promote the useful parts into your adventure log or world records.")}
       <section class="grid grid-2">
     <section class="panel">
-      <h2>Live Capture HUD</h2>
+      <h2>Table Notes</h2>
       <p class="small">Use this while running the table. Add short timestamped notes fast.</p>
       <div class="row">
         <label>Attach Notes To Session
@@ -2166,7 +3338,7 @@ function renderCaptureHUD() {
         ${
           entries.length
             ? entries.map((entry) => renderCaptureEntry(entry, sessions)).join("")
-            : `<p class="empty">No live capture entries yet.</p>`
+            : `<p class="empty">No table notes yet.</p>`
         }
       </div>
     </section>
@@ -2201,7 +3373,7 @@ function renderWritingHelper() {
   const testLabel = ui.aiBusy ? "Testing..." : "Test Local AI";
   return `
     <div class="page-stack">
-      ${renderPageIntro("Writing Helper", "Turn rough notes into clean GM text, then apply directly to your latest session fields.")}
+      ${renderPageIntro("Scene Forge", "Turn rough notes into clean Kingmaker prep, scene text, and record-ready campaign material.")}
       <section class="grid grid-2">
         <section class="panel">
           <h2>Draft + Actions</h2>
@@ -2306,6 +3478,222 @@ function renderWritingHelper() {
   `;
 }
 
+function renderCompanions() {
+  const selected = getSelectedWorldEntry("companions", state.companions);
+  const folderOptionsNew = renderWorldFolderOptions("companions", ui.worldNewFolder.companions || "", true);
+  return `
+    <div class="page-stack">
+      ${renderPageIntro("Companions", "Track influence, personal quests, travel state, and kingdom-role fit for the companions who shape Kingmaker.")}
+      <section class="world-layout">
+        <section class="panel world-sidebar">
+          <h2>Companion Roster</h2>
+          <div class="toolbar">
+            <input data-world-folder-draft="companions" value="${escapeHtml(ui.worldFolderDraft.companions || "")}" placeholder="New folder (e.g., Core Companions)" />
+            <button class="btn btn-secondary" data-action="world-add-folder" data-collection="companions">New Folder</button>
+          </div>
+          ${ui.worldMessages.companions ? `<p class="small">${escapeHtml(ui.worldMessages.companions)}</p>` : ""}
+          ${renderWorldLinkList("companions", state.companions, (companion) => ({
+            title: companion.name || "Unnamed Companion",
+            meta: `${getWorldFolderLabel(companion.folder)} • ${companion.status || "prospective"} • influence ${escapeHtml(String(companion.influence ?? 0))}`,
+          }))}
+          <details class="world-create" ${state.companions.length ? "" : "open"}>
+            <summary>New Companion</summary>
+            <form data-form="companions">
+              <label>Folder
+                <select name="folder" data-world-new-folder="companions">
+                  ${folderOptionsNew}
+                </select>
+              </label>
+              <label>Name
+                <input name="name" required placeholder="Linzi" />
+              </label>
+              <div class="row">
+                <label>Status
+                  <select name="status">
+                    ${COMPANION_STATUS_OPTIONS.map((status) => `<option value="${status}">${status}</option>`).join("")}
+                  </select>
+                </label>
+                <label>Influence
+                  <input name="influence" type="number" min="0" max="10" value="0" />
+                </label>
+                <label>Current Hex
+                  <input name="currentHex" placeholder="D4" />
+                </label>
+              </div>
+              <label>Kingdom Role / Best Fit
+                <input name="kingdomRole" placeholder="General candidate / Counselor" />
+              </label>
+              <label>Personal Quest
+                <input name="personalQuest" placeholder="What unresolved beat belongs to this companion?" />
+              </label>
+              <label>Notes
+                <textarea name="notes" placeholder="Influence triggers, camp scenes, tensions, leverage, and fallout."></textarea>
+              </label>
+              <button class="btn btn-primary" type="submit">Add Companion</button>
+            </form>
+          </details>
+        </section>
+        <section class="panel world-detail">
+          <h2>Companion Details</h2>
+          ${selected ? renderCompanionDetails(selected) : `<p class="empty">No companion selected.</p>`}
+        </section>
+      </section>
+    </div>
+  `;
+}
+
+function renderEvents() {
+  const selected = getSelectedWorldEntry("events", state.events);
+  const folderOptionsNew = renderWorldFolderOptions("events", ui.worldNewFolder.events || "", true);
+  return `
+    <div class="page-stack">
+      ${renderPageIntro("Events", "Track active clocks, kingdom pressure, travel trouble, and companion beats so nothing important falls through the cracks.")}
+      <section class="world-layout">
+        <section class="panel world-sidebar">
+          <h2>Event Queue</h2>
+          <div class="toolbar">
+            <input data-world-folder-draft="events" value="${escapeHtml(ui.worldFolderDraft.events || "")}" placeholder="New folder (e.g., Travel Pressure)" />
+            <button class="btn btn-secondary" data-action="world-add-folder" data-collection="events">New Folder</button>
+          </div>
+          ${ui.worldMessages.events ? `<p class="small">${escapeHtml(ui.worldMessages.events)}</p>` : ""}
+          ${renderWorldLinkList("events", state.events, (eventItem) => ({
+            title: eventItem.title || "Untitled Event",
+            meta: `${getWorldFolderLabel(eventItem.folder)} • ${eventItem.category || "story"} • ${eventItem.status || "seeded"} • ${formatEventClockSummary(eventItem)}${eventItem.hex ? ` • ${eventItem.hex}` : ""}`,
+          }))}
+          <details class="world-create" ${state.events.length ? "" : "open"}>
+            <summary>New Event</summary>
+            <form data-form="events">
+              <label>Folder
+                <select name="folder" data-world-new-folder="events">
+                  ${folderOptionsNew}
+                </select>
+              </label>
+              <label>Title
+                <input name="title" required placeholder="Bandit Tribute Deadline" />
+              </label>
+              <div class="row">
+                <label>Category
+                  <select name="category">
+                    ${EVENT_CATEGORY_OPTIONS.map((category) => `<option value="${category}">${category}</option>`).join("")}
+                  </select>
+                </label>
+                <label>Status
+                  <select name="status">
+                    ${EVENT_STATUS_OPTIONS.map((status) => `<option value="${status}">${status}</option>`).join("")}
+                  </select>
+                </label>
+                <label>Urgency
+                  <input name="urgency" type="number" min="1" max="5" value="3" />
+                </label>
+                <label>Hex
+                  <input name="hex" placeholder="D4" />
+                </label>
+              </div>
+              <div class="row">
+                <label>Clock
+                  <input name="clock" type="number" min="0" value="0" />
+                </label>
+                <label>Clock Max
+                  <input name="clockMax" type="number" min="1" value="4" />
+                </label>
+                <label>Advance / Turn
+                  <input name="advancePerTurn" type="number" min="0" value="1" />
+                </label>
+                <label>Advance Mode
+                  <select name="advanceOn">
+                    ${EVENT_ADVANCE_OPTIONS.map((value) => `<option value="${value}" ${value === "turn" ? "selected" : ""}>${value}</option>`).join("")}
+                  </select>
+                </label>
+              </div>
+              <div class="row">
+                <label>Linked Quest
+                  <input name="linkedQuest" placeholder="Secure Oleg's Trading Post" />
+                </label>
+                <label>Linked Companion
+                  <input name="linkedCompanion" placeholder="Linzi" />
+                </label>
+                <label>Impact Scope
+                  <select name="impactScope">
+                    ${EVENT_IMPACT_SCOPE_OPTIONS.map((value) => `<option value="${value}" ${value === "claimed-hex" ? "selected" : ""}>${value}</option>`).join("")}
+                  </select>
+                </label>
+              </div>
+              <label>Trigger
+                <textarea name="trigger" placeholder="What starts or advances this event?"></textarea>
+              </label>
+              <label>Fallout
+                <textarea name="fallout" placeholder="What changes if the party ignores or resolves it?"></textarea>
+              </label>
+              <label>Consequence Summary
+                <textarea name="consequenceSummary" placeholder="What should happen when this clock fills and the kingdom takes the hit?"></textarea>
+              </label>
+              <details class="session-edit-panel">
+                <summary>Kingdom Consequence Deltas</summary>
+                <div class="row">
+                  <label>RP
+                    <input name="rpImpact" type="number" value="0" />
+                  </label>
+                  <label>Unrest
+                    <input name="unrestImpact" type="number" value="0" />
+                  </label>
+                  <label>Renown
+                    <input name="renownImpact" type="number" value="0" />
+                  </label>
+                  <label>Fame
+                    <input name="fameImpact" type="number" value="0" />
+                  </label>
+                  <label>Infamy
+                    <input name="infamyImpact" type="number" value="0" />
+                  </label>
+                </div>
+                <div class="row">
+                  <label>Food
+                    <input name="foodImpact" type="number" value="0" />
+                  </label>
+                  <label>Lumber
+                    <input name="lumberImpact" type="number" value="0" />
+                  </label>
+                  <label>Luxuries
+                    <input name="luxuriesImpact" type="number" value="0" />
+                  </label>
+                  <label>Ore
+                    <input name="oreImpact" type="number" value="0" />
+                  </label>
+                  <label>Stone
+                    <input name="stoneImpact" type="number" value="0" />
+                  </label>
+                </div>
+                <div class="row">
+                  <label>Corruption
+                    <input name="corruptionImpact" type="number" value="0" />
+                  </label>
+                  <label>Crime
+                    <input name="crimeImpact" type="number" value="0" />
+                  </label>
+                  <label>Decay
+                    <input name="decayImpact" type="number" value="0" />
+                  </label>
+                  <label>Strife
+                    <input name="strifeImpact" type="number" value="0" />
+                  </label>
+                </div>
+              </details>
+              <label>Notes
+                <textarea name="notes" placeholder="Clocks, scene prompts, NPC reactions, and escalation notes."></textarea>
+              </label>
+              <button class="btn btn-primary" type="submit">Add Event</button>
+            </form>
+          </details>
+        </section>
+        <section class="panel world-detail">
+          <h2>Event Details</h2>
+          ${selected ? renderEventDetails(selected) : `<p class="empty">No event selected.</p>`}
+        </section>
+      </section>
+    </div>
+  `;
+}
+
 function renderNpcs() {
   const selected = getSelectedWorldEntry("npcs", state.npcs);
   const folderOptionsNew = renderWorldFolderOptions("npcs", ui.worldNewFolder.npcs || "", true);
@@ -2333,7 +3721,7 @@ function renderNpcs() {
                 </select>
               </label>
               <label>Name
-                <input name="name" required placeholder="Lady Ardyn Vale" />
+                <input name="name" required placeholder="Lady Jamandi Aldori" />
               </label>
               <label>Role
                 <input name="role" placeholder="Swordlord patron" />
@@ -2376,7 +3764,7 @@ function renderQuests() {
           ${ui.worldMessages.quests ? `<p class="small">${escapeHtml(ui.worldMessages.quests)}</p>` : ""}
           ${renderWorldLinkList("quests", state.quests, (quest) => ({
             title: quest.title || "Untitled Quest",
-            meta: `${getWorldFolderLabel(quest.folder)} • ${quest.status || "open"}${quest.giver ? ` • ${quest.giver}` : ""}`,
+            meta: `${getWorldFolderLabel(quest.folder)} • ${quest.status || "open"}${quest.priority ? ` • ${quest.priority}` : ""}${quest.hex ? ` • ${quest.hex}` : quest.giver ? ` • ${quest.giver}` : ""}`,
           }))}
           <details class="world-create" ${state.quests.length ? "" : "open"}>
             <summary>New Quest</summary>
@@ -2391,21 +3779,36 @@ function renderQuests() {
               </label>
               <label>Status
                 <select name="status">
-                  <option value="open">open</option>
-                  <option value="in-progress">in-progress</option>
-                  <option value="blocked">blocked</option>
-                  <option value="completed">completed</option>
-                  <option value="failed">failed</option>
+                  ${QUEST_STATUS_OPTIONS.map((status) => `<option value="${status}">${status}</option>`).join("")}
                 </select>
               </label>
               <label>Objective
                 <textarea name="objective" placeholder="What must happen for this quest to move forward?"></textarea>
               </label>
               <label>Quest Giver
-                <input name="giver" placeholder="Quartermaster Bren" />
+                <input name="giver" placeholder="Oleg Leveton" />
               </label>
               <label>Stakes
                 <input name="stakes" placeholder="If ignored, supply lines collapse..." />
+              </label>
+              <div class="row">
+                <label>Priority
+                  <select name="priority">
+                    ${QUEST_PRIORITY_OPTIONS.map((priority) => `<option value="${priority}">${priority}</option>`).join("")}
+                  </select>
+                </label>
+                <label>Chapter / Arc
+                  <input name="chapter" placeholder="Chapter 3 / Greenbelt" />
+                </label>
+                <label>Hex
+                  <input name="hex" placeholder="D4" />
+                </label>
+                <label>Linked Companion
+                  <input name="linkedCompanion" placeholder="Linzi" />
+                </label>
+              </div>
+              <label>Next Beat
+                <textarea name="nextBeat" placeholder="What should happen the next time this quest moves?"></textarea>
               </label>
               <button class="btn btn-primary" type="submit">Add Quest</button>
             </form>
@@ -2447,7 +3850,7 @@ function renderLocations() {
                 </select>
               </label>
               <label>Name
-                <input name="name" required placeholder="Blackbridge Waystation" />
+                <input name="name" required placeholder="Oleg's Trading Post" />
               </label>
               <label>Hex / Region
                 <input name="hex" placeholder="A2 / North March" />
@@ -2529,14 +3932,14 @@ function normalizeWorldFolderName(value) {
 }
 
 function isWorldCollection(collection) {
-  return collection === "npcs" || collection === "quests" || collection === "locations";
+  return WORLD_COLLECTIONS.includes(collection);
 }
 
 function ensureWorldFolders() {
   if (!state.meta.worldFolders || typeof state.meta.worldFolders !== "object" || Array.isArray(state.meta.worldFolders)) {
-    state.meta.worldFolders = { npcs: [], quests: [], locations: [] };
+    state.meta.worldFolders = Object.fromEntries(WORLD_COLLECTIONS.map((collection) => [collection, []]));
   }
-  for (const collection of ["npcs", "quests", "locations"]) {
+  for (const collection of WORLD_COLLECTIONS) {
     const current = Array.isArray(state.meta.worldFolders[collection]) ? state.meta.worldFolders[collection] : [];
     const seen = new Set();
     const cleaned = [];
@@ -2624,7 +4027,7 @@ function getSelectedWorldEntry(collection, items) {
     return null;
   }
   if (!ui.worldSelection || typeof ui.worldSelection !== "object") {
-    ui.worldSelection = { npcs: "", quests: "", locations: "" };
+    ui.worldSelection = createEmptyWorldUiState();
   }
   const selectedId = str(ui.worldSelection[collection]);
   const found = items.find((item) => item.id === selectedId);
@@ -2635,7 +4038,7 @@ function getSelectedWorldEntry(collection, items) {
 
 function setWorldSelection(collection, id) {
   if (!ui.worldSelection || typeof ui.worldSelection !== "object") {
-    ui.worldSelection = { npcs: "", quests: "", locations: "" };
+    ui.worldSelection = createEmptyWorldUiState();
   }
   if (!(collection in ui.worldSelection)) return;
   ui.worldSelection[collection] = id;
@@ -2681,6 +4084,67 @@ function renderNpcDetails(npc) {
   `;
 }
 
+function renderCompanionDetails(companion) {
+  const folderOptions = renderWorldFolderOptions("companions", companion.folder, true);
+  const linkedEvents = (state.events || []).filter((eventItem) => str(eventItem.linkedCompanion).toLowerCase() === str(companion.name).toLowerCase());
+  return `
+    <article class="entry">
+      <div class="entry-head">
+        <span class="entry-title">${escapeHtml(companion.name || "Unnamed Companion")}</span>
+        <span class="entry-meta">${escapeHtml(companion.status || "prospective")} • influence ${escapeHtml(String(companion.influence ?? 0))}</span>
+      </div>
+      <div class="row">
+        <label>Folder
+          <select data-collection="companions" data-id="${companion.id}" data-field="folder">
+            ${folderOptions}
+          </select>
+        </label>
+        <label>Name
+          <input data-collection="companions" data-id="${companion.id}" data-field="name" value="${escapeHtml(companion.name || "")}" />
+        </label>
+      </div>
+      <div class="row">
+        <label>Status
+          <select data-collection="companions" data-id="${companion.id}" data-field="status">
+            ${COMPANION_STATUS_OPTIONS.map((status) => `<option value="${status}" ${companion.status === status ? "selected" : ""}>${status}</option>`).join("")}
+          </select>
+        </label>
+        <label>Influence
+          <input data-collection="companions" data-id="${companion.id}" data-field="influence" type="number" min="0" max="10" value="${escapeHtml(String(companion.influence ?? 0))}" />
+        </label>
+        <label>Current Hex
+          <input data-collection="companions" data-id="${companion.id}" data-field="currentHex" value="${escapeHtml(companion.currentHex || "")}" />
+        </label>
+      </div>
+      <div class="row">
+        <label>Kingdom Role / Best Fit
+          <input data-collection="companions" data-id="${companion.id}" data-field="kingdomRole" value="${escapeHtml(companion.kingdomRole || "")}" />
+        </label>
+        <label>Personal Quest
+          <input data-collection="companions" data-id="${companion.id}" data-field="personalQuest" value="${escapeHtml(companion.personalQuest || "")}" />
+        </label>
+      </div>
+      <label>Notes
+        <textarea data-collection="companions" data-id="${companion.id}" data-field="notes">${escapeHtml(companion.notes || "")}</textarea>
+      </label>
+      <article class="entry">
+        <div class="entry-head">
+          <span class="entry-title">Linked Events</span>
+          <span class="entry-meta">${escapeHtml(String(linkedEvents.length))}</span>
+        </div>
+        ${
+          linkedEvents.length
+            ? `<ul class="flow-list">${linkedEvents.map((eventItem) => `<li><strong>${escapeHtml(eventItem.title || "Untitled Event")}</strong>${eventItem.status ? ` • ${escapeHtml(eventItem.status)}` : ""}${eventItem.hex ? ` • ${escapeHtml(eventItem.hex)}` : ""}</li>`).join("")}</ul>`
+            : `<p class="small">No event records currently point at this companion.</p>`
+        }
+      </article>
+      <div class="toolbar">
+        <button class="btn btn-danger" data-action="delete" data-collection="companions" data-id="${companion.id}">Delete Companion</button>
+      </div>
+    </article>
+  `;
+}
+
 function renderQuestDetails(quest) {
   const folderOptions = renderWorldFolderOptions("quests", quest.folder, true);
   return `
@@ -2702,7 +4166,7 @@ function renderQuestDetails(quest) {
       <div class="row">
         <label>Status
           <select data-collection="quests" data-id="${quest.id}" data-field="status">
-            ${["open", "in-progress", "blocked", "completed", "failed"]
+            ${QUEST_STATUS_OPTIONS
               .map((status) => `<option value="${status}" ${quest.status === status ? "selected" : ""}>${status}</option>`)
               .join("")}
           </select>
@@ -2714,8 +4178,27 @@ function renderQuestDetails(quest) {
           <input data-collection="quests" data-id="${quest.id}" data-field="stakes" value="${escapeHtml(quest.stakes || "")}" />
         </label>
       </div>
+      <div class="row">
+        <label>Priority
+          <select data-collection="quests" data-id="${quest.id}" data-field="priority">
+            ${QUEST_PRIORITY_OPTIONS.map((priority) => `<option value="${priority}" ${str(quest.priority) === priority ? "selected" : ""}>${priority}</option>`).join("")}
+          </select>
+        </label>
+        <label>Chapter / Arc
+          <input data-collection="quests" data-id="${quest.id}" data-field="chapter" value="${escapeHtml(quest.chapter || "")}" />
+        </label>
+        <label>Hex
+          <input data-collection="quests" data-id="${quest.id}" data-field="hex" value="${escapeHtml(quest.hex || "")}" />
+        </label>
+        <label>Linked Companion
+          <input data-collection="quests" data-id="${quest.id}" data-field="linkedCompanion" value="${escapeHtml(quest.linkedCompanion || "")}" />
+        </label>
+      </div>
       <label>Objective
         <textarea data-collection="quests" data-id="${quest.id}" data-field="objective">${escapeHtml(quest.objective || "")}</textarea>
+      </label>
+      <label>Next Beat
+        <textarea data-collection="quests" data-id="${quest.id}" data-field="nextBeat">${escapeHtml(quest.nextBeat || "")}</textarea>
       </label>
       <div class="toolbar">
         <button class="btn btn-danger" data-action="delete" data-collection="quests" data-id="${quest.id}">Delete Quest</button>
@@ -2954,9 +4437,9 @@ function normalizeKingdomCreationState(input) {
 
 function createStarterHexMapState() {
   return {
-    mapName: "Stolen Lands Hex Planner",
-    columns: 10,
-    rows: 8,
+    mapName: "Stolen Lands Atlas",
+    columns: 20,
+    rows: 16,
     hexSize: 54,
     zoom: 1,
     panX: 0,
@@ -2976,7 +4459,7 @@ function createStarterHexMapState() {
     partyMoveMode: false,
     party: {
       hex: "",
-      label: "Party",
+      label: "Charter Party",
       notes: "",
       updatedAt: "",
       trail: [],
@@ -3437,6 +4920,24 @@ function getHexLinkedLocations(hex) {
   return (state.locations || []).filter((location) => normalizeHexCoordinate(location.hex) === clean);
 }
 
+function getHexLinkedQuests(hex) {
+  const clean = normalizeHexCoordinate(hex);
+  if (!clean) return [];
+  return (state.quests || []).filter((quest) => normalizeHexCoordinate(quest.hex) === clean);
+}
+
+function getHexLinkedEvents(hex) {
+  const clean = normalizeHexCoordinate(hex);
+  if (!clean) return [];
+  return (state.events || []).filter((eventItem) => normalizeHexCoordinate(eventItem.hex) === clean);
+}
+
+function getHexLinkedCompanions(hex) {
+  const clean = normalizeHexCoordinate(hex);
+  if (!clean) return [];
+  return (state.companions || []).filter((companion) => normalizeHexCoordinate(companion.currentHex) === clean);
+}
+
 function normalizeKingdomCreationChoice(section, value) {
   const clean = str(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
   if (!clean) return "";
@@ -3553,6 +5054,305 @@ function getLeaderLeadershipBonus(leader) {
 function formatSignedNumber(value) {
   const number = Number.parseInt(String(value || "0"), 10) || 0;
   return number >= 0 ? `+${number}` : String(number);
+}
+
+function isGregorianLeapYear(year) {
+  const normalizedYear = Number.parseInt(String(year || "0"), 10);
+  if (!Number.isFinite(normalizedYear)) return false;
+  return normalizedYear % 400 === 0 || (normalizedYear % 4 === 0 && normalizedYear % 100 !== 0);
+}
+
+function getGolarionMonthData(month, year) {
+  const monthIndex = Math.max(1, Math.min(12, Number.parseInt(String(month || "1"), 10) || 1)) - 1;
+  const base = GOLARION_MONTHS[monthIndex] || GOLARION_MONTHS[0];
+  if (monthIndex === 1 && isGregorianLeapYear(year)) {
+    return { ...base, days: 29 };
+  }
+  return base;
+}
+
+function buildGolarionIsoDate(year, month, day) {
+  const safeYear = Math.max(1, Number.parseInt(String(year || "1"), 10) || 1);
+  const safeMonth = Math.max(1, Math.min(12, Number.parseInt(String(month || "1"), 10) || 1));
+  const safeDay = Math.max(1, Math.min(getGolarionMonthData(safeMonth, safeYear).days, Number.parseInt(String(day || "1"), 10) || 1));
+  return `${String(safeYear).padStart(4, "0")}-${String(safeMonth).padStart(2, "0")}-${String(safeDay).padStart(2, "0")}`;
+}
+
+function parseGolarionDate(value) {
+  const clean = str(value);
+  if (!clean) return null;
+
+  let match = clean.match(/^(\d{4,})-(\d{1,2})-(\d{1,2})$/);
+  if (match) {
+    const year = Number.parseInt(match[1], 10);
+    const month = Number.parseInt(match[2], 10);
+    const day = Number.parseInt(match[3], 10);
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day) || month < 1 || month > 12) return null;
+    if (day < 1 || day > getGolarionMonthData(month, year).days) return null;
+    return { year, month, day };
+  }
+
+  match = clean.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4,})(?:\s*AR)?$/i);
+  if (match) {
+    const day = Number.parseInt(match[1], 10);
+    const monthIndex = GOLARION_MONTHS.findIndex((entry) => entry.name.toLowerCase() === String(match[2]).toLowerCase());
+    const year = Number.parseInt(match[3], 10);
+    if (monthIndex < 0 || !Number.isFinite(day) || !Number.isFinite(year)) return null;
+    const month = monthIndex + 1;
+    if (day < 1 || day > getGolarionMonthData(month, year).days) return null;
+    return { year, month, day };
+  }
+
+  return null;
+}
+
+function normalizeKingdomDate(value, fallback = KINGMAKER_DEFAULT_START_DATE) {
+  const parsed = parseGolarionDate(value) || parseGolarionDate(fallback) || parseGolarionDate(KINGMAKER_DEFAULT_START_DATE);
+  if (!parsed) return KINGMAKER_DEFAULT_START_DATE;
+  return buildGolarionIsoDate(parsed.year, parsed.month, parsed.day);
+}
+
+function getGolarionWeekdayName(value) {
+  const parsed = parseGolarionDate(value);
+  if (!parsed) return "";
+  const jsDate = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day));
+  if (Number.isNaN(jsDate.getTime())) return "";
+  return GOLARION_WEEKDAYS[jsDate.getUTCDay()] || "";
+}
+
+function formatGolarionDate(value, options = {}) {
+  const parsed = parseGolarionDate(value);
+  if (!parsed) return options.fallback || "No date set";
+  const month = getGolarionMonthData(parsed.month, parsed.year);
+  const weekday = options.includeWeekday ? getGolarionWeekdayName(value) : "";
+  const suffix = options.includeYear === false ? "" : ` ${parsed.year} AR`;
+  const core = `${parsed.day} ${month.name}${suffix}`;
+  return weekday ? `${weekday}, ${core}` : core;
+}
+
+function getGolarionMonthYearLabel(value) {
+  const parsed = parseGolarionDate(value);
+  if (!parsed) return "Unknown month";
+  return `${getGolarionMonthData(parsed.month, parsed.year).name} ${parsed.year} AR`;
+}
+
+function diffGolarionDates(startValue, endValue) {
+  const start = parseGolarionDate(startValue);
+  const end = parseGolarionDate(endValue);
+  if (!start || !end) return 0;
+  const startMs = Date.UTC(start.year, start.month - 1, start.day);
+  const endMs = Date.UTC(end.year, end.month - 1, end.day);
+  return Math.round((endMs - startMs) / 86400000);
+}
+
+function addDaysToGolarionDate(value, deltaDays) {
+  const parsed = parseGolarionDate(value) || parseGolarionDate(KINGMAKER_DEFAULT_START_DATE);
+  const amount = Number.parseInt(String(deltaDays || "0"), 10) || 0;
+  if (!parsed || amount === 0) return normalizeKingdomDate(value || KINGMAKER_DEFAULT_START_DATE);
+  const jsDate = new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day));
+  jsDate.setUTCDate(jsDate.getUTCDate() + amount);
+  return buildGolarionIsoDate(jsDate.getUTCFullYear(), jsDate.getUTCMonth() + 1, jsDate.getUTCDate());
+}
+
+function buildKingdomCalendarEntrySummary(entry) {
+  const startDate = normalizeKingdomDate(entry?.startDate || entry?.date || KINGMAKER_DEFAULT_START_DATE);
+  const endDate = normalizeKingdomDate(entry?.endDate || entry?.date || startDate);
+  const daysAdvanced = Math.abs(coerceInteger(entry?.daysAdvanced, diffGolarionDates(startDate, endDate)));
+  const label = str(entry?.label);
+  const rangeLabel = startDate === endDate
+    ? formatGolarionDate(endDate)
+    : `${formatGolarionDate(startDate, { includeYear: false })} -> ${formatGolarionDate(endDate)}`;
+  return `${rangeLabel}${daysAdvanced > 1 ? ` (${daysAdvanced} days)` : ""}${label ? ` • ${label}` : ""}`;
+}
+
+function normalizeKingdomCalendarEntry(rawEntry = {}) {
+  const endDate = normalizeKingdomDate(rawEntry?.endDate || rawEntry?.date || KINGMAKER_DEFAULT_START_DATE);
+  const startDate = normalizeKingdomDate(rawEntry?.startDate || endDate);
+  const diff = Math.abs(diffGolarionDates(startDate, endDate));
+  const daysAdvanced = Math.max(0, coerceInteger(rawEntry?.daysAdvanced, diff) || 0);
+  return {
+    id: str(rawEntry?.id) || uid(),
+    startDate,
+    endDate,
+    date: endDate,
+    daysAdvanced,
+    label: str(rawEntry?.label),
+    notes: str(rawEntry?.notes),
+    source: str(rawEntry?.source || "manual"),
+    createdAt: str(rawEntry?.createdAt || rawEntry?.at) || new Date().toISOString(),
+  };
+}
+
+function buildKingdomCalendarMonthMatrix(value) {
+  const parsed = parseGolarionDate(value) || parseGolarionDate(KINGMAKER_DEFAULT_START_DATE);
+  if (!parsed) return [];
+  const daysInMonth = getGolarionMonthData(parsed.month, parsed.year).days;
+  const firstDay = new Date(Date.UTC(parsed.year, parsed.month - 1, 1));
+  const offset = (firstDay.getUTCDay() + 6) % 7;
+  const cells = [];
+  for (let index = 0; index < offset; index += 1) cells.push(null);
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    cells.push({
+      day,
+      isoDate: buildGolarionIsoDate(parsed.year, parsed.month, day),
+    });
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks = [];
+  for (let index = 0; index < cells.length; index += 7) {
+    weeks.push(cells.slice(index, index + 7));
+  }
+  return weeks;
+}
+
+function createEmptyEventImpactFields() {
+  return {
+    rpImpact: 0,
+    unrestImpact: 0,
+    renownImpact: 0,
+    fameImpact: 0,
+    infamyImpact: 0,
+    foodImpact: 0,
+    lumberImpact: 0,
+    luxuriesImpact: 0,
+    oreImpact: 0,
+    stoneImpact: 0,
+    corruptionImpact: 0,
+    crimeImpact: 0,
+    decayImpact: 0,
+    strifeImpact: 0,
+  };
+}
+
+function coerceInteger(value, fallback = 0) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeEventAdvanceMode(value) {
+  const clean = str(value).toLowerCase();
+  return EVENT_ADVANCE_OPTIONS.includes(clean) ? clean : "manual";
+}
+
+function normalizeEventImpactScope(value) {
+  const clean = str(value).toLowerCase();
+  return EVENT_IMPACT_SCOPE_OPTIONS.includes(clean) ? clean : "none";
+}
+
+function buildEventImpactSnapshot(input = {}) {
+  const source = input && typeof input === "object" ? input : {};
+  const base = createEmptyEventImpactFields();
+  const out = {};
+  for (const key of Object.keys(base)) {
+    out[key] = coerceInteger(source[key], 0);
+  }
+  return out;
+}
+
+function hasEventImpact(eventItem) {
+  return Object.values(buildEventImpactSnapshot(eventItem)).some((value) => Number(value || 0) !== 0);
+}
+
+function getEventClockMax(eventItem) {
+  return Math.max(1, coerceInteger(eventItem?.clockMax, 4) || 4);
+}
+
+function getEventClockValue(eventItem) {
+  return Math.max(0, Math.min(getEventClockMax(eventItem), coerceInteger(eventItem?.clock, 0) || 0));
+}
+
+function getEventAdvancePerTurn(eventItem) {
+  return Math.max(0, coerceInteger(eventItem?.advancePerTurn, 1) || 0);
+}
+
+function getEventTurnsToConsequence(eventItem) {
+  const step = getEventAdvancePerTurn(eventItem);
+  if (normalizeEventAdvanceMode(eventItem?.advanceOn) !== "turn" || step <= 0) return null;
+  const remaining = Math.max(0, getEventClockMax(eventItem) - getEventClockValue(eventItem));
+  return Math.ceil(remaining / step);
+}
+
+function formatEventClockSummary(eventItem) {
+  return `${getEventClockValue(eventItem)}/${getEventClockMax(eventItem)}`;
+}
+
+function normalizeEventRecord(rawItem = {}) {
+  const status = EVENT_STATUS_OPTIONS.includes(str(rawItem?.status)) ? str(rawItem.status) : "seeded";
+  const category = EVENT_CATEGORY_OPTIONS.includes(str(rawItem?.category)) ? str(rawItem.category) : "story";
+  const hex = normalizeHexCoordinate(rawItem?.hex) || str(rawItem?.hex);
+  const baseAdvanceOn = status === "active" || status === "escalated" || category === "kingdom" ? "turn" : "manual";
+  const advanceOn = normalizeEventAdvanceMode(rawItem?.advanceOn || rawItem?.advanceMode || baseAdvanceOn);
+  const baseImpactScope = category === "kingdom" ? "always" : hex ? "claimed-hex" : "none";
+  const out = {
+    ...rawItem,
+    ...buildEventImpactSnapshot(rawItem),
+    id: str(rawItem?.id) || uid(),
+    title: str(rawItem?.title),
+    category,
+    status,
+    urgency: Math.max(1, Math.min(5, coerceInteger(rawItem?.urgency, 3) || 3)),
+    hex,
+    linkedQuest: str(rawItem?.linkedQuest),
+    linkedCompanion: str(rawItem?.linkedCompanion),
+    trigger: str(rawItem?.trigger),
+    fallout: str(rawItem?.fallout),
+    consequenceSummary: str(rawItem?.consequenceSummary || rawItem?.fallout),
+    notes: str(rawItem?.notes),
+    folder: normalizeWorldFolderName(rawItem?.folder),
+    clock: Math.max(0, coerceInteger(rawItem?.clock, 0) || 0),
+    clockMax: Math.max(1, coerceInteger(rawItem?.clockMax, 4) || 4),
+    advancePerTurn: Math.max(0, coerceInteger(rawItem?.advancePerTurn, 1) || 0),
+    advanceOn,
+    impactScope: normalizeEventImpactScope(rawItem?.impactScope || baseImpactScope),
+    lastTriggeredAt: str(rawItem?.lastTriggeredAt),
+    lastTriggeredTurn: str(rawItem?.lastTriggeredTurn),
+    resolvedAt: str(rawItem?.resolvedAt),
+    createdAt: str(rawItem?.createdAt) || new Date().toISOString(),
+    updatedAt: str(rawItem?.updatedAt || rawItem?.createdAt) || new Date().toISOString(),
+  };
+  out.clock = Math.min(out.clock, out.clockMax);
+  return out;
+}
+
+function normalizeKingdomEventHistoryEntry(rawEntry = {}) {
+  return {
+    id: str(rawEntry?.id) || uid(),
+    eventId: str(rawEntry?.eventId),
+    eventTitle: str(rawEntry?.eventTitle || "Kingdom Event"),
+    type: str(rawEntry?.type || "note"),
+    turnTitle: str(rawEntry?.turnTitle),
+    hex: normalizeHexCoordinate(rawEntry?.hex) || str(rawEntry?.hex),
+    summary: str(rawEntry?.summary),
+    clockBefore: Math.max(0, coerceInteger(rawEntry?.clockBefore, 0) || 0),
+    clockAfter: Math.max(0, coerceInteger(rawEntry?.clockAfter, 0) || 0),
+    impactApplied: rawEntry?.impactApplied === true,
+    impacts: buildEventImpactSnapshot(rawEntry?.impacts),
+    at: str(rawEntry?.at) || new Date().toISOString(),
+  };
+}
+
+function describeEventImpactSummary(impacts = {}) {
+  const values = buildEventImpactSnapshot(impacts);
+  const labels = [
+    ["rpImpact", "RP"],
+    ["unrestImpact", "Unrest"],
+    ["renownImpact", "Renown"],
+    ["fameImpact", "Fame"],
+    ["infamyImpact", "Infamy"],
+    ["foodImpact", "Food"],
+    ["lumberImpact", "Lumber"],
+    ["luxuriesImpact", "Luxuries"],
+    ["oreImpact", "Ore"],
+    ["stoneImpact", "Stone"],
+    ["corruptionImpact", "Corruption"],
+    ["crimeImpact", "Crime"],
+    ["decayImpact", "Decay"],
+    ["strifeImpact", "Strife"],
+  ];
+  return labels
+    .filter(([key]) => Number(values[key] || 0) !== 0)
+    .map(([key, label]) => `${label} ${formatSignedNumber(values[key])}`)
+    .join(" • ");
 }
 
 function getBestLeaderForKingdomSkill(kingdom, skillName) {
@@ -3757,13 +5557,15 @@ function createStarterKingdomState() {
   const profile = getKingdomProfileById(getDefaultKingdomProfileId());
   const kingdom = {
     profileId: profile?.id || getDefaultKingdomProfileId(),
-    name: "Stolen Lands Charter",
+    name: "Stolen Lands Expedition",
     charter: "Open charter",
     government: "Council",
     heartland: "Grassland",
-    capital: "TBD",
+    capital: "Not Founded Yet",
     currentTurnLabel: "Turn 1",
-    currentDate: "",
+    currentDate: KINGMAKER_DEFAULT_START_DATE,
+    calendarStartDate: KINGMAKER_DEFAULT_START_DATE,
+    calendarAnchorLabel: KINGMAKER_DEFAULT_START_LABEL,
     level: 1,
     size: 1,
     controlDC: getControlDcForLevel(profile, 1),
@@ -3798,35 +5600,35 @@ function createStarterKingdomState() {
       strife: 0,
       threshold: 5
     },
-    notes: "Track capital growth, local influence, and construction queue here.",
+    notes: "Track charter progress, capital planning, settlements, and construction priorities here.",
     leaders: [
       {
         id: uid(),
         role: "Ruler",
-        name: "Unassigned",
+        name: "Choose the party ruler",
         type: "PC",
         leadershipBonus: 1,
         relevantSkills: "Diplomacy, Politics Lore",
         specializedSkills: "Industry, Politics, Statecraft",
-        notes: "Set once the party chooses invested roles."
+        notes: "Assign once the table decides who speaks for the charter."
       }
     ],
     settlements: [
       {
         id: uid(),
-        name: "Capital Site",
+        name: "Future Capital Site",
         size: "Village",
         influence: 1,
         civicStructure: "Town Hall",
         resourceDice: 0,
         consumption: 0,
-        notes: "First permanent seat of government."
+        notes: "Upgrade this entry once the party chooses and founds the capital."
       }
     ],
     regions: [
       {
         id: uid(),
-        hex: "A1",
+        hex: "D4",
         status: "Claimed",
         terrain: "Plains",
         workSite: "",
@@ -3834,10 +5636,24 @@ function createStarterKingdomState() {
       }
     ],
     turns: [],
+    eventHistory: [],
+    calendarHistory: [
+      {
+        id: uid(),
+        startDate: KINGMAKER_DEFAULT_START_DATE,
+        endDate: KINGMAKER_DEFAULT_START_DATE,
+        date: KINGMAKER_DEFAULT_START_DATE,
+        daysAdvanced: 0,
+        label: KINGMAKER_DEFAULT_START_LABEL,
+        notes: "Lady Jamandi Aldori issues the expedition charter and sends the party toward Oleg's Trading Post.",
+        source: "campaign-start",
+        createdAt: new Date().toISOString(),
+      },
+    ],
     pendingProjects: [
       "Choose all eight leadership roles.",
-      "Settle final charter / government / heartland choices in the sheet.",
-      "Create the first real settlement record once the capital is founded."
+      "Lock the charter, government, and heartland choices after the table agrees on the kingdom build.",
+      "Replace the placeholder capital record once the first settlement is founded."
     ]
   };
   applyKingdomCreationChoicesToState(kingdom, profile);
@@ -3857,7 +5673,9 @@ function normalizeKingdomState(input) {
   out.heartland = str(out.heartland);
   out.capital = str(out.capital);
   out.currentTurnLabel = str(out.currentTurnLabel) || "Turn 1";
-  out.currentDate = str(out.currentDate);
+  out.calendarStartDate = normalizeKingdomDate(out.calendarStartDate || out.currentDate || base.calendarStartDate, base.calendarStartDate);
+  out.currentDate = normalizeKingdomDate(out.currentDate || out.calendarStartDate, out.calendarStartDate);
+  out.calendarAnchorLabel = str(out.calendarAnchorLabel) || base.calendarAnchorLabel;
   out.level = Math.max(1, Number.parseInt(String(out.level || "1"), 10) || 1);
   out.size = Math.max(1, Number.parseInt(String(out.size || "1"), 10) || 1);
   out.controlDC = Math.max(10, Number.parseInt(String(out.controlDC || getControlDcForLevel(getKingdomProfileById(out.profileId), out.level)), 10) || 14);
@@ -3901,6 +5719,28 @@ function normalizeKingdomState(input) {
     threshold: Math.max(1, Number.parseInt(String(out?.ruin?.threshold || "5"), 10) || 5)
   };
   out.notes = str(out.notes);
+  out.eventHistory = Array.isArray(out.eventHistory)
+    ? out.eventHistory.map((entry) => normalizeKingdomEventHistoryEntry(entry)).sort((a, b) => safeDate(b.at) - safeDate(a.at))
+    : [];
+  out.calendarHistory = Array.isArray(out.calendarHistory)
+    ? out.calendarHistory
+        .map((entry) => normalizeKingdomCalendarEntry(entry))
+        .sort((a, b) => safeDate(b.createdAt || b.date) - safeDate(a.createdAt || a.date))
+        .slice(0, 240)
+    : [];
+  if (!out.calendarHistory.length) {
+    out.calendarHistory = [
+      normalizeKingdomCalendarEntry({
+        startDate: out.calendarStartDate,
+        endDate: out.calendarStartDate,
+        date: out.calendarStartDate,
+        daysAdvanced: 0,
+        label: out.calendarAnchorLabel,
+        notes: "Calendar anchor created from the current kingdom date.",
+        source: "campaign-start",
+      }),
+    ];
+  }
   out.pendingProjects = Array.isArray(out.pendingProjects) ? out.pendingProjects.map((entry) => str(entry)).filter(Boolean) : [];
   out.leaders = Array.isArray(out.leaders) ? out.leaders.map((leader) => ({ ...leader, id: str(leader?.id) || uid(), updatedAt: str(leader?.updatedAt) || "" })) : [];
   out.settlements = Array.isArray(out.settlements)
@@ -3933,6 +5773,8 @@ function buildKingdomAiContext(kingdom, profile) {
     name: data.name,
     currentTurnLabel: data.currentTurnLabel,
     currentDate: data.currentDate,
+    calendarStartDate: data.calendarStartDate,
+    calendarAnchorLabel: data.calendarAnchorLabel,
     level: data.level,
     size: data.size,
     controlDC: data.controlDC,
@@ -3964,6 +5806,8 @@ function buildKingdomAiContext(kingdom, profile) {
     settlements: (data.settlements || []).slice(0, 8),
     regions: (data.regions || []).slice(0, 10),
     recentTurns: (data.turns || []).slice(0, 6),
+    recentEventHistory: (data.eventHistory || []).slice(0, 8),
+    recentCalendarHistory: (data.calendarHistory || []).slice(0, 10),
     rulesProfile: {
       id: rulesProfile?.id || "",
       label: rulesProfile?.label || "",
@@ -3972,6 +5816,277 @@ function buildKingdomAiContext(kingdom, profile) {
       aiSummary: [...(rulesProfile?.aiContextSummary || [])].slice(0, 8)
     }
   };
+}
+
+function getKingdomCalendarHistory() {
+  const kingdom = getKingdomState();
+  if (!Array.isArray(kingdom.calendarHistory)) {
+    kingdom.calendarHistory = [];
+  }
+  return kingdom.calendarHistory;
+}
+
+function recordKingdomCalendarEntry(entry = {}) {
+  const kingdom = getKingdomState();
+  const history = getKingdomCalendarHistory();
+  history.unshift(normalizeKingdomCalendarEntry(entry));
+  kingdom.calendarHistory = history.slice(0, 240);
+  return kingdom.calendarHistory[0];
+}
+
+function advanceKingdomCalendar(days, label = "", notes = "", source = "manual") {
+  const amount = Math.max(1, coerceInteger(days, 1) || 1);
+  const kingdom = getKingdomState();
+  const startDate = normalizeKingdomDate(kingdom.currentDate || kingdom.calendarStartDate || KINGMAKER_DEFAULT_START_DATE);
+  const endDate = addDaysToGolarionDate(startDate, amount);
+  kingdom.currentDate = endDate;
+  const entryLabel = str(label) || (amount === 1 ? "Advance 1 day" : `Advance ${amount} days`);
+  const entry = recordKingdomCalendarEntry({
+    startDate,
+    endDate,
+    date: endDate,
+    daysAdvanced: amount,
+    label: entryLabel,
+    notes,
+    source,
+  });
+  return {
+    startDate,
+    endDate,
+    daysAdvanced: amount,
+    entry,
+  };
+}
+
+function setKingdomCalendarDate(nextDate, label = "", notes = "", source = "manual-set") {
+  const kingdom = getKingdomState();
+  const startDate = normalizeKingdomDate(kingdom.currentDate || kingdom.calendarStartDate || KINGMAKER_DEFAULT_START_DATE);
+  const endDate = normalizeKingdomDate(nextDate || startDate, startDate);
+  kingdom.currentDate = endDate;
+  const entry = recordKingdomCalendarEntry({
+    startDate,
+    endDate,
+    date: endDate,
+    daysAdvanced: Math.abs(diffGolarionDates(startDate, endDate)),
+    label: str(label) || "Calendar date adjusted",
+    notes,
+    source,
+  });
+  return {
+    startDate,
+    endDate,
+    entry,
+  };
+}
+
+function getKingdomEventHistory() {
+  const kingdom = getKingdomState();
+  if (!Array.isArray(kingdom.eventHistory)) {
+    kingdom.eventHistory = [];
+  }
+  return kingdom.eventHistory;
+}
+
+function getKingdomEventHistoryForEvent(eventId, limit = 12) {
+  const targetId = str(eventId);
+  if (!targetId) return [];
+  return getKingdomEventHistory()
+    .filter((entry) => str(entry.eventId) === targetId)
+    .sort((a, b) => safeDate(b.at) - safeDate(a.at))
+    .slice(0, Math.max(1, Number.parseInt(String(limit || "12"), 10) || 12));
+}
+
+function isKingdomImpactHex(hex) {
+  const region = getKingdomRegionByHex(hex);
+  if (!region) return false;
+  return ["claimed", "work site", "settlement", "contested"].includes(str(region.status).toLowerCase());
+}
+
+function shouldApplyEventImpact(eventItem) {
+  const scope = normalizeEventImpactScope(eventItem?.impactScope);
+  if (scope === "none") return false;
+  if (scope === "always") return true;
+  if (scope === "claimed-hex") return isKingdomImpactHex(eventItem?.hex);
+  return false;
+}
+
+function recordKingdomEventHistory(entry = {}) {
+  const kingdom = getKingdomState();
+  const history = getKingdomEventHistory();
+  const normalized = normalizeKingdomEventHistoryEntry(entry);
+  history.unshift(normalized);
+  kingdom.eventHistory = history
+    .sort((a, b) => safeDate(b.at) - safeDate(a.at))
+    .slice(0, 160);
+  return normalized;
+}
+
+function appendKingdomEventNoteToHex(eventItem, summary, turnTitle = "") {
+  const cleanHex = normalizeHexCoordinate(eventItem?.hex);
+  if (!cleanHex) return false;
+  const region = getKingdomRegionByHex(cleanHex);
+  if (!region) return false;
+  const stamp = turnTitle || getKingdomState().currentTurnLabel || new Date().toLocaleString();
+  const block = `[Event ${stamp}] ${str(eventItem?.title || "Kingdom Event")}: ${str(summary)}`.trim();
+  region.notes = region.notes ? `${region.notes}\n\n${block}`.trim() : block;
+  region.updatedAt = new Date().toISOString();
+  return true;
+}
+
+function applyEventImpactToKingdom(eventItem) {
+  const kingdom = getKingdomState();
+  const impacts = buildEventImpactSnapshot(eventItem);
+  kingdom.resourcePoints += impacts.rpImpact;
+  kingdom.unrest = Math.max(0, kingdom.unrest + impacts.unrestImpact);
+  kingdom.renown = Math.max(0, kingdom.renown + impacts.renownImpact);
+  kingdom.fame = Math.max(0, kingdom.fame + impacts.fameImpact);
+  kingdom.infamy = Math.max(0, kingdom.infamy + impacts.infamyImpact);
+  kingdom.commodities.food = Math.max(0, kingdom.commodities.food + impacts.foodImpact);
+  kingdom.commodities.lumber = Math.max(0, kingdom.commodities.lumber + impacts.lumberImpact);
+  kingdom.commodities.luxuries = Math.max(0, kingdom.commodities.luxuries + impacts.luxuriesImpact);
+  kingdom.commodities.ore = Math.max(0, kingdom.commodities.ore + impacts.oreImpact);
+  kingdom.commodities.stone = Math.max(0, kingdom.commodities.stone + impacts.stoneImpact);
+  kingdom.ruin.corruption = Math.max(0, kingdom.ruin.corruption + impacts.corruptionImpact);
+  kingdom.ruin.crime = Math.max(0, kingdom.ruin.crime + impacts.crimeImpact);
+  kingdom.ruin.decay = Math.max(0, kingdom.ruin.decay + impacts.decayImpact);
+  kingdom.ruin.strife = Math.max(0, kingdom.ruin.strife + impacts.strifeImpact);
+  return impacts;
+}
+
+function adjustEventClock(eventItem, amount, options = {}) {
+  if (!eventItem || typeof eventItem !== "object") return { changed: false };
+  const before = getEventClockValue(eventItem);
+  const after = Math.max(0, Math.min(getEventClockMax(eventItem), before + coerceInteger(amount, 0)));
+  if (after === before) return { changed: false, before, after };
+  eventItem.clock = after;
+  if (!["resolved", "failed"].includes(str(eventItem.status).toLowerCase()) && after > 0 && str(eventItem.status).toLowerCase() === "seeded") {
+    eventItem.status = "active";
+  }
+  eventItem.updatedAt = new Date().toISOString();
+  recordKingdomEventHistory({
+    eventId: eventItem.id,
+    eventTitle: eventItem.title,
+    type: str(options.type || (amount >= 0 ? "manual-advance" : "manual-rewind")),
+    turnTitle: str(options.turnTitle),
+    hex: eventItem.hex,
+    summary: str(options.summary || `${eventItem.title || "Event"} clock ${before}/${getEventClockMax(eventItem)} -> ${after}/${getEventClockMax(eventItem)}.`),
+    clockBefore: before,
+    clockAfter: after,
+    at: new Date().toISOString(),
+  });
+  return { changed: true, before, after };
+}
+
+function triggerKingdomEventConsequence(eventItem, options = {}) {
+  if (!eventItem || typeof eventItem !== "object") return { triggered: false };
+  const kingdom = getKingdomState();
+  const before = getEventClockValue(eventItem);
+  const after = getEventClockMax(eventItem);
+  eventItem.clock = after;
+  eventItem.status = "escalated";
+  eventItem.lastTriggeredAt = new Date().toISOString();
+  eventItem.lastTriggeredTurn = str(options.turnTitle || kingdom.currentTurnLabel);
+  eventItem.updatedAt = new Date().toISOString();
+  const impacts = buildEventImpactSnapshot(eventItem);
+  const impactEligible = shouldApplyEventImpact(eventItem);
+  const impactApplied = impactEligible && hasEventImpact(eventItem);
+  if (impactApplied) {
+    applyEventImpactToKingdom(eventItem);
+  }
+  const impactSummary = describeEventImpactSummary(impacts);
+  const baseSummary = str(options.summary || eventItem.consequenceSummary || eventItem.fallout || "Kingdom consequence triggered.");
+  const finalSummary = impactSummary
+    ? `${baseSummary} ${impactApplied ? `Applied: ${impactSummary}.` : `Held impact: ${impactSummary}.`}`.trim()
+    : baseSummary;
+  appendKingdomEventNoteToHex(eventItem, finalSummary, str(options.turnTitle || kingdom.currentTurnLabel));
+  recordKingdomEventHistory({
+    eventId: eventItem.id,
+    eventTitle: eventItem.title,
+    type: "consequence",
+    turnTitle: str(options.turnTitle || kingdom.currentTurnLabel),
+    hex: eventItem.hex,
+    summary: finalSummary,
+    clockBefore: before,
+    clockAfter: after,
+    impactApplied,
+    impacts,
+    at: eventItem.lastTriggeredAt,
+  });
+  return {
+    triggered: true,
+    impactApplied,
+    impactSummary,
+    summary: finalSummary,
+  };
+}
+
+function resolveKingdomEvent(eventItem, outcome = "resolved", summary = "") {
+  if (!eventItem || typeof eventItem !== "object") return { resolved: false };
+  const status = outcome === "failed" ? "failed" : "resolved";
+  const now = new Date().toISOString();
+  eventItem.status = status;
+  eventItem.resolvedAt = now;
+  eventItem.updatedAt = now;
+  const finalSummary = str(summary || (status === "resolved" ? "Event resolved by the kingdom." : "Event failed or broke against the kingdom."));
+  appendKingdomEventNoteToHex(eventItem, finalSummary, getKingdomState().currentTurnLabel);
+  recordKingdomEventHistory({
+    eventId: eventItem.id,
+    eventTitle: eventItem.title,
+    type: status,
+    turnTitle: getKingdomState().currentTurnLabel,
+    hex: eventItem.hex,
+    summary: finalSummary,
+    clockBefore: getEventClockValue(eventItem),
+    clockAfter: getEventClockValue(eventItem),
+    at: now,
+  });
+  return { resolved: true, status, summary: finalSummary };
+}
+
+function advanceKingdomEventsForTurn(turnTitle) {
+  const results = {
+    advanced: 0,
+    triggered: 0,
+    impactsApplied: 0,
+    impactsHeld: 0,
+    summaries: [],
+  };
+  for (const rawEvent of state.events || []) {
+    const eventItem = normalizeEventRecord(rawEvent);
+    Object.assign(rawEvent, eventItem);
+    if (str(rawEvent.status).toLowerCase() !== "active") continue;
+    if (normalizeEventAdvanceMode(rawEvent.advanceOn) !== "turn") continue;
+    const step = getEventAdvancePerTurn(rawEvent);
+    if (step <= 0) continue;
+    const before = getEventClockValue(rawEvent);
+    if (before >= getEventClockMax(rawEvent) && !str(rawEvent.lastTriggeredAt)) {
+      const consequence = triggerKingdomEventConsequence(rawEvent, { turnTitle });
+      if (consequence.triggered) {
+        results.triggered += 1;
+        if (consequence.impactApplied) results.impactsApplied += 1;
+        else if (hasEventImpact(rawEvent)) results.impactsHeld += 1;
+        results.summaries.push(`${rawEvent.title || "Untitled Event"} triggered: ${consequence.summary}`);
+      }
+      continue;
+    }
+    const adjustment = adjustEventClock(rawEvent, step, {
+      type: "turn-advance",
+      turnTitle,
+      summary: `${rawEvent.title || "Event"} advanced during ${turnTitle}: ${before}/${getEventClockMax(rawEvent)} -> ${Math.min(getEventClockMax(rawEvent), before + step)}/${getEventClockMax(rawEvent)}.`,
+    });
+    if (!adjustment.changed) continue;
+    results.advanced += 1;
+    if (adjustment.after >= getEventClockMax(rawEvent) && adjustment.before < getEventClockMax(rawEvent)) {
+      const consequence = triggerKingdomEventConsequence(rawEvent, { turnTitle });
+      if (consequence.triggered) {
+        results.triggered += 1;
+        if (consequence.impactApplied) results.impactsApplied += 1;
+        else if (hasEventImpact(rawEvent)) results.impactsHeld += 1;
+        results.summaries.push(`${rawEvent.title || "Untitled Event"} triggered: ${consequence.summary}`);
+      }
+    }
+  }
+  return results;
 }
 
 function applyKingdomOverviewForm(fields) {
@@ -3985,7 +6100,7 @@ function applyKingdomOverviewForm(fields) {
   kingdom.heartland = str(fields.heartland);
   kingdom.capital = str(fields.capital);
   kingdom.currentTurnLabel = str(fields.currentTurnLabel) || kingdom.currentTurnLabel;
-  kingdom.currentDate = str(fields.currentDate);
+  kingdom.currentDate = normalizeKingdomDate(str(fields.currentDate) || kingdom.currentDate, kingdom.currentDate || kingdom.calendarStartDate);
   kingdom.level = Math.max(1, Number.parseInt(String(fields.level || kingdom.level || "1"), 10) || 1);
   kingdom.size = Math.max(1, Number.parseInt(String(fields.size || kingdom.size || "1"), 10) || 1);
   kingdom.creation = normalizeKingdomCreationState({
@@ -4089,6 +6204,9 @@ function createKingdomRegion(fields) {
     status: str(fields.status) || "Claimed",
     terrain: str(fields.terrain),
     workSite: str(fields.workSite),
+    discovery: str(fields.discovery),
+    danger: str(fields.danger),
+    improvement: str(fields.improvement),
     notes: str(fields.notes),
     updatedAt: new Date().toISOString()
   });
@@ -4151,6 +6269,9 @@ function upsertHexMapRegion(fields) {
     status: str(fields.status) || "Claimed",
     terrain: str(fields.terrain),
     workSite: str(fields.workSite),
+    discovery: str(fields.discovery),
+    danger: str(fields.danger),
+    improvement: str(fields.improvement),
     notes: str(fields.notes),
     updatedAt: new Date().toISOString(),
   };
@@ -4239,6 +6360,8 @@ function appendHexMapAiNote(text) {
 function applyKingdomTurnForm(fields) {
   const kingdom = getKingdomState();
   const title = str(fields.title) || `Turn ${kingdom.turns.length + 1}`;
+  const priorDate = normalizeKingdomDate(kingdom.currentDate || kingdom.calendarStartDate || KINGMAKER_DEFAULT_START_DATE);
+  const turnDate = normalizeKingdomDate(str(fields.date) || priorDate, priorDate);
   const rpDelta = Number.parseInt(String(fields.rpDelta || "0"), 10) || 0;
   const unrestDelta = Number.parseInt(String(fields.unrestDelta || "0"), 10) || 0;
   const renownDelta = Number.parseInt(String(fields.renownDelta || "0"), 10) || 0;
@@ -4254,7 +6377,18 @@ function applyKingdomTurnForm(fields) {
   const oreDelta = Number.parseInt(String(fields.oreDelta || "0"), 10) || 0;
   const stoneDelta = Number.parseInt(String(fields.stoneDelta || "0"), 10) || 0;
   kingdom.currentTurnLabel = title;
-  kingdom.currentDate = str(fields.date) || kingdom.currentDate;
+  kingdom.currentDate = turnDate;
+  if (turnDate !== priorDate) {
+    recordKingdomCalendarEntry({
+      startDate: priorDate,
+      endDate: turnDate,
+      date: turnDate,
+      daysAdvanced: Math.abs(diffGolarionDates(priorDate, turnDate)),
+      label: `${title} dated`,
+      notes: str(fields.summary),
+      source: "kingdom-turn",
+    });
+  }
   kingdom.resourcePoints += rpDelta;
   kingdom.unrest = Math.max(0, kingdom.unrest + unrestDelta);
   kingdom.renown = Math.max(0, kingdom.renown + renownDelta);
@@ -4269,10 +6403,12 @@ function applyKingdomTurnForm(fields) {
   kingdom.commodities.luxuries += luxuriesDelta;
   kingdom.commodities.ore += oreDelta;
   kingdom.commodities.stone += stoneDelta;
+  const eventResults = advanceKingdomEventsForTurn(title);
+  const eventSummary = eventResults.summaries.join(" | ");
   kingdom.turns.unshift({
     id: uid(),
     title,
-    date: str(fields.date),
+    date: turnDate,
     rpDelta,
     unrestDelta,
     renownDelta,
@@ -4280,6 +6416,7 @@ function applyKingdomTurnForm(fields) {
     infamyDelta,
     summary: str(fields.summary),
     risks: str(fields.risks),
+    eventSummary,
     updatedAt: new Date().toISOString()
   });
   const latest = getLatestSession();
@@ -4292,6 +6429,10 @@ function applyKingdomTurnForm(fields) {
     kingdom.pendingProjects.unshift(pending);
     kingdom.pendingProjects = [...new Set(kingdom.pendingProjects.map((entry) => str(entry)).filter(Boolean))].slice(0, 16);
   }
+  return {
+    title,
+    eventResults,
+  };
 }
 
 function appendKingdomAiNote(text) {
@@ -4329,6 +6470,7 @@ function renderKingdom() {
         <div class="kingdom-chip-row">
           <span class="chip">Version ${escapeHtml(str(profile?.version || "unknown"))}</span>
           <span class="chip">Turn ${escapeHtml(kingdom.currentTurnLabel || "Turn 1")}</span>
+          <span class="chip">${escapeHtml(formatGolarionDate(kingdom.currentDate, { includeWeekday: true }))}</span>
           <span class="chip">Control DC ${escapeHtml(String(kingdom.controlDC || 14))}</span>
           <span class="chip">Resource Die ${escapeHtml(kingdom.resourceDie || "d4")}</span>
           <span class="chip">Settlements ${escapeHtml(String(kingdom.settlements.length))}</span>
@@ -4349,6 +6491,8 @@ function renderKingdom() {
       </section>
 
       ${renderKingdomDerivedPanel(kingdom, profile, derived)}
+      ${renderKingdomSignalPanel()}
+      ${renderKingdomCalendarPanel()}
 
       <section class="panel step-card">
         <div class="step-head">
@@ -4394,7 +6538,7 @@ function renderKingdom() {
               <input name="currentTurnLabel" value="${escapeHtml(kingdom.currentTurnLabel || "")}" placeholder="Turn 3" />
             </label>
             <label>Current Date
-              <input name="currentDate" value="${escapeHtml(kingdom.currentDate || "")}" placeholder="4712-09-01" />
+              <input name="currentDate" value="${escapeHtml(kingdom.currentDate || "")}" placeholder="${escapeHtml(KINGMAKER_DEFAULT_START_DATE)}" />
             </label>
             <label>Level
               <input name="level" type="number" min="1" max="20" value="${escapeHtml(String(kingdom.level || 1))}" />
@@ -4507,7 +6651,7 @@ function renderKingdom() {
             <div class="row">
               <label>Role
                 <select name="role">
-                  ${["Ruler", "Counselor", "Emissary", "General", "Magister", "Treasurer", "Viceroy", "Warden"]
+                  ${KINGDOM_LEADERSHIP_ROLES
                     .map((role) => `<option value="${role}">${role}</option>`)
                     .join("")}
                 </select>
@@ -4607,6 +6751,17 @@ function renderKingdom() {
                 <input name="workSite" placeholder="Lumber Camp" />
               </label>
             </div>
+            <div class="row">
+              <label>Discovery
+                <input name="discovery" placeholder="Abandoned shrine / Troll spoor" />
+              </label>
+              <label>Danger
+                <input name="danger" placeholder="Low / Medium / High" />
+              </label>
+              <label>Improvement
+                <input name="improvement" placeholder="Road / farm / fort / none" />
+              </label>
+            </div>
             <label>Notes
               <textarea name="notes" placeholder="Terrain features, refuge, danger, or why this hex matters."></textarea>
             </label>
@@ -4621,14 +6776,14 @@ function renderKingdom() {
 
         <article class="panel">
           <h2>Run Kingdom Turn</h2>
-          <p class="small">Use the active rules profile to resolve the turn, then record the deltas here so the kingdom sheet stays current.</p>
+          <p class="small">Use the active rules profile to resolve the turn, then record the deltas here so the kingdom sheet stays current. Active turn-based event clocks also advance when you apply the turn.</p>
           <form data-form="kingdom-turn">
             <div class="row">
               <label>Turn Title
                 <input name="title" placeholder="Turn 4 - Harvest Preparations" />
               </label>
               <label>Date
-                <input name="date" placeholder="4712-11-01" />
+                <input name="date" value="${escapeHtml(kingdom.currentDate || "")}" placeholder="${escapeHtml(KINGMAKER_DEFAULT_START_DATE)}" />
               </label>
               <label>Pending Project
                 <input name="pendingProject" placeholder="Finish Town Hall foundation" />
@@ -4700,10 +6855,189 @@ function renderKingdom() {
 
       <section class="panel kingdom-guide-panel">
         <h2>Kingdom Guide</h2>
-        <p class="small">This guide is built from the active rules profile so Loremaster and the kingdom sheet stay aligned.</p>
+        <p class="small">This guide is built from the active rules profile so Companion AI and the kingdom sheet stay aligned.</p>
         ${renderKingdomGuide(profile, kingdom)}
       </section>
     </div>
+  `;
+}
+
+function renderEventDetails(eventItem) {
+  const folderOptions = renderWorldFolderOptions("events", eventItem.folder, true);
+  const history = getKingdomEventHistoryForEvent(eventItem.id, 8);
+  const impactSummary = describeEventImpactSummary(eventItem);
+  const turnsToConsequence = getEventTurnsToConsequence(eventItem);
+  const impactEligibility = shouldApplyEventImpact(eventItem)
+    ? eventItem.impactScope === "claimed-hex"
+      ? "Kingdom impact will apply when this event is tied to a claimed/work-site/settlement hex."
+      : "Kingdom impact will apply automatically when the consequence triggers."
+    : "Kingdom impact is currently disabled until you change the impact scope or claim the linked hex.";
+  return `
+    <article class="entry">
+      <div class="entry-head">
+        <span class="entry-title">${escapeHtml(eventItem.title || "Untitled Event")}</span>
+        <span class="entry-meta">${escapeHtml(eventItem.category || "story")} • ${escapeHtml(eventItem.status || "seeded")} • clock ${escapeHtml(
+          formatEventClockSummary(eventItem)
+        )}</span>
+      </div>
+      <div class="kingdom-chip-row">
+        <span class="chip">Urgency ${escapeHtml(String(eventItem.urgency ?? 3))}</span>
+        <span class="chip">Clock ${escapeHtml(formatEventClockSummary(eventItem))}</span>
+        <span class="chip">${escapeHtml(eventItem.advanceOn === "turn" ? `${eventItem.advancePerTurn || 0}/turn` : "manual advance")}</span>
+        <span class="chip">${escapeHtml(`Impact scope ${eventItem.impactScope || "none"}`)}</span>
+        <span class="chip">${escapeHtml(turnsToConsequence === null ? "No turn timer" : `${turnsToConsequence} turn(s) to consequence`)}</span>
+      </div>
+      <div class="row">
+        <label>Folder
+          <select data-collection="events" data-id="${eventItem.id}" data-field="folder">
+            ${folderOptions}
+          </select>
+        </label>
+        <label>Title
+          <input data-collection="events" data-id="${eventItem.id}" data-field="title" value="${escapeHtml(eventItem.title || "")}" />
+        </label>
+      </div>
+      <div class="row">
+        <label>Category
+          <select data-collection="events" data-id="${eventItem.id}" data-field="category">
+            ${EVENT_CATEGORY_OPTIONS.map((category) => `<option value="${category}" ${eventItem.category === category ? "selected" : ""}>${category}</option>`).join("")}
+          </select>
+        </label>
+        <label>Status
+          <select data-collection="events" data-id="${eventItem.id}" data-field="status">
+            ${EVENT_STATUS_OPTIONS.map((status) => `<option value="${status}" ${eventItem.status === status ? "selected" : ""}>${status}</option>`).join("")}
+          </select>
+        </label>
+        <label>Urgency
+          <input data-collection="events" data-id="${eventItem.id}" data-field="urgency" type="number" min="1" max="5" value="${escapeHtml(String(eventItem.urgency ?? 3))}" />
+        </label>
+        <label>Hex
+          <input data-collection="events" data-id="${eventItem.id}" data-field="hex" value="${escapeHtml(eventItem.hex || "")}" />
+        </label>
+      </div>
+      <div class="row">
+        <label>Clock
+          <input data-collection="events" data-id="${eventItem.id}" data-field="clock" type="number" min="0" value="${escapeHtml(String(eventItem.clock ?? 0))}" />
+        </label>
+        <label>Clock Max
+          <input data-collection="events" data-id="${eventItem.id}" data-field="clockMax" type="number" min="1" value="${escapeHtml(String(eventItem.clockMax ?? 4))}" />
+        </label>
+        <label>Advance / Turn
+          <input data-collection="events" data-id="${eventItem.id}" data-field="advancePerTurn" type="number" min="0" value="${escapeHtml(
+            String(eventItem.advancePerTurn ?? 1)
+          )}" />
+        </label>
+        <label>Advance Mode
+          <select data-collection="events" data-id="${eventItem.id}" data-field="advanceOn">
+            ${EVENT_ADVANCE_OPTIONS.map((value) => `<option value="${value}" ${eventItem.advanceOn === value ? "selected" : ""}>${value}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label>Linked Quest
+          <input data-collection="events" data-id="${eventItem.id}" data-field="linkedQuest" value="${escapeHtml(eventItem.linkedQuest || "")}" />
+        </label>
+        <label>Linked Companion
+          <input data-collection="events" data-id="${eventItem.id}" data-field="linkedCompanion" value="${escapeHtml(eventItem.linkedCompanion || "")}" />
+        </label>
+        <label>Impact Scope
+          <select data-collection="events" data-id="${eventItem.id}" data-field="impactScope">
+            ${EVENT_IMPACT_SCOPE_OPTIONS.map((value) => `<option value="${value}" ${eventItem.impactScope === value ? "selected" : ""}>${value}</option>`).join("")}
+          </select>
+        </label>
+      </div>
+      <label>Trigger
+        <textarea data-collection="events" data-id="${eventItem.id}" data-field="trigger">${escapeHtml(eventItem.trigger || "")}</textarea>
+      </label>
+      <label>Fallout
+        <textarea data-collection="events" data-id="${eventItem.id}" data-field="fallout">${escapeHtml(eventItem.fallout || "")}</textarea>
+      </label>
+      <label>Consequence Summary
+        <textarea data-collection="events" data-id="${eventItem.id}" data-field="consequenceSummary">${escapeHtml(eventItem.consequenceSummary || "")}</textarea>
+      </label>
+      <details class="session-edit-panel" open>
+        <summary>Kingdom Consequence Deltas</summary>
+        <p class="small">${escapeHtml(impactSummary || "No kingdom impact deltas configured yet.")}</p>
+        <p class="small">${escapeHtml(impactEligibility)}</p>
+        <div class="row">
+          <label>RP
+            <input data-collection="events" data-id="${eventItem.id}" data-field="rpImpact" type="number" value="${escapeHtml(String(eventItem.rpImpact ?? 0))}" />
+          </label>
+          <label>Unrest
+            <input data-collection="events" data-id="${eventItem.id}" data-field="unrestImpact" type="number" value="${escapeHtml(String(eventItem.unrestImpact ?? 0))}" />
+          </label>
+          <label>Renown
+            <input data-collection="events" data-id="${eventItem.id}" data-field="renownImpact" type="number" value="${escapeHtml(String(eventItem.renownImpact ?? 0))}" />
+          </label>
+          <label>Fame
+            <input data-collection="events" data-id="${eventItem.id}" data-field="fameImpact" type="number" value="${escapeHtml(String(eventItem.fameImpact ?? 0))}" />
+          </label>
+          <label>Infamy
+            <input data-collection="events" data-id="${eventItem.id}" data-field="infamyImpact" type="number" value="${escapeHtml(String(eventItem.infamyImpact ?? 0))}" />
+          </label>
+        </div>
+        <div class="row">
+          <label>Food
+            <input data-collection="events" data-id="${eventItem.id}" data-field="foodImpact" type="number" value="${escapeHtml(String(eventItem.foodImpact ?? 0))}" />
+          </label>
+          <label>Lumber
+            <input data-collection="events" data-id="${eventItem.id}" data-field="lumberImpact" type="number" value="${escapeHtml(String(eventItem.lumberImpact ?? 0))}" />
+          </label>
+          <label>Luxuries
+            <input data-collection="events" data-id="${eventItem.id}" data-field="luxuriesImpact" type="number" value="${escapeHtml(String(eventItem.luxuriesImpact ?? 0))}" />
+          </label>
+          <label>Ore
+            <input data-collection="events" data-id="${eventItem.id}" data-field="oreImpact" type="number" value="${escapeHtml(String(eventItem.oreImpact ?? 0))}" />
+          </label>
+          <label>Stone
+            <input data-collection="events" data-id="${eventItem.id}" data-field="stoneImpact" type="number" value="${escapeHtml(String(eventItem.stoneImpact ?? 0))}" />
+          </label>
+        </div>
+        <div class="row">
+          <label>Corruption
+            <input data-collection="events" data-id="${eventItem.id}" data-field="corruptionImpact" type="number" value="${escapeHtml(String(eventItem.corruptionImpact ?? 0))}" />
+          </label>
+          <label>Crime
+            <input data-collection="events" data-id="${eventItem.id}" data-field="crimeImpact" type="number" value="${escapeHtml(String(eventItem.crimeImpact ?? 0))}" />
+          </label>
+          <label>Decay
+            <input data-collection="events" data-id="${eventItem.id}" data-field="decayImpact" type="number" value="${escapeHtml(String(eventItem.decayImpact ?? 0))}" />
+          </label>
+          <label>Strife
+            <input data-collection="events" data-id="${eventItem.id}" data-field="strifeImpact" type="number" value="${escapeHtml(String(eventItem.strifeImpact ?? 0))}" />
+          </label>
+        </div>
+      </details>
+      <label>Notes
+        <textarea data-collection="events" data-id="${eventItem.id}" data-field="notes">${escapeHtml(eventItem.notes || "")}</textarea>
+      </label>
+      <article class="entry">
+        <div class="entry-head">
+          <span class="entry-title">Resolution History</span>
+          <span class="entry-meta">${escapeHtml(String(history.length))}</span>
+        </div>
+        ${
+          history.length
+            ? `<ul class="flow-list">${history
+                .map(
+                  (entry) =>
+                    `<li><strong>${escapeHtml(entry.type || "note")}</strong>${entry.turnTitle ? ` • ${escapeHtml(entry.turnTitle)}` : ""}${
+                      entry.summary ? `: ${escapeHtml(entry.summary)}` : ""
+                    }</li>`
+                )
+                .join("")}</ul>`
+            : `<p class="small">No history recorded for this event yet.</p>`
+        }
+      </article>
+      <div class="toolbar">
+        <button class="btn btn-secondary" data-action="event-clock-adjust" data-id="${eventItem.id}" data-delta="1">Advance Clock</button>
+        <button class="btn btn-secondary" data-action="event-clock-adjust" data-id="${eventItem.id}" data-delta="-1">Rewind Clock</button>
+        <button class="btn btn-secondary" data-action="event-trigger-consequence" data-id="${eventItem.id}">Trigger Consequence</button>
+        <button class="btn btn-primary" data-action="event-resolve" data-id="${eventItem.id}" data-outcome="resolved">Resolve</button>
+        <button class="btn btn-secondary" data-action="event-resolve" data-id="${eventItem.id}" data-outcome="failed">Mark Failed</button>
+        <button class="btn btn-danger" data-action="delete" data-collection="events" data-id="${eventItem.id}">Delete Event</button>
+      </div>
+    </article>
   `;
 }
 
@@ -4769,6 +7103,219 @@ function renderKingdomDerivedPanel(kingdom, profile, derived) {
             <p class="small">Settlement resource dice tracked: <strong>${escapeHtml(String(derived.settlementResourceDice))}</strong>. City-size bonus settlements: <strong>${escapeHtml(String(derived.cityResourceDice))}</strong>.</p>
           </article>
         </div>
+      </article>
+    </section>
+  `;
+}
+
+function renderKingdomSignalPanel() {
+  const activeKingdomEvents = (state.events || [])
+    .filter((eventItem) => str(eventItem.category).toLowerCase() === "kingdom" && !["resolved", "failed"].includes(str(eventItem.status).toLowerCase()))
+    .slice(0, 6);
+  const recentHistory = getKingdomEventHistory().slice(0, 8);
+  const companionLeads = (state.companions || []).filter((companion) => str(companion.kingdomRole));
+  return `
+    <section class="kingdom-overview-grid kingdom-derived-grid">
+      <article class="panel">
+        <h2>Kingdom Event Queue</h2>
+        ${
+          activeKingdomEvents.length
+            ? `<div class="card-list">${activeKingdomEvents
+                .map(
+                  (eventItem) => `
+                    <article class="entry">
+                      <div class="entry-head">
+                        <span class="entry-title">${escapeHtml(eventItem.title || "Untitled Event")}</span>
+                        <span class="entry-meta">${escapeHtml(eventItem.status || "active")} • urgency ${escapeHtml(String(eventItem.urgency ?? 3))} • clock ${escapeHtml(
+                          formatEventClockSummary(eventItem)
+                        )}</span>
+                      </div>
+                      <p>${escapeHtml(eventItem.trigger || eventItem.consequenceSummary || eventItem.fallout || eventItem.notes || "No event notes recorded yet.")}</p>
+                      <p class="small">${escapeHtml(
+                        getEventTurnsToConsequence(eventItem) === null
+                          ? "Manual consequence timing."
+                          : `${getEventTurnsToConsequence(eventItem)} turn(s) until the consequence hits at the current pace.`
+                      )}</p>
+                    </article>
+                  `
+                )
+                .join("")}</div>`
+            : `<p class="empty">No active kingdom events tracked yet.</p>`
+        }
+      </article>
+      <article class="panel">
+        <h2>Event History</h2>
+        ${
+          recentHistory.length
+            ? `<div class="card-list">${recentHistory
+                .map(
+                  (entry) => `
+                    <article class="entry">
+                      <div class="entry-head">
+                        <span class="entry-title">${escapeHtml(entry.eventTitle || "Kingdom Event")}</span>
+                        <span class="entry-meta">${escapeHtml(entry.type || "note")}${entry.turnTitle ? ` • ${escapeHtml(entry.turnTitle)}` : ""}</span>
+                      </div>
+                      <p>${escapeHtml(entry.summary || "No summary recorded.")}</p>
+                    </article>
+                  `
+                )
+                .join("")}</div>`
+            : `<p class="empty">No event history recorded yet.</p>`
+        }
+      </article>
+      <article class="panel">
+        <h2>Companion Role Watch</h2>
+        ${
+          companionLeads.length
+            ? `<div class="card-list">${companionLeads
+                .slice(0, 8)
+                .map(
+                  (companion) => `
+                    <article class="entry">
+                      <div class="entry-head">
+                        <span class="entry-title">${escapeHtml(companion.name || "Unnamed Companion")}</span>
+                        <span class="entry-meta">${escapeHtml(companion.status || "prospective")} • influence ${escapeHtml(String(companion.influence ?? 0))}</span>
+                      </div>
+                      <p><strong>Role fit:</strong> ${escapeHtml(companion.kingdomRole || "None set")}</p>
+                      <p>${escapeHtml(companion.personalQuest || companion.notes || "No companion notes recorded yet.")}</p>
+                    </article>
+                  `
+                )
+                .join("")}</div>`
+            : `<p class="empty">No companion role candidates tracked yet.</p>`
+        }
+      </article>
+    </section>
+  `;
+}
+
+function renderKingdomCalendarPanel() {
+  const kingdom = getKingdomState();
+  const currentDate = normalizeKingdomDate(kingdom.currentDate || kingdom.calendarStartDate || KINGMAKER_DEFAULT_START_DATE);
+  const anchorDate = normalizeKingdomDate(kingdom.calendarStartDate || currentDate, currentDate);
+  const parsed = parseGolarionDate(currentDate) || parseGolarionDate(KINGMAKER_DEFAULT_START_DATE);
+  const elapsedDays = Math.max(0, diffGolarionDates(anchorDate, currentDate));
+  const monthMatrix = buildKingdomCalendarMonthMatrix(currentDate);
+  const visibleDates = new Set(monthMatrix.flat().filter(Boolean).map((cell) => cell.isoDate));
+  const entryCounts = new Map();
+  for (const entry of kingdom.calendarHistory || []) {
+    const date = normalizeKingdomDate(entry?.endDate || entry?.date || "", currentDate);
+    if (!visibleDates.has(date)) continue;
+    entryCounts.set(date, (entryCounts.get(date) || 0) + 1);
+  }
+  const history = (kingdom.calendarHistory || []).slice(0, 12);
+  const monthOptions = GOLARION_MONTHS.map(
+    (month, index) => `<option value="${index + 1}" ${parsed && parsed.month === index + 1 ? "selected" : ""}>${escapeHtml(month.name)}</option>`
+  ).join("");
+  const calendarRows = monthMatrix
+    .map(
+      (week) => `
+        <div class="kingdom-calendar-week">
+          ${week
+            .map((cell) => {
+              if (!cell) return `<div class="kingdom-calendar-cell is-empty"></div>`;
+              const noteCount = entryCounts.get(cell.isoDate) || 0;
+              const isToday = cell.isoDate === currentDate;
+              const isPast = diffGolarionDates(cell.isoDate, currentDate) >= 0;
+              return `
+                <div class="kingdom-calendar-cell${isToday ? " is-current" : ""}${isPast ? " is-past" : ""}${noteCount ? " has-entry" : ""}">
+                  <span class="kingdom-calendar-day">${escapeHtml(String(cell.day))}</span>
+                  ${noteCount ? `<span class="kingdom-calendar-marker">${escapeHtml(String(noteCount))}</span>` : ""}
+                </div>
+              `;
+            })
+            .join("")}
+        </div>
+      `
+    )
+    .join("");
+  return `
+    <section class="kingdom-overview-grid kingdom-derived-grid">
+      <article class="panel kingdom-calendar-panel">
+        <div class="entry-head">
+          <div>
+            <h2 style="margin:0;">Campaign Calendar</h2>
+            <p class="small" style="margin:6px 0 0;">Default anchor uses the Kingmaker charter handout date. The AP treats that date as adjustable, so you can move it if your table already shifted the timeline.</p>
+          </div>
+          <div class="kingdom-profile-pill">${escapeHtml(getGolarionMonthYearLabel(currentDate))}</div>
+        </div>
+        <div class="kingdom-chip-row">
+          <span class="chip">Current ${escapeHtml(formatGolarionDate(currentDate, { includeWeekday: true }))}</span>
+          <span class="chip">Anchor ${escapeHtml(formatGolarionDate(anchorDate))}</span>
+          <span class="chip">${escapeHtml(`${elapsedDays} day${elapsedDays === 1 ? "" : "s"} since ${kingdom.calendarAnchorLabel || KINGMAKER_DEFAULT_START_LABEL}`)}</span>
+        </div>
+        <div class="kingdom-calendar-week kingdom-calendar-week--labels">
+          ${["Moonday", "Toilday", "Wealday", "Oathday", "Fireday", "Starday", "Sunday"]
+            .map((day) => `<div class="kingdom-calendar-label">${escapeHtml(day.slice(0, 3))}</div>`)
+            .join("")}
+        </div>
+        <div class="kingdom-calendar-grid">
+          ${calendarRows}
+        </div>
+      </article>
+      <article class="panel">
+        <h2>Advance Calendar</h2>
+        <form data-form="kingdom-calendar-advance">
+          <div class="row">
+            <label>Advance By
+              <input name="advanceDays" type="number" min="1" value="1" />
+            </label>
+            <label>Reason
+              <input name="label" placeholder="Travel to Oleg's / downtime / kingdom upkeep" />
+            </label>
+          </div>
+          <label>Notes
+            <textarea name="notes" placeholder="Track what changed during these days."></textarea>
+          </label>
+          <div class="toolbar">
+            <button class="btn btn-primary" type="submit">Advance Days</button>
+          </div>
+        </form>
+        <details class="session-edit-panel" style="margin-top:12px;">
+          <summary>Set Exact Golarion Date</summary>
+          <form data-form="kingdom-calendar-set" style="margin-top:12px;">
+            <div class="row">
+              <label>Day
+                <input name="day" type="number" min="1" max="${escapeHtml(String(getGolarionMonthData(parsed?.month || 1, parsed?.year || 4710).days))}" value="${escapeHtml(String(parsed?.day || 24))}" />
+              </label>
+              <label>Month
+                <select name="month">${monthOptions}</select>
+              </label>
+              <label>Year
+                <input name="year" type="number" min="1" value="${escapeHtml(String(parsed?.year || 4710))}" />
+              </label>
+            </div>
+            <label>Reason
+              <input name="label" placeholder="Retcon / session correction / campaign jump" />
+            </label>
+            <label>Notes
+              <textarea name="notes" placeholder="Why the date changed."></textarea>
+            </label>
+            <div class="toolbar">
+              <button class="btn btn-secondary" type="submit">Set Date</button>
+            </div>
+          </form>
+        </details>
+      </article>
+      <article class="panel">
+        <h2>Calendar Log</h2>
+        ${
+          history.length
+            ? `<div class="card-list">${history
+                .map(
+                  (entry) => `
+                    <article class="entry">
+                      <div class="entry-head">
+                        <span class="entry-title">${escapeHtml(buildKingdomCalendarEntrySummary(entry))}</span>
+                        <span class="entry-meta">${escapeHtml(str(entry.source || "manual"))}</span>
+                      </div>
+                      <p>${escapeHtml(entry.notes || "No notes recorded.")}</p>
+                    </article>
+                  `
+                )
+                .join("")}</div>`
+            : `<p class="empty">No calendar history recorded yet.</p>`
+        }
       </article>
     </section>
   `;
@@ -5395,6 +7942,17 @@ function renderKingdomRegionEntry(region) {
           <input data-collection="kingdomRegions" data-id="${region.id}" data-field="workSite" value="${escapeHtml(region.workSite || "")}" />
         </label>
       </div>
+      <div class="row">
+        <label>Discovery
+          <input data-collection="kingdomRegions" data-id="${region.id}" data-field="discovery" value="${escapeHtml(region.discovery || "")}" />
+        </label>
+        <label>Danger
+          <input data-collection="kingdomRegions" data-id="${region.id}" data-field="danger" value="${escapeHtml(region.danger || "")}" />
+        </label>
+        <label>Improvement
+          <input data-collection="kingdomRegions" data-id="${region.id}" data-field="improvement" value="${escapeHtml(region.improvement || "")}" />
+        </label>
+      </div>
       <label>Notes
         <textarea data-collection="kingdomRegions" data-id="${region.id}" data-field="notes">${escapeHtml(region.notes || "")}</textarea>
       </label>
@@ -5428,6 +7986,7 @@ function renderKingdomTurnEntry(turn) {
       <label>Risks / Follow-Ups
         <textarea data-collection="kingdomTurns" data-id="${turn.id}" data-field="risks">${escapeHtml(turn.risks || "")}</textarea>
       </label>
+      ${turn.eventSummary ? `<p class="small"><strong>Event Clock Results:</strong> ${escapeHtml(turn.eventSummary)}</p>` : ""}
       <div class="toolbar">
         <button class="btn btn-danger" data-action="delete" data-collection="kingdomTurns" data-id="${turn.id}">Delete Turn</button>
       </div>
@@ -5443,6 +8002,9 @@ function renderHexMap() {
   const forces = getHexMapForcesForHex(selectedHex);
   const party = getHexMapParty(hexMap);
   const linkedLocations = getHexLinkedLocations(selectedHex);
+  const linkedQuests = getHexLinkedQuests(selectedHex);
+  const linkedEvents = getHexLinkedEvents(selectedHex);
+  const linkedCompanions = getHexLinkedCompanions(selectedHex);
   const view = getHexMapViewBox(hexMap);
   const metrics = getHexMapMetrics(hexMap);
   const backgroundPlacement = hexMap.backgroundUrl ? getHexMapBackgroundPlacement(hexMap) : null;
@@ -5473,6 +8035,7 @@ function renderHexMap() {
               <span class="chip">${escapeHtml(String(getKingdomState().regions.length))} tracked regions</span>
               <span class="chip">${escapeHtml(String(hexMap.markers.length))} markers</span>
               <span class="chip">${escapeHtml(String(hexMap.forces.length || 0))} force markers</span>
+              <span class="chip">${escapeHtml(String(linkedEvents.length))} linked events</span>
               <span class="chip">${escapeHtml(party.hex ? `${party.label} at ${party.hex}` : "Party marker not placed")}</span>
               <span class="chip ${hexMap.partyMoveMode ? "chip-accent" : ""}">${escapeHtml(hexMap.partyMoveMode ? "Party Move Mode: On" : "Party Move Mode: Off")}</span>
               <span class="chip" data-hexmap-zoom-chip>Zoom ${escapeHtml(`${Math.round(hexMap.zoom * 100)}%`)}</span>
@@ -5638,8 +8201,16 @@ function renderHexMap() {
               <p>${escapeHtml(region?.terrain || "Not set")}</p>
             </article>
             <article class="entry">
+              <div class="entry-head"><span class="entry-title">Discovery</span></div>
+              <p>${escapeHtml(region?.discovery || "None logged")}</p>
+            </article>
+            <article class="entry">
               <div class="entry-head"><span class="entry-title">Work Site</span></div>
               <p>${escapeHtml(region?.workSite || "None")}</p>
+            </article>
+            <article class="entry">
+              <div class="entry-head"><span class="entry-title">Danger</span></div>
+              <p>${escapeHtml(region?.danger || "Unknown")}</p>
             </article>
             <article class="entry">
               <div class="entry-head"><span class="entry-title">Markers</span></div>
@@ -5656,6 +8227,18 @@ function renderHexMap() {
             <article class="entry">
               <div class="entry-head"><span class="entry-title">Locations</span></div>
               <p>${escapeHtml(String(linkedLocations.length))}</p>
+            </article>
+            <article class="entry">
+              <div class="entry-head"><span class="entry-title">Quests</span></div>
+              <p>${escapeHtml(String(linkedQuests.length))}</p>
+            </article>
+            <article class="entry">
+              <div class="entry-head"><span class="entry-title">Events</span></div>
+              <p>${escapeHtml(String(linkedEvents.length))}</p>
+            </article>
+            <article class="entry">
+              <div class="entry-head"><span class="entry-title">Companions</span></div>
+              <p>${escapeHtml(String(linkedCompanions.length))}</p>
             </article>
           </div>
 
@@ -5677,6 +8260,17 @@ function renderHexMap() {
               </label>
               <label>Work Site
                 <input name="workSite" value="${escapeHtml(region?.workSite || "")}" placeholder="Lumber Camp" />
+              </label>
+            </div>
+            <div class="row">
+              <label>Discovery
+                <input name="discovery" value="${escapeHtml(region?.discovery || "")}" placeholder="Ancient barrow / fey ring / monster den" />
+              </label>
+              <label>Danger
+                <input name="danger" value="${escapeHtml(region?.danger || "")}" placeholder="Low / Medium / High" />
+              </label>
+              <label>Improvement
+                <input name="improvement" value="${escapeHtml(region?.improvement || "")}" placeholder="Road / farm / fort / none" />
               </label>
             </div>
             <label>Hex Notes
@@ -5801,6 +8395,47 @@ function renderHexMap() {
                     .map((location) => `<li><strong>${escapeHtml(location.name || "Unnamed Location")}</strong>${location.whatChanged ? `: ${escapeHtml(location.whatChanged)}` : ""}</li>`)
                     .join("")}</ul>`
                 : `<p class="small">No location records currently use ${escapeHtml(selectedHex)}.</p>`
+            }
+          </article>
+          <article class="entry">
+            <div class="entry-head">
+              <span class="entry-title">Linked Quests</span>
+            </div>
+            ${
+              linkedQuests.length
+                ? `<ul class="flow-list">${linkedQuests
+                    .map((quest) => `<li><strong>${escapeHtml(quest.title || "Untitled Quest")}</strong>${quest.status ? ` • ${escapeHtml(quest.status)}` : ""}${quest.nextBeat ? `: ${escapeHtml(quest.nextBeat)}` : ""}</li>`)
+                    .join("")}</ul>`
+                : `<p class="small">No quest records currently point at ${escapeHtml(selectedHex)}.</p>`
+            }
+          </article>
+          <article class="entry">
+            <div class="entry-head">
+              <span class="entry-title">Linked Events</span>
+            </div>
+              ${
+                linkedEvents.length
+                  ? `<ul class="flow-list">${linkedEvents
+                      .map(
+                        (eventItem) =>
+                          `<li><strong>${escapeHtml(eventItem.title || "Untitled Event")}</strong>${eventItem.status ? ` • ${escapeHtml(eventItem.status)}` : ""} • clock ${escapeHtml(
+                            formatEventClockSummary(eventItem)
+                          )}${eventItem.fallout ? `: ${escapeHtml(eventItem.fallout)}` : ""}</li>`
+                      )
+                      .join("")}</ul>`
+                  : `<p class="small">No event records currently point at ${escapeHtml(selectedHex)}.</p>`
+              }
+          </article>
+          <article class="entry">
+            <div class="entry-head">
+              <span class="entry-title">Companions Here</span>
+            </div>
+            ${
+              linkedCompanions.length
+                ? `<ul class="flow-list">${linkedCompanions
+                    .map((companion) => `<li><strong>${escapeHtml(companion.name || "Unnamed Companion")}</strong>${companion.status ? ` • ${escapeHtml(companion.status)}` : ""}${companion.personalQuest ? `: ${escapeHtml(companion.personalQuest)}` : ""}</li>`)
+                    .join("")}</ul>`
+                : `<p class="small">No companion records currently use ${escapeHtml(selectedHex)} as their current hex.</p>`
             }
           </article>
         </aside>
@@ -6172,20 +8807,20 @@ function saveSelectedOfficialRuleToStore() {
 function saveCopilotOutputToRulesStore(kind = "accepted_ruling") {
   const output = str(ui.copilotDraft.output);
   if (!output) {
-    ui.copilotMessage = "No Loremaster output to save.";
+    ui.copilotMessage = "No Companion AI output to save.";
     render();
     return;
   }
   const request = buildGlobalCopilotRequest(activeTab, ui.copilotDraft.input, false);
   const selectedRule = activeTab === "rules" ? getSelectedRulesResult(ui.rulesResults) : null;
-  const titleBase = selectedRule?.title || ui.copilotDraft.input || request?.taskLabel || "Loremaster Note";
+  const titleBase = selectedRule?.title || ui.copilotDraft.input || request?.taskLabel || "Companion AI Note";
   const entry = upsertRulesStoreEntry({
     title: compactLine(titleBase, 140),
     kind,
     text: output,
     sourceTitle: str(selectedRule?.title || request?.taskLabel || ""),
     sourceUrl: str(selectedRule?.url || ""),
-    sourceOrigin: "loremaster",
+    sourceOrigin: "companion-ai",
     tags: buildRuleStoreTags({ title: titleBase, text: output, kind }),
   });
   state.meta.aiMemory = buildAiMemoryDigests(state);
@@ -6247,7 +8882,7 @@ function renderRulesResultCard(result, selected) {
       <div class="toolbar">
         <button class="btn ${selected ? "btn-primary" : "btn-secondary"}" data-action="rules-select-result" data-url="${encodeURIComponent(url)}">Select</button>
         <button class="btn btn-secondary" data-action="rules-open-result" data-url="${encodeURIComponent(url)}" ${url ? "" : "disabled"}>Open AoN</button>
-        <button class="btn btn-secondary" data-action="rules-use-result" data-url="${encodeURIComponent(url)}">Ask Loremaster</button>
+        <button class="btn btn-secondary" data-action="rules-use-result" data-url="${encodeURIComponent(url)}">Ask Companion AI</button>
         <button class="btn btn-secondary" data-action="rules-compare-result" data-url="${encodeURIComponent(url)}">Compare Official vs Local</button>
         <button class="btn btn-secondary" data-action="rules-save-result" data-url="${encodeURIComponent(url)}">Save Official Note</button>
       </div>
@@ -6291,14 +8926,14 @@ function renderRules() {
 
   return `
     <div class="page-stack">
-      ${renderPageIntro("PF2e Rules", "Look up official Pathfinder 2e rules from Archives of Nethys, compare them against your local rulings digest, and send a grounded rules question into Loremaster.")}
+      ${renderPageIntro("Rules Reference", "Look up official Pathfinder 2e rules from Archives of Nethys, compare them against your local rulings digest, and send a grounded rules question into Companion AI.")}
 
       <section class="panel flow-panel">
         <h2>Run Order</h2>
         <ol class="flow-list">
           <li><strong>Step 1:</strong> search the official rules index for the exact PF2e term you need.</li>
           <li><strong>Step 2:</strong> review the local rulings / house-rules side of the split view.</li>
-          <li><strong>Step 3:</strong> use Loremaster to produce a table-ready ruling grounded in both.</li>
+          <li><strong>Step 3:</strong> use Companion AI to produce a table-ready ruling grounded in both.</li>
         </ol>
         <p class="small">AoN live lookup: ${desktopSearchReady ? "available" : "desktop bridge not available"}${ui.rulesIndexedAt ? ` • Last cached index ${escapeHtml(ui.rulesIndexedAt)}` : ""}</p>
         ${ui.rulesMessage ? `<p class="small">${escapeHtml(ui.rulesMessage)}</p>` : ""}
@@ -6328,7 +8963,7 @@ function renderRules() {
             <div class="toolbar">
               <button class="btn btn-primary" type="submit" ${desktopSearchReady ? "" : "disabled"}>${searchLabel}</button>
               <button class="btn btn-secondary" type="button" data-action="rules-refresh-search" ${desktopSearchReady && query ? "" : "disabled"}>Force Refresh</button>
-              <button class="btn btn-secondary" type="button" data-action="rules-use-query" ${query ? "" : "disabled"}>Send Query To Loremaster</button>
+              <button class="btn btn-secondary" type="button" data-action="rules-use-query" ${query ? "" : "disabled"}>Send Query To Companion AI</button>
             </div>
           </form>
           <p class="small">Searches use exact-title bias first, then broader title/path scoring. This keeps PF2e terms like conditions, actions, and subsystems from drifting into fuzzy fantasy matches.</p>
@@ -6461,7 +9096,7 @@ function renderRules() {
 
         <article class="panel">
           <h2>Persistent Rules & Canon Store</h2>
-          <p class="small">${escapeHtml(String(savedRulesCount))} saved entry${savedRulesCount === 1 ? "" : "ies"} that Loremaster can retrieve later.</p>
+          <p class="small">${escapeHtml(String(savedRulesCount))} saved entry${savedRulesCount === 1 ? "" : "ies"} that Companion AI can retrieve later.</p>
           ${
             savedRulesCount
               ? `<div class="rules-result-list">${ensureRulesStore()
@@ -6516,7 +9151,7 @@ function renderPdfIntel() {
   if (!desktopApi) {
     return `
       <div class="page-stack">
-        ${renderPageIntro("PDF Intel", "Index and search your local TTRPG PDFs so rules/lore checks stay fast at the table.")}
+        ${renderPageIntro("Source Library", "Index and search your local Kingmaker books and reference PDFs so lore and rules checks stay fast at the table.")}
         <section class="panel flow-panel">
           <h2>Run Order</h2>
           <ol class="flow-list">
@@ -6539,7 +9174,7 @@ function renderPdfIntel() {
 
   return `
     <div class="page-stack">
-      ${renderPageIntro("PDF Intel", "Index local PDFs once, then search quickly for rules, lore, and chapter details.")}
+      ${renderPageIntro("Source Library", "Index local PDFs once, then search quickly for rules, lore, chapter details, and GM-facing source anchors.")}
       <section class="panel flow-panel">
         <h2>Run Order</h2>
         <ol class="flow-list">
@@ -6685,14 +9320,19 @@ function renderPdfIntel() {
 function renderFoundry() {
   return `
     <div class="page-stack">
-      ${renderPageIntro("Foundry Export", "Export clean JSON packs from your campaign tracker into Foundry VTT with one click.")}
+      ${renderPageIntro("Exports & Links", "Kingmaker Companion stands on its own. Use this page to push data outward into Foundry, markdown, or other companion tools when you want to link them.")}
       <section class="panel flow-panel">
         <h2>Run Order</h2>
         <ol class="flow-list">
-          <li><strong>Step 1:</strong> verify what will export (counts below).</li>
-          <li><strong>Step 2:</strong> export NPCs, Quests, Locations, or Full Pack.</li>
-          <li><strong>Step 3:</strong> import JSON into Foundry and review journals/actors.</li>
+          <li><strong>Step 1:</strong> verify what will export from this standalone app.</li>
+          <li><strong>Step 2:</strong> export NPCs, Quests, Locations, or a Full Pack.</li>
+          <li><strong>Step 3:</strong> import JSON into Foundry or hand it to another tool chain.</li>
         </ol>
+      </section>
+
+      <section class="panel">
+        <h2>Standalone First</h2>
+        <p class="small">Kingmaker Companion keeps its own campaign state, UI, and workflow. DM Helper is not required. If you want the two apps to cooperate later, use JSON export/import and vault sync as the bridge layer.</p>
       </section>
 
       <section class="panel step-card">
@@ -6733,12 +9373,13 @@ function renderFoundry() {
       <section class="panel step-card">
         <div class="step-head">
           <span class="step-badge">3</span>
-          <h2>Foundry Import Checklist</h2>
+          <h2>Link Checklist</h2>
         </div>
         <ul class="list">
           <li>Open your Foundry world and create/import destination folders first.</li>
           <li>Import exported JSON files and verify actor/journal names and images.</li>
           <li>Spot-check one NPC and one quest journal before session day.</li>
+          <li>For DM Helper linking later, use exported campaign JSON plus Vault Sync rather than sharing runtime state directly.</li>
         </ul>
       </section>
     </div>
@@ -6746,15 +9387,84 @@ function renderFoundry() {
 }
 
 function sessionEntry(s) {
+  const chapterReference = getSessionChapterReference(s);
+  const metaChips = [
+    getSessionTypeLabel(s.type),
+    str(s.chapter) || str(s.arc),
+    s.focusHex ? `Hex ${s.focusHex}` : "",
+    s.leadCompanion ? `Companion ${s.leadCompanion}` : "",
+    s.kingdomTurn || "",
+  ].filter(Boolean);
   return `
-    <article class="entry">
+    <article class="entry session-entry-card">
       <div class="entry-head">
         <span class="entry-title">${escapeHtml(s.title)}</span>
-        <span class="entry-meta">${escapeHtml(s.date || "")} • ${escapeHtml(s.arc || "No arc")}</span>
+        <span class="entry-meta">${escapeHtml(getSessionDisplayDate(s))}</span>
       </div>
+      ${
+        metaChips.length
+          ? `<div class="session-chip-row">${metaChips.map((chip) => `<span class="chip">${escapeHtml(chip)}</span>`).join("")}</div>`
+          : ""
+      }
+      <section class="session-frame-grid">
+        <article class="session-frame-card">
+          <h5>Travel Objective</h5>
+          <p>${escapeHtml(s.travelObjective || "No travel route pinned yet.")}</p>
+        </article>
+        <article class="session-frame-card">
+          <h5>Frontier Pressure</h5>
+          <p>${escapeHtml(s.pressure || "No explicit pressure clock pinned yet.")}</p>
+        </article>
+        <article class="session-frame-card">
+          <h5>Weather / Camp</h5>
+          <p>${escapeHtml(s.weather || "No weather or campsite note pinned yet.")}</p>
+        </article>
+      </section>
       ${renderSessionReadableView(s)}
       <details class="session-edit-panel">
         <summary>Edit Raw Fields</summary>
+        <div class="row">
+          <label>Session Type
+            <select data-collection="sessions" data-id="${s.id}" data-field="type">
+              ${SESSION_TYPE_OPTIONS.map((value) => `<option value="${value}" ${normalizeSessionType(s.type) === value ? "selected" : ""}>${escapeHtml(getSessionTypeLabel(value))}</option>`).join("")}
+            </select>
+          </label>
+          <label>Campaign Date
+            <input type="date" data-collection="sessions" data-id="${s.id}" data-field="date" value="${escapeHtml(str(s.date || ""))}" />
+          </label>
+        </div>
+        <div class="row">
+          <label>Campaign Arc
+            <input data-collection="sessions" data-id="${s.id}" data-field="arc" value="${escapeHtml(s.arc || "")}" />
+          </label>
+          <label>Chapter Lane
+            <input data-collection="sessions" data-id="${s.id}" data-field="chapter" value="${escapeHtml(s.chapter || "")}" />
+          </label>
+        </div>
+        <div class="row">
+          <label>Focus Hex
+            <input data-collection="sessions" data-id="${s.id}" data-field="focusHex" value="${escapeHtml(s.focusHex || "")}" />
+          </label>
+          <label>Lead Companion
+            <input data-collection="sessions" data-id="${s.id}" data-field="leadCompanion" value="${escapeHtml(s.leadCompanion || "")}" />
+          </label>
+        </div>
+        <label>Travel Objective
+          <textarea class="session-textarea-summary" data-collection="sessions" data-id="${s.id}" data-field="travelObjective">${escapeHtml(
+            s.travelObjective || ""
+          )}</textarea>
+        </label>
+        <div class="row">
+          <label>Weather / Camp Conditions
+            <input data-collection="sessions" data-id="${s.id}" data-field="weather" value="${escapeHtml(s.weather || "")}" />
+          </label>
+          <label>Frontier Pressure
+            <input data-collection="sessions" data-id="${s.id}" data-field="pressure" value="${escapeHtml(s.pressure || "")}" />
+          </label>
+        </div>
+        <label>Kingdom Turn Marker
+          <input data-collection="sessions" data-id="${s.id}" data-field="kingdomTurn" value="${escapeHtml(s.kingdomTurn || "")}" />
+        </label>
         <label>Summary
           <textarea class="session-textarea-summary" data-collection="sessions" data-id="${s.id}" data-field="summary">${escapeHtml(
             s.summary || ""
@@ -6767,6 +9477,9 @@ function sessionEntry(s) {
         </label>
       </details>
       <div class="toolbar">
+        ${chapterReference ? renderDashboardSourceButton(chapterReference.title, chapterReference.fileName, chapterReference.page, "btn-primary") : ""}
+        ${renderDashboardTabButton("Hex Map", "hexmap")}
+        ${renderDashboardTabButton("Companions", "companions")}
         <button class="btn btn-secondary" data-action="session-export-packet-one" data-id="${s.id}">Export Packet</button>
         <button class="btn btn-secondary" data-action="session-wrapup-one" data-id="${s.id}">Smart Wrap-Up</button>
         <button class="btn btn-secondary" data-action="session-wizard-open-one" data-id="${s.id}">Wizard</button>
@@ -6781,9 +9494,18 @@ function renderSessionReadableView(session) {
   const nextPrep = str(session?.nextPrep);
   const blocks = parseSessionReadableBlocks(nextPrep);
   const summaryHtml = renderReadableContent(summary || "No summary captured yet.");
+  const frameLines = getSessionAdventureFrameLines(session);
   return `
     <section class="session-readable">
       <h4 class="session-readable-title">Readable View</h4>
+      ${
+        frameLines.length
+          ? `<article class="session-readable-block tone-dashboard">
+              <div class="session-readable-label">Adventure Frame</div>
+              <div class="session-readable-content">${renderReadableContent(frameLines.join("\n"))}</div>
+            </article>`
+          : ""
+      }
       <article class="session-readable-block tone-summary">
         <div class="session-readable-label">Summary</div>
         <div class="session-readable-content">${summaryHtml}</div>
@@ -7150,7 +9872,7 @@ async function generateChecklistWithAi() {
       context: {
         ...context,
         activeTab: "sessions",
-        tabLabel: "Session Runner",
+        tabLabel: "Adventure Log",
         tabContext: "Generate next-session prep checklist items.",
       },
       config,
@@ -7167,7 +9889,7 @@ async function generateChecklistWithAi() {
     const parsed = parseChecklistLines(processed.text || "");
     if (!parsed.length) {
       ui.sessionMessage = usedFallback
-        ? "AI output looked like instruction text. DM Helper fallback generated checklist content."
+        ? "AI output looked like instruction text. Kingmaker Companion fallback generated checklist content."
         : "AI returned no checklist items.";
       return;
     }
@@ -7574,41 +10296,47 @@ function getTabLabel(tabId) {
 }
 
 function getGlobalCopilotPlaceholder(tabId) {
-  if (tabId === "sessions") return "Ask for recap + next prep beats for the latest session.";
-  if (tabId === "capture") return "Ask to transform live capture into clean session notes.";
+  if (tabId === "sessions") return "Ask for recap + next prep beats for the latest adventure entry.";
+  if (tabId === "capture") return "Ask to transform table notes into clean session notes or world records.";
   if (tabId === "rules") return "Ask a PF2e rules question like: how does bleed work, what does concealed do, or compare official vs local rulings.";
   if (tabId === "kingdom") return "Ask for kingdom-turn help, action order, leader assignments, or settlement advice.";
   if (tabId === "hexmap") return "Ask for hex encounters, work-site ideas, event seeds, or consequences for the selected hex.";
   if (tabId === "npcs") return "Describe an NPC concept and ask for table-ready details.";
-  if (tabId === "quests") return "Describe a quest idea and ask for objective/stakes.";
+  if (tabId === "companions") return "Describe a companion beat and ask for influence, travel, and kingdom-role details.";
+  if (tabId === "quests") return "Describe a quest idea and ask for objective, stakes, hex, and next beat.";
+  if (tabId === "events") return "Describe an event clock and ask for trigger, consequence, kingdom impact, urgency, and linked records.";
   if (tabId === "locations") return "Describe a hex/location and ask for a usable scene brief.";
-  if (tabId === "pdf") return "Ask for best PDF search queries for your next session.";
+  if (tabId === "pdf") return "Ask for the best Source Library search queries for your next session.";
   if (tabId === "obsidian") return "Ask for vault folder structures, note templates, or cleaner markdown organization.";
-  if (tabId === "foundry") return "Ask for Foundry handoff checklist for this session.";
+  if (tabId === "foundry") return "Ask for export, handoff, or integration checklist for this session.";
   if (tabId === "writing") return "Ask for rewrite help, stronger wording, and clean structure.";
   return "Ask a GM question or chat naturally (example: hello, help me prep tonight).";
 }
 
 function getGlobalCopilotApplyLabel(tabId) {
   if (tabId === "sessions") return "Apply to Latest Session";
-  if (tabId === "capture") return "Add as Live Capture";
+  if (tabId === "capture") return "Add to Table Notes";
   if (tabId === "rules") return "Attach to Latest Prep";
   if (tabId === "kingdom") return "Append Kingdom Notes";
   if (tabId === "hexmap") return "Append to Selected Hex";
   if (tabId === "npcs") return "Create NPC(s)";
+  if (tabId === "companions") return "Create Companion";
   if (tabId === "quests") return "Create Quest";
+  if (tabId === "events") return "Create Event";
   if (tabId === "locations") return "Create Location";
   if (tabId === "pdf") return "Use as PDF Query";
   if (tabId === "obsidian") return "No Direct Apply";
-  if (tabId === "foundry") return "Attach Foundry Notes";
-  if (tabId === "writing") return "Send to Writing Helper";
+  if (tabId === "foundry") return "Attach Link Notes";
+  if (tabId === "writing") return "Send to Scene Forge";
   return "Attach to Latest Prep";
 }
 
 function getGlobalCopilotMode(tabId) {
   if (tabId === "rules") return "assistant";
   if (tabId === "npcs") return "npc";
+  if (tabId === "companions") return "companion";
   if (tabId === "quests") return "quest";
+  if (tabId === "events") return "event";
   if (tabId === "locations") return "location";
   if (tabId === "hexmap") return "location";
   if (tabId === "sessions" || tabId === "capture" || tabId === "writing" || tabId === "kingdom") return "session";
@@ -7626,7 +10354,7 @@ const COPILOT_TASK_META = Object.freeze({
   pdf_lookup: { label: "PDF-Grounded Lookup", saveTarget: "pdf query or prep", mode: "prep" },
   vault_workflow: { label: "Vault Workflow", saveTarget: "vault note or folder plan", mode: "prep" },
   foundry_handoff: { label: "Foundry Handoff", saveTarget: "latest session prep", mode: "prep" },
-  writing_cleanup: { label: "Writing Cleanup", saveTarget: "writing helper output", mode: "session" },
+  writing_cleanup: { label: "Scene Forge Cleanup", saveTarget: "scene forge output", mode: "session" },
   small_talk: { label: "Small Talk", saveTarget: "none", mode: "assistant" },
 });
 
@@ -7634,24 +10362,24 @@ function renderObsidian() {
   const settings = ensureObsidianSettings();
   const looksLikeVault = settings.looksLikeVault === true;
   const syncFolderPreview = settings.vaultPath
-    ? `${settings.vaultPath}${settings.vaultPath.endsWith("\\") ? "" : "\\"}${settings.baseFolder || "DM Helper"}`
+    ? `${settings.vaultPath}${settings.vaultPath.endsWith("\\") ? "" : "\\"}${settings.baseFolder || "Kingmaker Companion"}`
     : "(choose a vault folder first)";
   const syncLabel = ui.obsidianBusy ? "Syncing..." : "Sync To Vault";
   const hasAiOutput = str(ui.copilotDraft.output).length > 0;
   const writeLabel = ui.obsidianBusy ? "Writing..." : "Write Current AI Output To Vault";
-  const readScope = settings.readWholeVault ? "Whole vault" : "DM Helper folder only";
+  const readScope = settings.readWholeVault ? "Whole vault" : "Kingmaker Companion folder only";
 
   return `
     <div class="page-stack">
-      ${renderPageIntro("Obsidian Vault", "Connect Loremaster to your local Obsidian vault. DM Helper can export campaign notes, pull compact vault context into AI prompts, and write current AI output back into a markdown note.")}
+      ${renderPageIntro("Vault Sync", "Connect Kingmaker Companion to your local Obsidian vault. The app can export campaign notes, pull compact vault context into Companion AI prompts, and write current AI output back into markdown.")}
 
       <section class="panel flow-panel">
         <h2>How This Works</h2>
         <ol class="flow-list">
           <li><strong>Step 1:</strong> choose your Obsidian vault folder.</li>
-          <li><strong>Step 2:</strong> choose the DM Helper folder name that will be created inside the vault.</li>
-          <li><strong>Step 3:</strong> decide whether Loremaster should read the whole vault or only the DM Helper folder for AI context.</li>
-          <li><strong>Step 4:</strong> sync sessions, NPCs, quests, locations, kingdom notes, and hex map notes into markdown files, or write the current AI output back into a note.</li>
+          <li><strong>Step 2:</strong> choose the Kingmaker Companion folder name that will be created inside the vault.</li>
+          <li><strong>Step 3:</strong> decide whether Companion AI should read the whole vault or only the Kingmaker Companion folder for AI context.</li>
+          <li><strong>Step 4:</strong> sync sessions, NPCs, companions, quests, events, locations, kingdom notes, and hex map notes into markdown files, or write the current AI output back into a note.</li>
         </ol>
         <p class="small">Current vault: <span class="mono">${escapeHtml(settings.vaultPath || "Not set")}</span></p>
         <p class="small">Sync folder: <span class="mono">${escapeHtml(syncFolderPreview)}</span></p>
@@ -7671,19 +10399,19 @@ function renderObsidian() {
             <label>Vault Folder
               <input name="vaultPath" value="${escapeHtml(settings.vaultPath || "")}" placeholder="C:\\Users\\Chris Bender\\Documents\\Obsidian Vault" />
             </label>
-            <label>DM Helper Folder Inside Vault
-              <input name="baseFolder" value="${escapeHtml(settings.baseFolder || "DM Helper")}" placeholder="DM Helper" />
+            <label>Kingmaker Companion Folder Inside Vault
+              <input name="baseFolder" value="${escapeHtml(settings.baseFolder || "Kingmaker Companion")}" placeholder="Kingmaker Companion" />
             </label>
-            <label>AI Note Folder Inside DM Helper Folder
+            <label>AI Note Folder Inside Kingmaker Companion Folder
               <input name="aiWriteFolder" value="${escapeHtml(settings.aiWriteFolder || "AI Notes")}" placeholder="AI Notes" />
             </label>
             <label>
               <input type="checkbox" name="useForAiContext" ${settings.useForAiContext ? "checked" : ""} />
-              Let Loremaster read vault notes for AI context
+              Let Companion AI read vault notes for AI context
             </label>
             <label>
               <input type="checkbox" name="readWholeVault" ${settings.readWholeVault ? "checked" : ""} />
-              Read the whole vault, not just the DM Helper folder
+              Read the whole vault, not just the Kingmaker Companion folder
             </label>
             <div class="row">
               <label>AI Context Note Limit
@@ -7706,13 +10434,13 @@ function renderObsidian() {
           <ul class="flow-list">
             <li><strong>Campaign Home:</strong> summary note with quick links.</li>
             <li><strong>Sessions:</strong> one markdown note per session.</li>
-            <li><strong>NPCs / Quests / Locations:</strong> one markdown note per record.</li>
+            <li><strong>NPCs / Companions / Quests / Events / Locations:</strong> one markdown note per record.</li>
             <li><strong>Kingdom:</strong> kingdom sheet snapshot, regions, settlements, and recent turns.</li>
             <li><strong>Hex Map:</strong> party position, trail, forces, markers, and region notes.</li>
-            <li><strong>AI Read Context:</strong> compact excerpts from the most relevant vault notes are added to Loremaster prompts when enabled.</li>
-            <li><strong>AI Write Back:</strong> writes the current Loremaster output into <span class="mono">${escapeHtml(settings.aiWriteFolder || "AI Notes")}</span>.</li>
+            <li><strong>AI Read Context:</strong> compact excerpts from the most relevant vault notes are added to Companion AI prompts when enabled.</li>
+            <li><strong>AI Write Back:</strong> writes the current Companion AI output into <span class="mono">${escapeHtml(settings.aiWriteFolder || "AI Notes")}</span>.</li>
           </ul>
-          <p class="small">This sync overwrites matching DM Helper notes, but it does not delete stale files you removed from the app.</p>
+          <p class="small">This sync overwrites matching Kingmaker Companion notes, but it does not delete stale files you removed from the app.</p>
           <div class="toolbar">
             <button class="btn btn-primary" type="button" data-action="obsidian-sync" ${ui.obsidianBusy ? "disabled" : ""}>${syncLabel}</button>
             <button class="btn btn-secondary" type="button" data-action="obsidian-write-current-ai" ${(hasAiOutput && !ui.obsidianBusy) ? "" : "disabled"}>${writeLabel}</button>
@@ -7724,12 +10452,14 @@ function renderObsidian() {
 }
 
 function isStructuredWorldTab(tabId) {
-  return tabId === "npcs" || tabId === "quests" || tabId === "locations";
+  return tabId === "npcs" || tabId === "companions" || tabId === "quests" || tabId === "events" || tabId === "locations";
 }
 
 function getSeedTabForMode(mode) {
   if (mode === "npc") return "npcs";
+  if (mode === "companion") return "companions";
   if (mode === "quest") return "quests";
+  if (mode === "event") return "events";
   if (mode === "location") return "locations";
   return "dashboard";
 }
@@ -7739,7 +10469,9 @@ function inferStructuredModeFromInput(inputText) {
   if (!lower) return "";
   const createVerb = /\b(create|make|build|draft|invent|design|write|come up with|describe)\b/;
   if (createVerb.test(lower) && /\bnpc\b/.test(lower)) return "npc";
+  if (createVerb.test(lower) && /\b(companion|ally|follower|advisor)\b/.test(lower)) return "companion";
   if (createVerb.test(lower) && /\bquest\b/.test(lower)) return "quest";
+  if (createVerb.test(lower) && /\b(event|clock|pressure|complication|incident)\b/.test(lower)) return "event";
   if (createVerb.test(lower) && /\b(location|village|town|city|settlement|hex|place)\b/.test(lower)) return "location";
   return "";
 }
@@ -7805,11 +10537,15 @@ function isSessionSummaryInput(inputText) {
 
 function inferEntityTargetFromInput(tabId, inputText) {
   if (tabId === "npcs") return "npc";
+  if (tabId === "companions") return "companion";
   if (tabId === "quests") return "quest";
+  if (tabId === "events") return "event";
   if (tabId === "locations") return "location";
   const lower = str(inputText).toLowerCase();
   if (/\bnpc\b/.test(lower)) return "npc";
+  if (/\b(companion|ally|follower|advisor)\b/.test(lower)) return "companion";
   if (/\bquest\b/.test(lower)) return "quest";
+  if (/\b(event|clock|pressure|complication|incident)\b/.test(lower)) return "event";
   if (/\b(location|village|town|city|settlement|hex|place)\b/.test(lower)) return "location";
   return "";
 }
@@ -7818,7 +10554,7 @@ function isNoteUpdateInput(tabId, inputText) {
   const lower = str(inputText).toLowerCase();
   if (!lower) return false;
   if (isStructuredWorldTab(tabId)) return !isCopilotSmallTalkInput(lower);
-  return /\b(create|make|build|draft|invent|design|rewrite|update|turn this into|clean up|make an npc note|make a quest|make a location)\b/.test(lower);
+  return /\b(create|make|build|draft|invent|design|rewrite|update|turn this into|clean up|make an npc note|make a companion note|make a quest|make an event|make a location)\b/.test(lower);
 }
 
 function isKingdomHelperInput(tabId, inputText) {
@@ -7889,7 +10625,7 @@ function buildTaskRoutedRequest(tabId, userInput, autoRun) {
 
   const defaultTaskByTab = (() => {
     if (tabId === "sessions" || tabId === "capture") return "session_summary";
-    if (tabId === "npcs" || tabId === "quests" || tabId === "locations") return "note_update";
+    if (tabId === "npcs" || tabId === "companions" || tabId === "quests" || tabId === "events" || tabId === "locations") return "note_update";
     if (tabId === "rules") return "rules_question";
     if (tabId === "kingdom") return "kingdom_helper";
     if (tabId === "hexmap") return "map_helper";
@@ -7901,8 +10637,9 @@ function buildTaskRoutedRequest(tabId, userInput, autoRun) {
   })();
 
   if (autoRun || !cleanInput) {
+    const defaultMode = defaultTaskByTab === "note_update" ? baseMode : getCopilotTaskMeta(defaultTaskByTab).mode || baseMode;
     return {
-      mode: getCopilotTaskMeta(defaultTaskByTab).mode || baseMode,
+      mode: defaultMode,
       input: seedPrompt,
       isChat: false,
       ...meta(defaultTaskByTab, { routeReason: autoRun ? "automatic tab run" : "empty input defaults to tab workflow" }),
@@ -8133,8 +10870,14 @@ function getStructuredWorldDetailInstruction(tabId) {
   if (tabId === "npcs") {
     return "Keep every field concrete, story-tied, and table-ready. Under Notes include 6 to 8 short bullets covering core want, leverage, pressure, voice, first impression, hidden truth or complication, and how to use the NPC at the table.";
   }
+  if (tabId === "companions") {
+    return "Keep every field concrete, story-tied, and table-ready. Make influence, current travel state, kingdom-role fit, personal quest pressure, and next-scene usefulness obvious.";
+  }
   if (tabId === "quests") {
     return "Keep every field concrete, story-tied, and table-ready. Make the stakes specific and the next actionable beat obvious.";
+  }
+  if (tabId === "events") {
+    return "Keep every field concrete, story-tied, and table-ready. Make the pressure clock, trigger, kingdom consequence, fallout, and any non-zero kingdom impact explicit so the GM can track escalation cleanly.";
   }
   if (tabId === "locations") {
     return "Keep every field concrete, story-tied, and table-ready. Make the change, immediate tension, and next clue clearly usable at the table.";
@@ -8201,7 +10944,7 @@ function buildGlobalCopilotSeedPrompt(tabId) {
   }
   if (tabId === "capture") {
     return [
-      "Convert recent live capture entries into clean GM notes.",
+      "Convert recent table notes into clean GM notes.",
       "Return:",
       "Summary:",
       "Follow-up Tasks:",
@@ -8235,7 +10978,7 @@ function buildGlobalCopilotSeedPrompt(tabId) {
       "Risks To Watch:",
       "- bullet",
       "- bullet",
-      "What To Record In DM Helper:",
+      "What To Record In Kingmaker Companion:",
       "- bullet",
       "- bullet",
     ].join("\n");
@@ -8272,14 +11015,71 @@ function buildGlobalCopilotSeedPrompt(tabId) {
       "- Best way to use them in the next session:",
     ].join("\n");
   }
+  if (tabId === "companions") {
+    return [
+      "Create one companion record and return fields exactly:",
+      "Name:",
+      "Status:",
+      "Influence:",
+      "Current Hex:",
+      "Kingdom Role:",
+      "Personal Quest:",
+      "Notes:",
+      "- Loyalty or leverage:",
+      "- Current pressure or tension:",
+      "- Best camp or travel scene:",
+      "- Best use in the next session:",
+    ].join("\n");
+  }
   if (tabId === "quests") {
     return [
       "Create one quest and return fields exactly:",
       "Title:",
       "Status:",
+      "Priority:",
+      "Chapter:",
+      "Hex:",
       "Objective:",
       "Giver:",
       "Stakes:",
+      "Linked Companion:",
+      "Next Beat:",
+    ].join("\n");
+  }
+  if (tabId === "events") {
+    return [
+      "Create one event record and return fields exactly:",
+      "Title:",
+      "Category:",
+      "Status:",
+      "Urgency:",
+      "Hex:",
+      "Linked Quest:",
+      "Linked Companion:",
+      "Clock:",
+      "Clock Max:",
+      "Advance / Turn:",
+      "Advance Mode:",
+      "Impact Scope:",
+      "Trigger:",
+      "Consequence Summary:",
+      "Fallout:",
+      "Kingdom Impact:",
+      "- RP:",
+      "- Unrest:",
+      "- Renown:",
+      "- Fame:",
+      "- Infamy:",
+      "- Food:",
+      "- Lumber:",
+      "- Luxuries:",
+      "- Ore:",
+      "- Stone:",
+      "- Corruption:",
+      "- Crime:",
+      "- Decay:",
+      "- Strife:",
+      "Notes:",
     ].join("\n");
   }
   if (tabId === "locations") {
@@ -8304,7 +11104,7 @@ function buildGlobalCopilotSeedPrompt(tabId) {
   }
   if (tabId === "obsidian") {
     return [
-      "Help organize DM Helper data into useful Obsidian markdown notes.",
+      "Help organize Kingmaker Companion data into useful Obsidian markdown notes.",
       "Return concise, practical note structure advice or markdown examples only.",
     ].join("\n");
   }
@@ -8364,7 +11164,7 @@ function buildGlobalCopilotContext(tabId) {
   } else if (tabId === "kingdom") {
     const kingdom = getKingdomState();
     const profile = getActiveKingdomProfile();
-    tabContext = `Kingdom: ${kingdom.name || "Unnamed kingdom"} | Turn: ${kingdom.currentTurnLabel || "Not set"} | Level ${kingdom.level} | Size ${kingdom.size} | Control DC ${
+    tabContext = `Kingdom: ${kingdom.name || "Unnamed kingdom"} | Turn: ${kingdom.currentTurnLabel || "Not set"} | Date ${formatGolarionDate(kingdom.currentDate)} | Level ${kingdom.level} | Size ${kingdom.size} | Control DC ${
       kingdom.controlDC
     } | Unrest ${kingdom.unrest} | Renown ${kingdom.renown} | Fame ${kingdom.fame} | Infamy ${kingdom.infamy} | Settlements ${
       kingdom.settlements.length
@@ -8387,8 +11187,16 @@ function buildGlobalCopilotContext(tabId) {
     tabContext = `Current NPC names: ${state.npcs.slice(0, 15).map((n) => n.name).join(", ") || "None"}${
       selectedPdfFile ? ` | Selected PDF: ${selectedPdfFile} | Selected PDF summary: ${selectedPdfSummary || "No summary yet."}` : ""
     }`;
+  } else if (tabId === "companions") {
+    tabContext = `Current companions: ${state.companions.slice(0, 15).map((companion) => `${companion.name} (${companion.status || "prospective"}, influence ${companion.influence ?? 0})`).join("; ") || "None"}${
+      selectedPdfFile ? ` | Selected PDF: ${selectedPdfFile} | Selected PDF summary: ${selectedPdfSummary || "No summary yet."}` : ""
+    }`;
   } else if (tabId === "quests") {
     tabContext = `Current quests: ${state.quests.slice(0, 15).map((q) => `${q.title} (${q.status})`).join("; ") || "None"}${
+      selectedPdfFile ? ` | Selected PDF: ${selectedPdfFile} | Selected PDF summary: ${selectedPdfSummary || "No summary yet."}` : ""
+    }`;
+  } else if (tabId === "events") {
+    tabContext = `Active events: ${state.events.slice(0, 15).map((eventItem) => `${eventItem.title} (${eventItem.category || "story"} / ${eventItem.status || "seeded"}${eventItem.hex ? ` @ ${eventItem.hex}` : ""})`).join("; ") || "None"}${
       selectedPdfFile ? ` | Selected PDF: ${selectedPdfFile} | Selected PDF summary: ${selectedPdfSummary || "No summary yet."}` : ""
     }`;
   } else if (tabId === "locations") {
@@ -8403,15 +11211,15 @@ function buildGlobalCopilotContext(tabId) {
     } | Selected PDF summary: ${summaryText || "No summary yet."}`;
   } else if (tabId === "obsidian") {
     const settings = ensureObsidianSettings();
-    tabContext = `Obsidian vault path: ${settings.vaultPath || "(not set)"} | Base folder: ${settings.baseFolder || "DM Helper"} | AI read enabled: ${
+    tabContext = `Obsidian vault path: ${settings.vaultPath || "(not set)"} | Base folder: ${settings.baseFolder || "Kingmaker Companion"} | AI read enabled: ${
       settings.useForAiContext ? "yes" : "no"
-    } | Read scope: ${settings.readWholeVault ? "whole vault" : "DM Helper folder only"} | AI note folder: ${
+    } | Read scope: ${settings.readWholeVault ? "whole vault" : "Kingmaker Companion folder only"} | AI note folder: ${
       settings.aiWriteFolder || "AI Notes"
     } | Last sync: ${settings.lastSyncAt || "never"} | Last sync summary: ${settings.lastSyncSummary || "none"}`;
   } else if (tabId === "foundry") {
-    tabContext = `Foundry export counts: NPCs ${state.npcs.length}, Quests ${state.quests.length}, Locations ${state.locations.length}.`;
+    tabContext = `Foundry export counts: NPCs ${state.npcs.length}, Companions ${state.companions.length}, Quests ${state.quests.length}, Events ${state.events.length}, Locations ${state.locations.length}.`;
   } else if (tabId === "writing") {
-    tabContext = `Writing Helper mode: ${ui.writingDraft.mode}. Current output length: ${str(ui.writingDraft.output).length}.`;
+    tabContext = `Scene Forge mode: ${ui.writingDraft.mode}. Current output length: ${str(ui.writingDraft.output).length}.`;
   }
 
   return {
@@ -8430,6 +11238,8 @@ function buildMinimalCopilotContext(tabId) {
   return {
     latestSession: null,
     openQuests: [],
+    companions: [],
+    events: [],
     npcs: [],
     locations: [],
     aiHistory: [],
@@ -8462,18 +11272,18 @@ function countRetrievalTokenHits(text, terms) {
 
 function getRetrievalProfile(taskType, entityType = "") {
   const sourceWeights = {
-    general_prep: { session: 2.4, quest: 2.2, npc: 2.1, location: 2, kingdom: 1.8, hex: 1.8, rule: 1.5, canon: 2.3, aon_rule: 1.6, vault: 1.7, pdf_summary: 1.6 },
-    rules_question: { rule: 3.8, canon: 1.6, aon_rule: 4.2, pdf_summary: 3.2, vault: 2.4, session: 0.8, quest: 0.7, npc: 0.6, location: 0.6, kingdom: 0.9, hex: 0.6 },
-    campaign_lookup: { session: 3.2, quest: 3.1, npc: 3.1, location: 3, kingdom: 1.8, hex: 1.5, rule: 1, canon: 3.2, aon_rule: 1.1, vault: 2.2, pdf_summary: 1.2 },
-    session_summary: { session: 3.4, quest: 2.4, npc: 2.2, location: 2.1, kingdom: 1.6, hex: 1.3, rule: 1.2, canon: 2.1, aon_rule: 1.1, vault: 1.8, pdf_summary: 1.4 },
-    note_update: { session: 2, quest: 2, npc: 2, location: 2, kingdom: 1.4, hex: 1.2, rule: 1, canon: 2.4, aon_rule: 1.2, vault: 1.8, pdf_summary: 2.2 },
-    kingdom_helper: { kingdom: 4, hex: 2.6, session: 1.8, quest: 1.2, npc: 1.1, location: 1.4, rule: 1.6, canon: 1.6, aon_rule: 1.3, vault: 1.8, pdf_summary: 1.3 },
-    map_helper: { hex: 4, location: 2.9, kingdom: 2.4, session: 1.4, quest: 1.2, npc: 1.1, rule: 1, canon: 1.4, aon_rule: 0.9, vault: 1.5, pdf_summary: 1.1 },
-    pdf_lookup: { pdf_summary: 4, rule: 2, canon: 1, aon_rule: 1.4, vault: 1.8, session: 1.1, quest: 1, npc: 1, location: 1, kingdom: 0.9, hex: 0.8 },
-    vault_workflow: { vault: 4, session: 2, quest: 1.6, npc: 1.6, location: 1.6, kingdom: 1.4, hex: 1.2, rule: 1.2, canon: 1.2, aon_rule: 1.1, pdf_summary: 1.2 },
-    foundry_handoff: { session: 2.8, quest: 2, npc: 2, location: 2, kingdom: 1.2, hex: 1.1, rule: 0.8, canon: 1.8, aon_rule: 0.8, vault: 1.3, pdf_summary: 1 },
-    writing_cleanup: { session: 2.4, quest: 1.8, npc: 1.8, location: 1.8, kingdom: 1.2, hex: 1, rule: 1, canon: 1.5, aon_rule: 0.8, vault: 1.4, pdf_summary: 1.1 },
-    small_talk: { session: 0, quest: 0, npc: 0, location: 0, kingdom: 0, hex: 0, rule: 0, canon: 0, aon_rule: 0, vault: 0, pdf_summary: 0 },
+    general_prep: { session: 2.4, quest: 2.2, event: 2.3, npc: 2.1, companion: 2.2, location: 2, kingdom: 1.8, hex: 1.8, rule: 1.5, canon: 2.3, aon_rule: 1.6, vault: 1.7, pdf_summary: 1.6 },
+    rules_question: { rule: 3.8, canon: 1.6, aon_rule: 4.2, pdf_summary: 3.2, vault: 2.4, session: 0.8, quest: 0.7, event: 0.6, npc: 0.6, companion: 0.5, location: 0.6, kingdom: 0.9, hex: 0.6 },
+    campaign_lookup: { session: 3.2, quest: 3.1, event: 3, npc: 3.1, companion: 2.9, location: 3, kingdom: 1.8, hex: 1.5, rule: 1, canon: 3.2, aon_rule: 1.1, vault: 2.2, pdf_summary: 1.2 },
+    session_summary: { session: 3.4, quest: 2.4, event: 2.4, npc: 2.2, companion: 2.1, location: 2.1, kingdom: 1.6, hex: 1.3, rule: 1.2, canon: 2.1, aon_rule: 1.1, vault: 1.8, pdf_summary: 1.4 },
+    note_update: { session: 2, quest: 2.1, event: 2.1, npc: 2, companion: 2.1, location: 2, kingdom: 1.4, hex: 1.2, rule: 1, canon: 2.4, aon_rule: 1.2, vault: 1.8, pdf_summary: 2.2 },
+    kingdom_helper: { kingdom: 4, event: 3.4, companion: 2, hex: 2.6, session: 1.8, quest: 1.2, npc: 1.1, location: 1.4, rule: 1.6, canon: 1.6, aon_rule: 1.3, vault: 1.8, pdf_summary: 1.3 },
+    map_helper: { hex: 4, event: 3, location: 2.9, kingdom: 2.4, companion: 1.5, session: 1.4, quest: 1.2, npc: 1.1, rule: 1, canon: 1.4, aon_rule: 0.9, vault: 1.5, pdf_summary: 1.1 },
+    pdf_lookup: { pdf_summary: 4, rule: 2, canon: 1, aon_rule: 1.4, vault: 1.8, session: 1.1, quest: 1, event: 1, npc: 1, companion: 1, location: 1, kingdom: 0.9, hex: 0.8 },
+    vault_workflow: { vault: 4, session: 2, quest: 1.6, event: 1.6, npc: 1.6, companion: 1.6, location: 1.6, kingdom: 1.4, hex: 1.2, rule: 1.2, canon: 1.2, aon_rule: 1.1, pdf_summary: 1.2 },
+    foundry_handoff: { session: 2.8, quest: 2, event: 1.9, npc: 2, companion: 1.9, location: 2, kingdom: 1.2, hex: 1.1, rule: 0.8, canon: 1.8, aon_rule: 0.8, vault: 1.3, pdf_summary: 1 },
+    writing_cleanup: { session: 2.4, quest: 1.8, event: 1.8, npc: 1.8, companion: 1.8, location: 1.8, kingdom: 1.2, hex: 1, rule: 1, canon: 1.5, aon_rule: 0.8, vault: 1.4, pdf_summary: 1.1 },
+    small_talk: { session: 0, quest: 0, event: 0, npc: 0, companion: 0, location: 0, kingdom: 0, hex: 0, rule: 0, canon: 0, aon_rule: 0, vault: 0, pdf_summary: 0 },
   };
 
   const profile = {
@@ -8599,6 +11409,12 @@ function buildUnifiedRetrievalContext({ tabId, userInput, route, baseContext, ob
       sourceLabel: "Session",
       title: session.title || "Untitled session",
       text: [
+        `Type ${getSessionTypeLabel(session.type)}`,
+        `Chapter ${session.chapter || session.arc || "none"}`,
+        `Hex ${session.focusHex || "none"}`,
+        `Companion ${session.leadCompanion || "none"}`,
+        `Travel ${session.travelObjective || "none"}`,
+        `Pressure ${session.pressure || "none"}`,
         `Summary ${session.summary || "none"}`,
         `Next prep ${session.nextPrep || "none"}`,
         `Arc ${session.arc || "none"}`,
@@ -8640,6 +11456,24 @@ function buildUnifiedRetrievalContext({ tabId, userInput, route, baseContext, ob
     });
   }
 
+  for (const companion of state.companions || []) {
+    pushCandidate({
+      sourceType: "companion",
+      sourceLabel: "Companion",
+      title: companion.name || "Unnamed companion",
+      text: [
+        `Status ${companion.status || "prospective"}`,
+        `Influence ${companion.influence ?? 0}`,
+        `Hex ${companion.currentHex || "none"}`,
+        `Kingdom role ${companion.kingdomRole || "none"}`,
+        `Personal quest ${companion.personalQuest || "none"}`,
+        `Notes ${companion.notes || "none"}`,
+      ].join(" • "),
+      updatedAt: companion.updatedAt || companion.createdAt || "",
+      reason: "companion record",
+    });
+  }
+
   for (const location of state.locations || []) {
     pushCandidate({
       sourceType: "location",
@@ -8652,6 +11486,27 @@ function buildUnifiedRetrievalContext({ tabId, userInput, route, baseContext, ob
       ].join(" • "),
       updatedAt: location.updatedAt || location.createdAt || "",
       reason: "location record",
+    });
+  }
+
+  for (const eventItem of state.events || []) {
+    pushCandidate({
+      sourceType: "event",
+      sourceLabel: "Event",
+      title: eventItem.title || "Untitled event",
+      text: [
+        `Category ${eventItem.category || "story"}`,
+        `Status ${eventItem.status || "seeded"}`,
+        `Urgency ${eventItem.urgency ?? 3}`,
+        `Hex ${eventItem.hex || "none"}`,
+        `Linked quest ${eventItem.linkedQuest || "none"}`,
+        `Linked companion ${eventItem.linkedCompanion || "none"}`,
+        `Trigger ${eventItem.trigger || "none"}`,
+        `Fallout ${eventItem.fallout || "none"}`,
+        `Notes ${eventItem.notes || "none"}`,
+      ].join(" • "),
+      updatedAt: eventItem.updatedAt || eventItem.createdAt || "",
+      reason: "event record",
     });
   }
 
@@ -8845,8 +11700,8 @@ async function runGlobalAiCopilot(options = {}) {
   const input = request.input;
   const effectiveConfig = { ...config };
   if (!request.isChat && isStructuredWorldTab(activeTab)) {
-    const worldOutputFloor = activeTab === "npcs" ? 420 : 280;
-    const worldOutputCeiling = activeTab === "npcs" ? 640 : 480;
+    const worldOutputFloor = activeTab === "npcs" || activeTab === "companions" ? 420 : activeTab === "events" ? 320 : 280;
+    const worldOutputCeiling = activeTab === "npcs" ? 640 : activeTab === "companions" ? 560 : activeTab === "events" ? 520 : 480;
     effectiveConfig.maxOutputTokens = Math.min(
       Math.max(Number(effectiveConfig.maxOutputTokens || 0) || 0, worldOutputFloor),
       worldOutputCeiling
@@ -9138,6 +11993,18 @@ function buildPdfFocusedRetryPrompt(tabId, selectedPdfFile, requestText) {
       cleanRequest,
     ].join("\n");
   }
+  if (isStructuredWorldTab(tabId)) {
+    return [
+      "Use only the selected PDF context already provided with this request.",
+      `Selected PDF: ${selectedPdfFile}`,
+      "Keep every detail grounded in the selected book. If a detail is inferred instead of confirmed, mark it clearly in the output.",
+      buildGlobalCopilotSeedPrompt(tabId),
+      getStructuredWorldDetailInstruction(tabId),
+      "",
+      "GM request:",
+      cleanRequest,
+    ].join("\n");
+  }
   return [
     "Use only the selected PDF context already provided with this request.",
     `Selected PDF: ${selectedPdfFile}`,
@@ -9162,7 +12029,7 @@ async function copyGlobalAiOutput() {
   if (!text) return;
   try {
     await navigator.clipboard.writeText(text);
-    ui.copilotMessage = "Loremaster output copied.";
+    ui.copilotMessage = "Companion AI output copied.";
   } catch {
     ui.copilotMessage = "Copy failed. Select output manually and copy.";
   }
@@ -9172,7 +12039,7 @@ async function copyGlobalAiOutput() {
 async function applyGlobalAiOutput() {
   const text = str(ui.copilotDraft.output);
   if (!text) {
-    ui.copilotMessage = "No Loremaster output to apply.";
+    ui.copilotMessage = "No Companion AI output to apply.";
     render();
     return;
   }
@@ -9181,8 +12048,16 @@ async function applyGlobalAiOutput() {
     createNpcFromAi(text);
     return;
   }
+  if (activeTab === "companions") {
+    createCompanionFromAi(text);
+    return;
+  }
   if (activeTab === "quests") {
     createQuestFromAi(text);
+    return;
+  }
+  if (activeTab === "events") {
+    createEventFromAi(text);
     return;
   }
   if (activeTab === "locations") {
@@ -9191,7 +12066,7 @@ async function applyGlobalAiOutput() {
   }
   if (activeTab === "capture") {
     createCaptureEntry("AI", text, getResolvedCaptureSessionId());
-    ui.copilotMessage = "Added AI output to live capture.";
+    ui.copilotMessage = "Added AI output to table notes.";
     render();
     return;
   }
@@ -9209,7 +12084,7 @@ async function applyGlobalAiOutput() {
   }
   if (activeTab === "writing") {
     ui.writingDraft.output = text;
-    ui.copilotMessage = "Sent AI output to Writing Helper.";
+    ui.copilotMessage = "Sent AI output to Scene Forge.";
     render();
     return;
   }
@@ -9282,17 +12157,24 @@ function ensureLatestSessionForAi() {
   const latest = getLatestSession();
   if (latest) return latest;
   const now = new Date().toISOString();
-  const created = {
+  const created = normalizeSessionRecord({
     id: uid(),
     title: "Session (AI Draft)",
     date: "",
+    type: "expedition",
     arc: "",
+    chapter: "",
     kingdomTurn: "",
+    focusHex: "",
+    leadCompanion: "",
+    travelObjective: "",
+    weather: "",
+    pressure: "",
     summary: "",
     nextPrep: "",
     createdAt: now,
     updatedAt: now,
-  };
+  });
   state.sessions.unshift(created);
   saveState();
   return created;
@@ -9430,21 +12312,63 @@ function createNpcFromAi(text) {
   render();
 }
 
+function createCompanionFromAi(text) {
+  const now = new Date().toISOString();
+  const name = extractLabeledBlock(text, "Name") || guessTitleFromText(text, "AI Companion");
+  const statusRaw = extractLabeledBlock(text, "Status") || "prospective";
+  const status = COMPANION_STATUS_OPTIONS.find((option) => option.toLowerCase() === str(statusRaw).toLowerCase()) || "prospective";
+  const influenceRaw = Number.parseInt(String(extractLabeledBlock(text, "Influence") || "0"), 10);
+  const influence = Math.max(0, Math.min(10, Number.isFinite(influenceRaw) ? influenceRaw : 0));
+  const currentHexRaw = extractLabeledBlock(text, "Current Hex") || extractLabeledBlock(text, "Hex");
+  const currentHex = normalizeHexCoordinate(currentHexRaw) || str(currentHexRaw);
+  const kingdomRole = extractLabeledBlock(text, "Kingdom Role");
+  const personalQuest = extractLabeledBlock(text, "Personal Quest");
+  const notes = extractLabeledBlock(text, "Notes") || text;
+
+  state.companions.unshift({
+    id: uid(),
+    name,
+    status,
+    influence,
+    currentHex,
+    kingdomRole,
+    personalQuest,
+    notes,
+    createdAt: now,
+    updatedAt: now,
+  });
+  saveState();
+  ui.copilotMessage = `Created Companion: ${name}`;
+  render();
+}
+
 function createQuestFromAi(text) {
   const statusRaw = (extractLabeledBlock(text, "Status") || "open").toLowerCase();
-  const status = ["open", "in-progress", "blocked", "completed", "failed"].includes(statusRaw) ? statusRaw : "open";
+  const status = QUEST_STATUS_OPTIONS.find((option) => option.toLowerCase() === statusRaw) || "open";
+  const priorityRaw = extractLabeledBlock(text, "Priority") || "Soon";
+  const priority = QUEST_PRIORITY_OPTIONS.find((option) => option.toLowerCase() === str(priorityRaw).toLowerCase()) || "Soon";
   const title = extractLabeledBlock(text, "Title") || guessTitleFromText(text, "AI Quest");
+  const chapter = extractLabeledBlock(text, "Chapter") || extractLabeledBlock(text, "Chapter / Arc") || extractLabeledBlock(text, "Arc");
+  const hexRaw = extractLabeledBlock(text, "Hex");
+  const hex = normalizeHexCoordinate(hexRaw) || str(hexRaw);
   const objective = extractLabeledBlock(text, "Objective");
   const giver = extractLabeledBlock(text, "Giver");
   const stakes = extractLabeledBlock(text, "Stakes") || text;
+  const linkedCompanion = extractLabeledBlock(text, "Linked Companion");
+  const nextBeat = extractLabeledBlock(text, "Next Beat");
   const now = new Date().toISOString();
   state.quests.unshift({
     id: uid(),
     title,
     status,
+    priority,
+    chapter,
+    hex,
     objective,
     giver,
     stakes,
+    linkedCompanion,
+    nextBeat,
     createdAt: now,
     updatedAt: now,
   });
@@ -9453,9 +12377,108 @@ function createQuestFromAi(text) {
   render();
 }
 
+function extractEventImpactValueFromAi(text, labels, fallback = 0) {
+  const labelList = Array.isArray(labels) ? labels.map((label) => str(label)).filter(Boolean) : [];
+  for (const label of labelList) {
+    const direct = extractLabeledBlock(text, label);
+    if (str(direct)) return coerceInteger(direct, fallback);
+  }
+
+  const impactBlock = extractLabeledBlock(text, "Kingdom Impact");
+  if (!impactBlock) return fallback;
+  for (const label of labelList) {
+    const match = impactBlock.match(new RegExp(`${escapeRegex(label)}\\s*[:=-]?\\s*([+-]?\\d+)`, "i"));
+    if (match) return coerceInteger(match[1], fallback);
+  }
+  return fallback;
+}
+
+function extractEventClockFieldsFromAi(text) {
+  const clockText = extractLabeledBlock(text, "Clock");
+  const compoundClock = String(clockText || "").match(/([+-]?\d+)\s*\/\s*([+-]?\d+)/);
+  const clock = compoundClock ? coerceInteger(compoundClock[1], 0) : coerceInteger(clockText, 0);
+  const clockMax = compoundClock ? coerceInteger(compoundClock[2], 4) : coerceInteger(extractLabeledBlock(text, "Clock Max"), 4);
+  return {
+    clock: Math.max(0, clock || 0),
+    clockMax: Math.max(1, clockMax || 4),
+  };
+}
+
+function createEventFromAi(text) {
+  const title = extractLabeledBlock(text, "Title") || guessTitleFromText(text, "AI Event");
+  const categoryRaw = extractLabeledBlock(text, "Category") || "story";
+  const category = EVENT_CATEGORY_OPTIONS.find((option) => option.toLowerCase() === str(categoryRaw).toLowerCase()) || "story";
+  const statusRaw = extractLabeledBlock(text, "Status") || "seeded";
+  const status = EVENT_STATUS_OPTIONS.find((option) => option.toLowerCase() === str(statusRaw).toLowerCase()) || "seeded";
+  const urgencyRaw = Number.parseInt(String(extractLabeledBlock(text, "Urgency") || "3"), 10);
+  const urgency = Math.max(1, Math.min(5, Number.isFinite(urgencyRaw) ? urgencyRaw : 3));
+  const hexRaw = extractLabeledBlock(text, "Hex");
+  const hex = normalizeHexCoordinate(hexRaw) || str(hexRaw);
+  const linkedQuest = extractLabeledBlock(text, "Linked Quest");
+  const linkedCompanion = extractLabeledBlock(text, "Linked Companion");
+  const { clock, clockMax } = extractEventClockFieldsFromAi(text);
+  const advancePerTurn = Math.max(
+    0,
+    coerceInteger(extractLabeledBlock(text, "Advance / Turn") || extractLabeledBlock(text, "Advance Per Turn") || "1", 1) || 0
+  );
+  const advanceOn = normalizeEventAdvanceMode(extractLabeledBlock(text, "Advance Mode") || extractLabeledBlock(text, "Advance On") || "turn");
+  const impactScope = normalizeEventImpactScope(extractLabeledBlock(text, "Impact Scope") || "none");
+  const trigger = extractLabeledBlock(text, "Trigger");
+  const consequenceSummary =
+    extractLabeledBlock(text, "Consequence Summary") ||
+    extractLabeledBlock(text, "Kingdom Consequence") ||
+    extractLabeledBlock(text, "Consequence") ||
+    extractLabeledBlock(text, "Escalation");
+  const fallout = extractLabeledBlock(text, "Fallout");
+  const notes = extractLabeledBlock(text, "Notes") || text;
+  const now = new Date().toISOString();
+
+  state.events.unshift(
+    normalizeEventRecord({
+      id: uid(),
+      title,
+      category,
+      status,
+      urgency,
+      hex,
+      linkedQuest,
+      linkedCompanion,
+      clock,
+      clockMax,
+      advancePerTurn,
+      advanceOn,
+      impactScope,
+      trigger,
+      consequenceSummary,
+      fallout,
+      rpImpact: extractEventImpactValueFromAi(text, ["RP Impact", "Resource Points Impact", "RP"], 0),
+      unrestImpact: extractEventImpactValueFromAi(text, ["Unrest Impact", "Unrest"], 0),
+      renownImpact: extractEventImpactValueFromAi(text, ["Renown Impact", "Renown"], 0),
+      fameImpact: extractEventImpactValueFromAi(text, ["Fame Impact", "Fame"], 0),
+      infamyImpact: extractEventImpactValueFromAi(text, ["Infamy Impact", "Infamy"], 0),
+      foodImpact: extractEventImpactValueFromAi(text, ["Food Impact", "Food"], 0),
+      lumberImpact: extractEventImpactValueFromAi(text, ["Lumber Impact", "Lumber"], 0),
+      luxuriesImpact: extractEventImpactValueFromAi(text, ["Luxuries Impact", "Luxuries"], 0),
+      oreImpact: extractEventImpactValueFromAi(text, ["Ore Impact", "Ore"], 0),
+      stoneImpact: extractEventImpactValueFromAi(text, ["Stone Impact", "Stone"], 0),
+      corruptionImpact: extractEventImpactValueFromAi(text, ["Corruption Impact", "Corruption"], 0),
+      crimeImpact: extractEventImpactValueFromAi(text, ["Crime Impact", "Crime"], 0),
+      decayImpact: extractEventImpactValueFromAi(text, ["Decay Impact", "Decay"], 0),
+      strifeImpact: extractEventImpactValueFromAi(text, ["Strife Impact", "Strife"], 0),
+      notes,
+      createdAt: now,
+      updatedAt: now,
+    })
+  );
+  saveState();
+  ui.copilotMessage = `Created Event: ${title}`;
+  render();
+}
+
 function createLocationFromAi(text) {
   const name = extractLabeledBlock(text, "Name") || guessTitleFromText(text, "AI Location");
-  const hex = extractLabeledBlock(text, "Hex");
+  const hexRaw = extractLabeledBlock(text, "Hex");
+  const hex = normalizeHexCoordinate(hexRaw) || str(hexRaw);
   const whatChanged = extractLabeledBlock(text, "What Changed");
   const notes = extractLabeledBlock(text, "Notes") || text;
   const now = new Date().toISOString();
@@ -9487,7 +12510,7 @@ function escapeRegex(value) {
 
 function generatePrepQueue(mode) {
   const latest = getLatestSession();
-  const sourceText = `${latest?.summary || ""} ${latest?.nextPrep || ""}`;
+  const sourceText = getSessionReferenceText(latest);
   const items = [];
   const seen = new Set();
 
@@ -9505,8 +12528,8 @@ function generatePrepQueue(mode) {
     });
   };
 
-  add("Read recap and pick the exact opening scene.", 6);
-  add("Verify Foundry scene, token lights, and initiative setup.", 8);
+  add("Read the last recap, then lock the exact opening scene and route.", 6);
+  add("Pin the party's current hex, likely destination, and any route split before play.", 6);
 
   const openQuests = state.quests
     .filter((q) => q.status !== "completed" && q.status !== "failed")
@@ -9526,22 +12549,39 @@ function generatePrepQueue(mode) {
     add(`Update consequence state at ${location.name}.`, 5);
   }
 
+  const activeEvents = getDashboardActiveEvents().slice(0, 3);
+  for (const eventItem of activeEvents) {
+    add(`Decide how "${eventItem.title}" advances or gets confronted.`, 6);
+  }
+
+  const companionFocus = getDashboardCompanionWatchList().slice(0, 2);
+  for (const companion of companionFocus) {
+    add(`Prep one influence or spotlight beat for ${companion.name}.`, 5);
+  }
+
+  if (str(latest?.weather)) {
+    add(`Set weather and campsite fallout: ${condenseLine(latest.weather)}.`, 5);
+  } else {
+    add("Check campsite difficulty and weather pressure for the current route.", 5);
+  }
+
   if ((state.meta.pdfIndexedCount || 0) > 0) {
     const terms = suggestSearchTerms(sourceText, 3);
     if (terms.length) {
-      add(`Run PDF Intel checks: ${terms.join(", ")}.`, 8);
+      add(`Run Source Library checks: ${terms.join(", ")}.`, 8);
     } else {
-      add("Run one PDF Intel rules check for expected edge-case.", 6);
+      add("Run one Source Library rules check for an expected edge-case.", 6);
     }
   } else {
-    add("Index PDFs in PDF Intel (one-time setup/refresh).", 12);
+    add("Index PDFs in Source Library (one-time setup/refresh).", 12);
   }
 
-  if (latest && (str(latest.kingdomTurn) || hasKingdomSignals(sourceText))) {
-    add("Resolve campaign bookkeeping prep (resources, unrest, upkeep).", 10);
+  const monthContext = getAdventureLogMonthContext();
+  if (latest && (str(latest.kingdomTurn) || hasKingdomSignals(sourceText) || monthContext.kingdomTurnDueSoon)) {
+    add("Stage the month-end kingdom handoff (upkeep, unrest, resources, and pending event fallout).", 10);
   }
 
-  add("Prep one fallback encounter + one social wildcard.", 10);
+  add("Prep one fallback encounter and one non-combat complication for the route.", 10);
 
   const budget = mode === 30 ? 30 : mode === 90 ? 90 : 60;
   const queued = [];
@@ -9566,7 +12606,7 @@ function sessionSortKey(session) {
 function generateSmartChecklist(options = {}) {
   const includeArchived = options?.includeArchived === true;
   const latest = getLatestSession();
-  const latestText = `${latest?.summary || ""} ${latest?.nextPrep || ""}`;
+  const latestText = getSessionReferenceText(latest);
   const items = [];
   const seen = new Set();
 
@@ -9579,12 +12619,19 @@ function generateSmartChecklist(options = {}) {
     items.push({ id: `check-${slugify(clean)}`, label: clean });
   };
 
-  add("Confirm Foundry scene, token vision, and initiative tools are ready.");
+  add("Lock the opening scene, current hex, and the first likely route choice.");
   add("Read a 60-90 second recap of last session out loud.");
   add("Prepare one backup encounter and one social complication.");
 
-  if (latest && (str(latest.kingdomTurn) || hasKingdomSignals(latestText))) {
-    add("Run campaign bookkeeping first (resources, unrest, claims, build queue).");
+  if (str(latest?.weather)) {
+    add(`Apply weather/camp consequences: ${condenseLine(latest.weather)}.`);
+  } else {
+    add("Check campsites and weather pressure for the region the party is entering.");
+  }
+
+  const monthContext = getAdventureLogMonthContext();
+  if (latest && (str(latest.kingdomTurn) || hasKingdomSignals(latestText) || monthContext.kingdomTurnDueSoon)) {
+    add("Stage the kingdom handoff if the in-game month is closing (upkeep, unrest, events, RP).");
   }
 
   const activeQuests = state.quests
@@ -9606,15 +12653,25 @@ function generateSmartChecklist(options = {}) {
     add(`Update consequences and sensory detail for location: ${location.name}.`);
   }
 
+  const activeEvents = getDashboardActiveEvents().slice(0, 2);
+  for (const eventItem of activeEvents) {
+    add(`Decide whether "${eventItem.title}" escalates, stalls, or gets confronted.`);
+  }
+
+  const companionFocus = getDashboardCompanionWatchList().slice(0, 2);
+  for (const companion of companionFocus) {
+    add(`Give ${companion.name} one influence beat, request, or reaction this session.`);
+  }
+
   if ((state.meta.pdfIndexedCount || 0) > 0) {
     const terms = suggestSearchTerms(latestText, 3);
     if (terms.length) {
-      add(`PDF Intel search before session: ${terms.join(", ")}.`);
+      add(`Source Library search before session: ${terms.join(", ")}.`);
     } else {
-      add("Use PDF Intel to verify one rule likely to come up this session.");
+      add("Use Source Library to verify one rule likely to come up this session.");
     }
   } else {
-    add("Index PDFs in PDF Intel before final prep pass.");
+    add("Index PDFs in Source Library before final prep pass.");
   }
 
   const generated = items.slice(0, 12);
@@ -9707,7 +12764,7 @@ function generateWrapUpForSession(sessionId, options = {}) {
 }
 
 function buildWrapUpBullets(session, wizardAnswers = null) {
-  const sourceText = `${session.summary || ""} ${session.nextPrep || ""}`;
+  const sourceText = getSessionReferenceText(session);
   const wizardText = wizardAnswers
     ? `${wizardAnswers.highlights || ""} ${wizardAnswers.cliffhanger || ""} ${wizardAnswers.playerIntent || ""}`
     : "";
@@ -9745,8 +12802,28 @@ function buildWrapUpBullets(session, wizardAnswers = null) {
     add(`Update world-state at ${location.name} and prep one reveal.`);
   }
 
-  if (str(session.kingdomTurn) || hasKingdomSignals(fullSource)) {
-    add("Resolve campaign bookkeeping at start of next session (resources, unrest, buildings, claims).");
+  if (session.travelObjective) {
+    add(`Turn this route into a scene opener: ${condenseLine(session.travelObjective)}.`);
+  }
+
+  if (session.pressure) {
+    add(`Either escalate or resolve this pressure next session: ${condenseLine(session.pressure)}.`);
+  }
+
+  if (session.leadCompanion) {
+    add(`Give ${session.leadCompanion} a concrete influence beat or hard ask next session.`);
+  }
+
+  if (session.focusHex) {
+    add(`Update discoveries, route options, and consequences around hex ${session.focusHex}.`);
+  }
+
+  if (session.weather) {
+    add(`Carry weather or campsite fallout forward: ${condenseLine(session.weather)}.`);
+  }
+
+  if (str(session.kingdomTurn) || hasKingdomSignals(fullSource) || getAdventureLogMonthContext().kingdomTurnDueSoon) {
+    add("Resolve the kingdom handoff at the right moment next session (upkeep, unrest, events, RP).");
   }
 
   if (wizardAnswers) {
@@ -9767,7 +12844,7 @@ function buildWrapUpBullets(session, wizardAnswers = null) {
       4
     );
     if (terms.length) {
-      add(`Use PDF Intel to verify rules/lore for: ${terms.join(", ")}.`);
+      add(`Use Source Library to verify rules/lore for: ${terms.join(", ")}.`);
     }
   } else {
     add("Index your PDFs before next prep to speed up rules checks.");
@@ -9815,7 +12892,7 @@ function injectOrReplaceSceneOpenersSection(currentText, sceneSection) {
 }
 
 function generateSceneOpeners(session, wizardAnswers) {
-  const source = `${session.summary || ""} ${session.nextPrep || ""} ${wizardAnswers?.highlights || ""} ${
+  const source = `${getSessionReferenceText(session)} ${wizardAnswers?.highlights || ""} ${
     wizardAnswers?.cliffhanger || ""
   } ${wizardAnswers?.playerIntent || ""}`;
   const quest = state.quests
@@ -9826,13 +12903,18 @@ function generateSceneOpeners(session, wizardAnswers) {
 
   const questTitle = quest?.title || "the current frontier threat";
   const npcName = npc?.name || "a known local contact";
-  const locationName = location?.name || "the nearest frontier settlement";
+  const locationName = location?.name || session?.focusHex || "the nearest frontier settlement";
   const cliff = str(wizardAnswers?.cliffhanger)
     ? condenseLine(wizardAnswers.cliffhanger)
     : "the unresolved pressure from last session";
   const playerIntent = str(wizardAnswers?.playerIntent)
     ? condenseLine(wizardAnswers.playerIntent)
     : "the party's stated next objective";
+  const travelObjective = str(session?.travelObjective)
+    ? condenseLine(session.travelObjective)
+    : "the next route into the Stolen Lands";
+  const pressure = str(session?.pressure) ? condenseLine(session.pressure) : cliff;
+  const companion = str(session?.leadCompanion) || str(getDashboardCompanionWatchList()[0]?.name);
 
   const options = [];
   const seen = new Set();
@@ -9849,13 +12931,17 @@ function generateSceneOpeners(session, wizardAnswers) {
     `Cold open at ${locationName}: ${npcName} interrupts with urgent news tied to "${questTitle}".`
   );
   add(
-    `Immediate consequence opener: "${cliff}" escalates before the party can settle in.`
+    `Immediate consequence opener: "${pressure}" escalates before the party can settle in.`
   );
   add(
-    `Player-intent opener: frame the first scene around "${playerIntent}" and attach one new complication.`
+    `Player-intent opener: frame the first scene around "${playerIntent}" while the route to ${travelObjective} acquires one new complication.`
   );
 
-  if (hasKingdomSignals(source) || str(session.kingdomTurn)) {
+  if (companion) {
+    add(`Companion opener: ${companion} forces a decision before the party can settle on the day’s route.`);
+  }
+
+  if (hasKingdomSignals(source) || str(session.kingdomTurn) || getAdventureLogMonthContext().kingdomTurnDueSoon) {
     add("Kingdom pressure opener: start with a council/upkeep decision before adventure scenes.");
   }
 
@@ -9873,7 +12959,7 @@ function runWritingHelper() {
   const input = str(ui.writingDraft.input);
   if (!input) {
     ui.writingDraft.output = "";
-    ui.sessionMessage = "Writing Helper: add some draft text first.";
+    ui.sessionMessage = "Scene Forge: add some draft text first.";
     render();
     return;
   }
@@ -9882,7 +12968,7 @@ function runWritingHelper() {
   const cleaned = basicAutoCorrect(input);
   const output = generateStructuredText(cleaned, mode);
   ui.writingDraft.output = output;
-  ui.sessionMessage = "Writing Helper generated cleaned text.";
+  ui.sessionMessage = "Scene Forge generated cleaned text.";
   render();
 }
 
@@ -9932,7 +13018,7 @@ async function runWritingHelperWithLocalAi() {
 
   const input = str(ui.writingDraft.input);
   if (!input) {
-    ui.sessionMessage = "Writing Helper: add some draft text first.";
+    ui.sessionMessage = "Scene Forge: add some draft text first.";
     render();
     return;
   }
@@ -9964,7 +13050,7 @@ async function runWritingHelperWithLocalAi() {
 
     ui.writingDraft.output = finalOutput;
     ui.sessionMessage = usedFallback
-      ? `AI returned instruction-style text, so DM Helper generated a usable ${mode} draft automatically.`
+      ? `AI returned instruction-style text, so Kingmaker Companion generated a usable ${mode} draft automatically.`
       : `Local AI generated text using ${str(response?.model) || config.model}.`;
     if (ui.writingDraft.autoLink) {
       const autoResult = autoConnectWritingOutputToLatestSession({ silent: true, source: "AI output" });
@@ -9975,7 +13061,7 @@ async function runWritingHelperWithLocalAi() {
     ui.aiMessage = `Connected to ${str(response?.endpoint) || config.endpoint}`;
     clearAiError();
   } catch (err) {
-    const message = recordAiError("Writing helper generation", err);
+    const message = recordAiError("Scene Forge generation", err);
     ui.sessionMessage = `Local AI generation failed: ${message}`;
   } finally {
     ui.aiBusy = false;
@@ -10000,6 +13086,8 @@ function normalizeAiMemoryState(rawMemory) {
     sourceCounts: {
       sessions: Number.parseInt(String(sourceCounts.sessions || "0"), 10) || 0,
       openQuests: Number.parseInt(String(sourceCounts.openQuests || "0"), 10) || 0,
+      companions: Number.parseInt(String(sourceCounts.companions || "0"), 10) || 0,
+      events: Number.parseInt(String(sourceCounts.events || "0"), 10) || 0,
       npcs: Number.parseInt(String(sourceCounts.npcs || "0"), 10) || 0,
       locations: Number.parseInt(String(sourceCounts.locations || "0"), 10) || 0,
       ruleEntries: Number.parseInt(String(sourceCounts.ruleEntries || "0"), 10) || 0,
@@ -10108,6 +13196,10 @@ function buildAiMemoryDigests(sourceState = state) {
   );
   const latest = sessions[0] || null;
   const openQuests = (Array.isArray(working.quests) ? working.quests : []).filter((q) => q.status !== "completed" && q.status !== "failed");
+  const companions = Array.isArray(working.companions) ? working.companions : [];
+  const activeEvents = (Array.isArray(working.events) ? working.events : []).filter(
+    (eventItem) => !["resolved", "failed"].includes(str(eventItem.status).toLowerCase())
+  );
   const npcs = Array.isArray(working.npcs) ? working.npcs : [];
   const locations = Array.isArray(working.locations) ? working.locations : [];
   const hexMap = working === state ? getHexMapState() : normalizeHexMapState(working.hexMap);
@@ -10139,13 +13231,19 @@ function buildAiMemoryDigests(sourceState = state) {
         .map((quest) => `${quest.title}${quest.stakes ? ` (${clipDigestText(quest.stakes, 90)})` : ""}`)
         .join("; ")}`
     : "Open pressure: none tracked.";
+  const eventLine = activeEvents.length
+    ? `Active events: ${activeEvents
+        .slice(0, 4)
+        .map((eventItem) => `${eventItem.title} ${formatEventClockSummary(eventItem)}${eventItem.hex ? ` @ ${eventItem.hex}` : ""}`)
+        .join("; ")}`
+    : "Active events: none tracked.";
   const kingdomLine = kingdom?.name || kingdom?.currentTurnLabel || Number(kingdom?.level || 0) > 0
-    ? `Kingdom: ${kingdom.name || "Unnamed kingdom"} | Turn ${kingdom.currentTurnLabel || "not set"} | Control DC ${kingdom.controlDC} | Unrest ${kingdom.unrest} | Size ${kingdom.size}`
+    ? `Kingdom: ${kingdom.name || "Unnamed kingdom"} | Turn ${kingdom.currentTurnLabel || "not set"} | Date ${formatGolarionDate(kingdom.currentDate)} | Control DC ${kingdom.controlDC} | Unrest ${kingdom.unrest} | Size ${kingdom.size}`
     : "Kingdom: no active kingdom state.";
   const mapLine = party?.hex
     ? `Party position: ${party.hex} with ${Array.isArray(party.trail) ? party.trail.length : 0} trail point(s).`
     : "Party position: not currently placed on the hex map.";
-  const campaignSummary = [sessionHeadline, pressureLine, kingdomLine, mapLine].join("\n");
+  const campaignSummary = [sessionHeadline, pressureLine, eventLine, kingdomLine, mapLine].join("\n");
 
   const recentSessionSummary = sessions.length
     ? sessions
@@ -10167,6 +13265,16 @@ function buildAiMemoryDigests(sourceState = state) {
   const mentionedNpcNames = findEntityMentions(latestNarrative, npcs, "name", 5);
   const mentionedLocationNames = findEntityMentions(latestNarrative, locations, "name", 4);
   const mentionedQuestTitles = findEntityMentions(latestNarrative, openQuests, "title", 4);
+  const fallbackCompanionNames = [...companions]
+    .sort((a, b) => safeDate(b.updatedAt || b.createdAt) - safeDate(a.updatedAt || a.createdAt))
+    .map((companion) => str(companion.name))
+    .filter(Boolean)
+    .slice(0, 4);
+  const fallbackEventTitles = [...activeEvents]
+    .sort((a, b) => Number(b.urgency || 0) - Number(a.urgency || 0) || safeDate(b.updatedAt || b.createdAt) - safeDate(a.updatedAt || a.createdAt))
+    .map((eventItem) => str(eventItem.title))
+    .filter(Boolean)
+    .slice(0, 4);
   const fallbackNpcNames = [...npcs]
     .sort((a, b) => safeDate(b.updatedAt || b.createdAt) - safeDate(a.updatedAt || a.createdAt))
     .map((npc) => str(npc.name))
@@ -10178,6 +13286,8 @@ function buildAiMemoryDigests(sourceState = state) {
     .filter(Boolean)
     .slice(0, 4);
   const activeEntitiesSummary = [
+    `Companions: ${fallbackCompanionNames.join(", ") || "None tracked"}`,
+    `Events: ${fallbackEventTitles.join(", ") || "None tracked"}`,
     `NPCs: ${(mentionedNpcNames.length ? mentionedNpcNames : fallbackNpcNames).join(", ") || "None tracked"}`,
     `Locations: ${(mentionedLocationNames.length ? mentionedLocationNames : fallbackLocationNames).join(", ") || "None tracked"}`,
     `Quests: ${mentionedQuestTitles.join(", ") || openQuests.slice(0, 4).map((quest) => quest.title).join(", ") || "None tracked"}`,
@@ -10212,6 +13322,8 @@ function buildAiMemoryDigests(sourceState = state) {
     sourceCounts: {
       sessions: sessions.length,
       openQuests: openQuests.length,
+      companions: companions.length,
+      events: activeEvents.length,
       npcs: npcs.length,
       locations: locations.length,
       ruleEntries: recentRuleEntries.length + savedRuleEntries.length,
@@ -10240,6 +13352,7 @@ function collectAiCampaignContext() {
   const kingdom = getKingdomState();
   const kingdomProfile = getActiveKingdomProfile();
   const openQuests = state.quests.filter((q) => q.status !== "completed" && q.status !== "failed").slice(0, 6);
+  const activeEvents = state.events.filter((eventItem) => !["resolved", "failed"].includes(str(eventItem.status).toLowerCase())).slice(0, 8);
   const recentSessions = [...state.sessions]
     .sort((a, b) => safeDate(b.date || b.updatedAt || b.createdAt) - safeDate(a.date || a.updatedAt || a.createdAt))
     .slice(0, 6);
@@ -10259,6 +13372,13 @@ function collectAiCampaignContext() {
     latestSession: latest
       ? {
           title: latest.title,
+          type: latest.type,
+          chapter: latest.chapter,
+          focusHex: latest.focusHex,
+          leadCompanion: latest.leadCompanion,
+          travelObjective: latest.travelObjective,
+          weather: latest.weather,
+          pressure: latest.pressure,
           summary: latest.summary,
           nextPrep: latest.nextPrep,
           arc: latest.arc,
@@ -10268,6 +13388,13 @@ function collectAiCampaignContext() {
     recentSessions: recentSessions.map((session) => ({
       title: session.title,
       date: session.date,
+      type: session.type,
+      chapter: session.chapter,
+      focusHex: session.focusHex,
+      leadCompanion: session.leadCompanion,
+      travelObjective: session.travelObjective,
+      weather: session.weather,
+      pressure: session.pressure,
       summary: session.summary,
       nextPrep: session.nextPrep,
       arc: session.arc,
@@ -10279,6 +13406,37 @@ function collectAiCampaignContext() {
       objective: q.objective,
       giver: q.giver,
       stakes: q.stakes,
+      priority: q.priority,
+      chapter: q.chapter,
+      hex: q.hex,
+      linkedCompanion: q.linkedCompanion,
+      nextBeat: q.nextBeat,
+    })),
+    companions: state.companions.slice(0, 12).map((companion) => ({
+      name: companion.name,
+      status: companion.status,
+      influence: companion.influence,
+      currentHex: companion.currentHex,
+      kingdomRole: companion.kingdomRole,
+      personalQuest: companion.personalQuest,
+      notes: companion.notes,
+    })),
+    events: activeEvents.map((eventItem) => ({
+      title: eventItem.title,
+      category: eventItem.category,
+      status: eventItem.status,
+      urgency: eventItem.urgency,
+      hex: eventItem.hex,
+      clock: eventItem.clock,
+      clockMax: eventItem.clockMax,
+      advancePerTurn: eventItem.advancePerTurn,
+      advanceOn: eventItem.advanceOn,
+      impactScope: eventItem.impactScope,
+      linkedQuest: eventItem.linkedQuest,
+      linkedCompanion: eventItem.linkedCompanion,
+      trigger: eventItem.trigger,
+      fallout: eventItem.fallout,
+      consequenceSummary: eventItem.consequenceSummary,
     })),
     npcs: state.npcs.slice(0, 12).map((n) => ({
       name: n.name,
@@ -10314,7 +13472,7 @@ async function copyWritingOutput() {
   if (!text) return;
   try {
     await navigator.clipboard.writeText(text);
-    ui.sessionMessage = "Writing Helper output copied.";
+    ui.sessionMessage = "Scene Forge output copied.";
   } catch {
     ui.sessionMessage = "Copy failed. Select output manually and copy.";
   }
@@ -10324,7 +13482,7 @@ async function copyWritingOutput() {
 function applyWritingOutputToLatestSession(field) {
   const text = str(ui.writingDraft.output);
   if (!text) {
-    ui.sessionMessage = "No Writing Helper output to apply.";
+    ui.sessionMessage = "No Scene Forge output to apply.";
     render();
     return;
   }
@@ -10341,7 +13499,7 @@ function applyWritingOutputToLatestSession(field) {
   }
   latest.updatedAt = new Date().toISOString();
   saveState();
-  ui.sessionMessage = `Applied Writing Helper output to "${latest.title}" (${field}).`;
+  ui.sessionMessage = `Applied Scene Forge output to "${latest.title}" (${field}).`;
   render();
 }
 
@@ -10349,7 +13507,7 @@ function autoConnectWritingOutputToLatestSession(options = {}) {
   const text = str(ui.writingDraft.output);
   if (!text) {
     if (!options.silent) {
-      ui.sessionMessage = "No Writing Helper output to auto-connect.";
+      ui.sessionMessage = "No Scene Forge output to auto-connect.";
       render();
     }
     return { applied: false, totalLinks: 0 };
@@ -10374,7 +13532,7 @@ function autoConnectWritingOutputToLatestSession(options = {}) {
     return { applied: false, totalLinks: 0 };
   }
 
-  const sourceLabel = str(options.source) || "Writing Helper output";
+  const sourceLabel = str(options.source) || "Scene Forge output";
   const section = buildAutoLinksSection(links, sourceLabel);
   latest.nextPrep = injectOrReplaceAutoLinksSection(latest.nextPrep || "", section);
   latest.updatedAt = new Date().toISOString();
@@ -10616,6 +13774,48 @@ function generateStructuredText(cleanedInput, mode) {
     ].join("\n");
   }
 
+  if (mode === "companion") {
+    return [
+      "Name: Frontier Scout",
+      "Status: traveling",
+      "Influence: 5",
+      "Current Hex: D4",
+      "Kingdom Role: Warden candidate",
+      "Personal Quest: Find proof that a missing patrol was betrayed from inside the charter.",
+      "Notes:",
+      "- Loyalty or leverage: Trust grows when the party follows through on frontier promises.",
+      "- Current pressure or tension: They suspect someone useful to the kingdom is hiding the truth.",
+      "- Best camp or travel scene: They share a hard choice from the road and ask who the kingdom protects first.",
+      "- Best use in the next session: Tie them to a travel complication or border-defense choice.",
+    ].join("\n");
+  }
+
+  if (mode === "event") {
+    return [
+      "Title: Border Pressure Rising",
+      "Category: kingdom",
+      "Status: active",
+      "Urgency: 3",
+      "Hex: D4",
+      "Linked Quest: Secure the Main Route",
+      "Linked Companion: ",
+      "Clock: 1",
+      "Clock Max: 4",
+      "Advance / Turn: 1",
+      "Advance Mode: turn",
+      "Impact Scope: claimed-hex",
+      "Trigger: Delays at the frontier give hostile forces time to test the kingdom's response.",
+      "Consequence Summary: If ignored, the kingdom takes a visible setback and loses confidence on the frontier.",
+      "Fallout: Border settlements begin to doubt the party's control and local lawlessness increases.",
+      "Kingdom Impact:",
+      "- RP: -1",
+      "- Unrest: 1",
+      "- Renown: -1",
+      "- Crime: 1",
+      "Notes: Advance this clock when the kingdom spends a turn elsewhere or fails to secure the route.",
+    ].join("\n");
+  }
+
   if (mode === "location") {
     return [
       "Name: Rivergate Hamlet",
@@ -10731,7 +13931,7 @@ function generateFallbackAiOutput({ mode, input, tabId }) {
     return generateAssistantFallbackAnswer(cleanInput);
   }
 
-  if (normalizedMode === "npc" || normalizedMode === "quest" || normalizedMode === "location") {
+  if (normalizedMode === "npc" || normalizedMode === "companion" || normalizedMode === "quest" || normalizedMode === "event" || normalizedMode === "location") {
     return generateStructuredText(cleanInput, normalizedMode);
   }
 
@@ -10816,7 +14016,7 @@ function generateCopilotFallbackByTab(tabId, input) {
       "- Local override: check the Manual Rulings Digest and recent Rule / Retcon captures.",
       "",
       "Source Trail:",
-      "- PF2e Rules tab search results",
+      "- Rules Reference tab search results",
       "- Local Rulings Digest",
     ].join("\n");
   }
@@ -10836,7 +14036,7 @@ function generateCopilotFallbackByTab(tabId, input) {
       "- Rising unrest or ruin near the threshold can make the next event spiral fast.",
       "- Consumption and local settlement limits can quietly punish overexpansion.",
       "",
-      "What To Record In DM Helper:",
+      "What To Record In Kingmaker Companion:",
       "- Which leaders acted, what changed, and which projects are still pending.",
       "- Any rulings or reminders you need before the next kingdom turn.",
     ].join("\n");
@@ -10864,6 +14064,31 @@ function generateCopilotFallbackByTab(tabId, input) {
       "Objective: Clear threats blocking movement between key settlements.",
       "Giver: Local council envoy",
       "Stakes: Trade and trust collapse if route remains unsafe.",
+    ].join("\n");
+  }
+  if (tabId === "events") {
+    return [
+      "Title: Border Pressure Rising",
+      "Category: kingdom",
+      "Status: active",
+      "Urgency: 3",
+      "Hex: D4",
+      "Linked Quest: Secure the Main Route",
+      "Linked Companion: ",
+      "Clock: 1",
+      "Clock Max: 4",
+      "Advance / Turn: 1",
+      "Advance Mode: turn",
+      "Impact Scope: claimed-hex",
+      "Trigger: Delays at the frontier give hostile forces time to test the kingdom's response.",
+      "Consequence Summary: If ignored, the kingdom takes a visible setback and loses confidence on the frontier.",
+      "Fallout: Border settlements begin to doubt the party's control and local lawlessness increases.",
+      "Kingdom Impact:",
+      "- RP: -1",
+      "- Unrest: 1",
+      "- Renown: -1",
+      "- Crime: 1",
+      "Notes: Advance this if the party spends time elsewhere or the kingdom turn goes unresolved.",
     ].join("\n");
   }
   if (tabId === "locations") {
@@ -11007,7 +14232,7 @@ function generateAssistantFallbackAnswer(input) {
   }
   if (/\b(who|what)\s+are\s+you\b/.test(lower)) {
     return [
-      "I am your DM Helper Loremaster running on your local AI setup.",
+      "I am your Kingmaker Companion AI running on your local AI setup.",
       "I can help with hooks, session prep, kingdom turns, encounters, NPCs, quests, and note cleanup.",
       "Ask me for one specific thing and I will draft it in table-ready format.",
     ].join("\n");
@@ -11027,7 +14252,7 @@ function generateAssistantFallbackAnswer(input) {
     return [
       "I only use your campaign data, the active kingdom rules profile if one is loaded, and PDFs indexed in this app.",
       "I do not have default access to external books.",
-      "Open PDF Intel to index files, then ask what books are currently indexed.",
+      "Open Source Library to index files, then ask what books are currently indexed.",
     ].join("\n");
   }
 
@@ -11167,7 +14392,7 @@ function exportSessionPacketForSession(sessionId) {
 }
 
 function generateSessionPacketMarkdown(session, mode) {
-  const sourceText = `${session.summary || ""} ${session.nextPrep || ""}`;
+  const sourceText = getSessionReferenceText(session);
   const queue = generatePrepQueue(mode);
   const checklist = generateSmartChecklist().slice(0, 8);
   const openQuests = state.quests
@@ -11176,51 +14401,71 @@ function generateSessionPacketMarkdown(session, mode) {
     .slice(0, 6);
   const npcFocus = getMentionedOrRecent(state.npcs, "name", sourceText, 4);
   const locationFocus = getMentionedOrRecent(state.locations, "name", sourceText, 3);
+  const activeEvents = getDashboardActiveEvents().slice(0, 4);
+  const companionFocus = getDashboardCompanionWatchList().slice(0, 3);
   const sceneOpeners = getSceneOpenersForSessionPacket(session);
   const wrapBullets = getSmartWrapBulletsForSessionPacket(session);
+  const monthContext = getAdventureLogMonthContext();
 
   return `# Next Session Packet - ${session.title}
 
 Generated: ${new Date().toLocaleString()}
 Prep Mode: ${mode} minutes
 
-## 1) Read-Aloud Recap
+## 1) Adventure Frame
+- Session Type: ${getSessionTypeLabel(session.type)}
+- Campaign Date: ${getSessionDisplayDate(session)}
+- Chapter Lane: ${session.chapter || session.arc || "Not pinned"}
+- Focus Hex: ${session.focusHex || "Not pinned"}
+- Travel Objective: ${session.travelObjective || "Not pinned"}
+- Frontier Pressure: ${session.pressure || "Not pinned"}
+- Lead Companion: ${session.leadCompanion || "None pinned"}
+- Weather / Camp: ${session.weather || "Not pinned"}
+- Kingdom Handoff: ${session.kingdomTurn || (monthContext.kingdomTurnDueSoon ? "Month-end kingdom turn due soon" : "No kingdom turn marker yet")}
+
+## 2) Read-Aloud Recap
 - ${condenseLine(session.summary) || "No recap captured yet."}
 
-## 2) Opening Scene Options
+## 3) Opening Scene Options
 ${sceneOpeners.length ? sceneOpeners.map((line, i) => `${i + 1}. ${line}`).join("\n") : "- Create one cold open using the top open quest + top NPC."}
 
-## 3) Smart Wrap-Up Priorities
+## 4) Smart Wrap-Up Priorities
 ${wrapBullets.length ? wrapBullets.map((line) => `- ${line}`).join("\n") : "- Run Smart Wrap-Up in the app for generated priorities."}
 
-## 4) Time-Boxed Prep Queue (${mode}m)
+## 5) Frontier Pressure
+${activeEvents.length ? activeEvents.map((eventItem) => `- ${eventItem.title} (${eventItem.status || "active"} • clock ${formatEventClockSummary(eventItem)}${eventItem.hex ? ` • ${eventItem.hex}` : ""})`).join("\n") : "- None"}
+
+## 6) Companion Watch
+${companionFocus.length ? companionFocus.map((companion) => `- ${companion.name}: status=${companion.status || "unknown"}, influence=${companion.influence ?? 0}${companion.currentHex ? `, hex=${companion.currentHex}` : ""}`).join("\n") : "- None"}
+
+## 7) Time-Boxed Prep Queue (${mode}m)
 ${queue.map((task) => `- [ ] (${task.minutes}m) ${task.label}`).join("\n")}
 
-## 5) Session Start Checklist
+## 8) Session Start Checklist
 ${checklist.map((item) => `- [ ] ${item.label}`).join("\n")}
 
-## 6) Open Quests To Push
+## 9) Open Quests To Push
 ${openQuests.length ? openQuests.map((q) => `- ${q.title} (${q.status})`).join("\n") : "- None"}
 
-## 7) NPC Focus Cards
+## 10) NPC Focus Cards
 ${npcFocus.length ? npcFocus
     .map((npc) => `- ${npc.name}: role=${npc.role || "n/a"}, agenda=${npc.agenda || "n/a"}`)
     .join("\n") : "- None"}
 
-## 8) Location Focus
+## 11) Location Focus
 ${locationFocus.length ? locationFocus
     .map((loc) => `- ${loc.name}: ${loc.whatChanged || "No recent change logged."}`)
     .join("\n") : "- None"}
 
-## 9) Foundry Handoff
-- [ ] Import/export any updated NPC actors.
-- [ ] Import/update quest + location journals.
-- [ ] Confirm opening scene map, walls, and tokens.
+## 12) Exports & Links
+- [ ] Export or sync any updated NPCs, quests, and locations.
+- [ ] Confirm the opening scene map, current hex, and route notes.
+- [ ] If month-end is near, have kingdom sheets and event clocks ready.
 
-## 10) PDF Intel Checks
+## 13) Source Library Checks
 ${(state.meta.pdfIndexedCount || 0) > 0
     ? `- [ ] Run targeted search terms: ${suggestSearchTerms(sourceText, 4).join(", ") || "rules, travel, hazards"}`
-    : "- [ ] Index PDFs first in PDF Intel tab."}
+    : "- [ ] Index PDFs first in Source Library tab."}
 `;
 }
 
@@ -11295,7 +14540,7 @@ function appendCaptureToSession() {
     .slice(0, 20);
 
   if (!relevant.length) {
-    ui.captureMessage = "No capture entries available to append.";
+    ui.captureMessage = "No table notes available to append.";
     render();
     return;
   }
@@ -11305,14 +14550,14 @@ function appendCaptureToSession() {
       `- [${entry.kind}] ${new Date(entry.timestamp || Date.now()).toLocaleTimeString()} - ${entry.note}`
   );
   const section = `<!-- LIVE_CAPTURE_START -->
-### Live Capture Log
+### Table Notes Log
 ${lines.join("\n")}
 <!-- LIVE_CAPTURE_END -->`;
 
   session.summary = injectOrReplaceLiveCaptureSection(session.summary || "", section);
   session.updatedAt = new Date().toISOString();
   saveState();
-  ui.captureMessage = `Appended ${relevant.length} capture entries to "${session.title}".`;
+  ui.captureMessage = `Appended ${relevant.length} table note${relevant.length === 1 ? "" : "s"} to "${session.title}".`;
   render();
 }
 
@@ -11404,17 +14649,24 @@ async function handleFormSubmit(type, form) {
   const fields = getFormFields(form);
 
   if (type === "sessions") {
-    state.sessions.unshift({
+    state.sessions.unshift(normalizeSessionRecord({
       id: uid(),
       title: str(fields.title),
       date: str(fields.date),
+      type: str(fields.type),
       arc: str(fields.arc),
+      chapter: str(fields.chapter),
       kingdomTurn: str(fields.kingdomTurn),
+      focusHex: str(fields.focusHex),
+      leadCompanion: str(fields.leadCompanion),
+      travelObjective: str(fields.travelObjective),
+      weather: str(fields.weather),
+      pressure: str(fields.pressure),
       summary: str(fields.summary),
       nextPrep: str(fields.nextPrep),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    });
+    }));
     saveState();
     form.reset();
     render();
@@ -11467,7 +14719,7 @@ async function handleFormSubmit(type, form) {
   if (type === "obsidian-settings") {
     const settings = ensureObsidianSettings();
     settings.vaultPath = str(fields.vaultPath);
-    settings.baseFolder = str(fields.baseFolder) || "DM Helper";
+    settings.baseFolder = str(fields.baseFolder) || "Kingmaker Companion";
     settings.aiWriteFolder = str(fields.aiWriteFolder) || "AI Notes";
     settings.useForAiContext = fields.useForAiContext === "on";
     settings.readWholeVault = fields.readWholeVault === "on";
@@ -11562,10 +14814,33 @@ async function handleFormSubmit(type, form) {
   }
 
   if (type === "kingdom-turn") {
-    applyKingdomTurnForm(fields);
+    const result = applyKingdomTurnForm(fields);
     saveState();
     form.reset();
-    ui.kingdomMessage = "Kingdom turn applied and recorded.";
+    const triggeredText = result?.eventResults?.triggered
+      ? ` ${result.eventResults.triggered} event consequence${result.eventResults.triggered === 1 ? "" : "s"} triggered.`
+      : result?.eventResults?.advanced
+        ? ` ${result.eventResults.advanced} event clock${result.eventResults.advanced === 1 ? "" : "s"} advanced.`
+        : "";
+    ui.kingdomMessage = `Kingdom turn applied and recorded for ${result?.title || "this turn"}.${triggeredText}`.trim();
+    render();
+    return;
+  }
+
+  if (type === "kingdom-calendar-advance") {
+    const result = advanceKingdomCalendar(fields.advanceDays, fields.label, fields.notes, "manual");
+    saveState();
+    form.reset();
+    ui.kingdomMessage = `Calendar advanced ${result.daysAdvanced} day${result.daysAdvanced === 1 ? "" : "s"} to ${formatGolarionDate(result.endDate)}.`;
+    render();
+    return;
+  }
+
+  if (type === "kingdom-calendar-set") {
+    const nextDate = buildGolarionIsoDate(fields.year, fields.month, fields.day);
+    const result = setKingdomCalendarDate(nextDate, fields.label, fields.notes, "manual-set");
+    saveState();
+    ui.kingdomMessage = `Kingdom date set to ${formatGolarionDate(result.endDate)}.`;
     render();
     return;
   }
@@ -11593,6 +14868,31 @@ async function handleFormSubmit(type, form) {
     return;
   }
 
+  if (type === "companions") {
+    const id = uid();
+    const folder = normalizeWorldFolderName(fields.folder);
+    if (folder) addWorldFolder("companions", folder);
+    state.companions.unshift({
+      id,
+      name: str(fields.name),
+      status: str(fields.status) || "prospective",
+      influence: Math.max(0, Math.min(10, Number.parseInt(String(fields.influence || "0"), 10) || 0)),
+      currentHex: normalizeHexCoordinate(fields.currentHex) || str(fields.currentHex),
+      kingdomRole: str(fields.kingdomRole),
+      personalQuest: str(fields.personalQuest),
+      notes: str(fields.notes),
+      folder,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    ui.worldSelection.companions = id;
+    ui.worldNewFolder.companions = folder;
+    saveState();
+    form.reset();
+    render();
+    return;
+  }
+
   if (type === "quests") {
     const id = uid();
     const folder = normalizeWorldFolderName(fields.folder);
@@ -11604,12 +14904,65 @@ async function handleFormSubmit(type, form) {
       objective: str(fields.objective),
       giver: str(fields.giver),
       stakes: str(fields.stakes),
+      priority: str(fields.priority) || "Soon",
+      chapter: str(fields.chapter),
+      hex: normalizeHexCoordinate(fields.hex) || str(fields.hex),
+      linkedCompanion: str(fields.linkedCompanion),
+      nextBeat: str(fields.nextBeat),
       folder,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
     ui.worldSelection.quests = id;
     ui.worldNewFolder.quests = folder;
+    saveState();
+    form.reset();
+    render();
+    return;
+  }
+
+  if (type === "events") {
+    const id = uid();
+    const folder = normalizeWorldFolderName(fields.folder);
+    if (folder) addWorldFolder("events", folder);
+    state.events.unshift(normalizeEventRecord({
+      id,
+      title: str(fields.title),
+      category: str(fields.category) || "story",
+      status: str(fields.status) || "seeded",
+      urgency: Math.max(1, Math.min(5, Number.parseInt(String(fields.urgency || "3"), 10) || 3)),
+      hex: normalizeHexCoordinate(fields.hex) || str(fields.hex),
+      linkedQuest: str(fields.linkedQuest),
+      linkedCompanion: str(fields.linkedCompanion),
+      trigger: str(fields.trigger),
+      fallout: str(fields.fallout),
+      consequenceSummary: str(fields.consequenceSummary || fields.fallout),
+      clock: Math.max(0, Number.parseInt(String(fields.clock || "0"), 10) || 0),
+      clockMax: Math.max(1, Number.parseInt(String(fields.clockMax || "4"), 10) || 4),
+      advancePerTurn: Math.max(0, Number.parseInt(String(fields.advancePerTurn || "1"), 10) || 0),
+      advanceOn: str(fields.advanceOn) || "turn",
+      impactScope: str(fields.impactScope) || "none",
+      rpImpact: coerceInteger(fields.rpImpact, 0),
+      unrestImpact: coerceInteger(fields.unrestImpact, 0),
+      renownImpact: coerceInteger(fields.renownImpact, 0),
+      fameImpact: coerceInteger(fields.fameImpact, 0),
+      infamyImpact: coerceInteger(fields.infamyImpact, 0),
+      foodImpact: coerceInteger(fields.foodImpact, 0),
+      lumberImpact: coerceInteger(fields.lumberImpact, 0),
+      luxuriesImpact: coerceInteger(fields.luxuriesImpact, 0),
+      oreImpact: coerceInteger(fields.oreImpact, 0),
+      stoneImpact: coerceInteger(fields.stoneImpact, 0),
+      corruptionImpact: coerceInteger(fields.corruptionImpact, 0),
+      crimeImpact: coerceInteger(fields.crimeImpact, 0),
+      decayImpact: coerceInteger(fields.decayImpact, 0),
+      strifeImpact: coerceInteger(fields.strifeImpact, 0),
+      notes: str(fields.notes),
+      folder,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+    ui.worldSelection.events = id;
+    ui.worldNewFolder.events = folder;
     saveState();
     form.reset();
     render();
@@ -11699,8 +15052,41 @@ function getEntityCollectionRef(collection) {
 
 function normalizeEntityPatch(collection, patch) {
   const cleanCollection = str(collection);
+  const eventImpactFields = new Set(Object.keys(createEmptyEventImpactFields()));
   const out = {};
   for (const [field, value] of Object.entries(patch || {})) {
+    if (cleanCollection === "companions" && field === "influence") {
+      out[field] = Math.max(0, Math.min(10, Number.parseInt(String(value || "0"), 10) || 0));
+      continue;
+    }
+    if (cleanCollection === "events" && field === "urgency") {
+      out[field] = Math.max(1, Math.min(5, Number.parseInt(String(value || "3"), 10) || 3));
+      continue;
+    }
+    if (cleanCollection === "events" && field === "clock") {
+      out[field] = Math.max(0, Number.parseInt(String(value || "0"), 10) || 0);
+      continue;
+    }
+    if (cleanCollection === "events" && field === "clockMax") {
+      out[field] = Math.max(1, Number.parseInt(String(value || "4"), 10) || 4);
+      continue;
+    }
+    if (cleanCollection === "events" && field === "advancePerTurn") {
+      out[field] = Math.max(0, Number.parseInt(String(value || "1"), 10) || 0);
+      continue;
+    }
+    if (cleanCollection === "events" && field === "advanceOn") {
+      out[field] = normalizeEventAdvanceMode(value);
+      continue;
+    }
+    if (cleanCollection === "events" && field === "impactScope") {
+      out[field] = normalizeEventImpactScope(value);
+      continue;
+    }
+    if (cleanCollection === "events" && eventImpactFields.has(field)) {
+      out[field] = coerceInteger(value, 0);
+      continue;
+    }
     if (cleanCollection === "kingdomLeaders" && field === "leadershipBonus") {
       out[field] = Math.max(0, Math.min(4, Number.parseInt(String(value || "0"), 10) || 0));
       continue;
@@ -11709,8 +15095,13 @@ function normalizeEntityPatch(collection, patch) {
       out[field] = Math.max(0, Number.parseInt(String(value || "0"), 10) || 0);
       continue;
     }
-    if ((cleanCollection === "kingdomRegions" || cleanCollection === "hexMapMarkers" || cleanCollection === "hexMapForces") && field === "hex") {
-      out[field] = normalizeHexCoordinate(value) || str(value);
+    if (
+      (cleanCollection === "companions" && field === "currentHex") ||
+      ((cleanCollection === "events" || cleanCollection === "quests" || cleanCollection === "locations" || cleanCollection === "kingdomRegions" || cleanCollection === "hexMapMarkers" || cleanCollection === "hexMapForces") &&
+        field === "hex")
+    ) {
+      const normalized = normalizeHexCoordinate(value);
+      out[field] = normalized || str(value);
       continue;
     }
     if (cleanCollection === "hexMapMarkers" && field === "type") {
@@ -11748,7 +15139,17 @@ function patchEntity(collection, id, patch) {
   const item = group.find((entry) => entry.id === id);
   if (!item) return;
   Object.assign(item, normalizeEntityPatch(collection, patch), { updatedAt: new Date().toISOString() });
+  if (collection === "events") {
+    Object.assign(item, normalizeEventRecord(item));
+  }
+  if (collection === "sessions") {
+    Object.assign(item, normalizeSessionRecord(item));
+  }
   saveState();
+  if (activeTab === "sessions" && collection === "sessions") {
+    render();
+    return;
+  }
   if (activeTab === "hexmap" && (collection === "hexMapMarkers" || collection === "hexMapForces" || collection === "kingdomRegions")) {
     render();
   }
@@ -11987,7 +15388,7 @@ function ensureObsidianSettings() {
   if (!state?.meta?.obsidian || typeof state.meta.obsidian !== "object" || Array.isArray(state.meta.obsidian)) {
     state.meta.obsidian = {
       vaultPath: "",
-      baseFolder: "DM Helper",
+      baseFolder: "Kingmaker Companion",
       lastSyncAt: "",
       lastSyncSummary: "",
       looksLikeVault: false,
@@ -12001,7 +15402,7 @@ function ensureObsidianSettings() {
     };
   }
   state.meta.obsidian.vaultPath = str(state.meta.obsidian.vaultPath);
-  state.meta.obsidian.baseFolder = str(state.meta.obsidian.baseFolder) || "DM Helper";
+  state.meta.obsidian.baseFolder = str(state.meta.obsidian.baseFolder) || "Kingmaker Companion";
   state.meta.obsidian.lastSyncAt = str(state.meta.obsidian.lastSyncAt);
   state.meta.obsidian.lastSyncSummary = str(state.meta.obsidian.lastSyncSummary);
   state.meta.obsidian.looksLikeVault = state.meta.obsidian.looksLikeVault === true;
@@ -12171,7 +15572,7 @@ function buildObsidianAiNoteTitle() {
 async function writeCurrentAiOutputToObsidian() {
   const text = str(ui.copilotDraft.output);
   if (!text) {
-    ui.copilotMessage = "No Loremaster output to write to the vault.";
+    ui.copilotMessage = "No Companion AI output to write to the vault.";
     render();
     return;
   }
@@ -12187,7 +15588,7 @@ async function writeCurrentAiOutputToObsidian() {
     return;
   }
   ui.obsidianBusy = true;
-  ui.copilotMessage = "Writing current Loremaster output to the Obsidian vault...";
+  ui.copilotMessage = "Writing current Companion AI output to the Obsidian vault...";
   render();
   try {
     const result = await desktopApi.writeObsidianAiNote({
@@ -12225,13 +15626,20 @@ function buildObsidianSyncPayload() {
   return {
     vaultPath: settings.vaultPath,
     baseFolder: settings.baseFolder,
-    campaignName: str(state?.meta?.campaignName) || "DM Helper Campaign",
+    campaignName: str(state?.meta?.campaignName) || "Kingmaker Companion Campaign",
     generatedAt: new Date().toISOString(),
     sessions: (state.sessions || []).map((session) => ({
       title: str(session.title),
       date: str(session.date),
+      type: str(session.type),
       arc: str(session.arc),
+      chapter: str(session.chapter),
       kingdomTurn: str(session.kingdomTurn),
+      focusHex: str(session.focusHex),
+      leadCompanion: str(session.leadCompanion),
+      travelObjective: str(session.travelObjective),
+      weather: str(session.weather),
+      pressure: str(session.pressure),
       summary: str(session.summary),
       nextPrep: str(session.nextPrep),
       updatedAt: str(session.updatedAt || session.createdAt),
@@ -12245,14 +15653,67 @@ function buildObsidianSyncPayload() {
       notes: str(npc.notes),
       updatedAt: str(npc.updatedAt || npc.createdAt),
     })),
+    companions: (state.companions || []).map((companion) => ({
+      name: str(companion.name),
+      status: str(companion.status),
+      influence: Number(companion.influence || 0),
+      currentHex: str(companion.currentHex),
+      kingdomRole: str(companion.kingdomRole),
+      personalQuest: str(companion.personalQuest),
+      folder: str(companion.folder),
+      notes: str(companion.notes),
+      updatedAt: str(companion.updatedAt || companion.createdAt),
+    })),
     quests: (state.quests || []).map((quest) => ({
       title: str(quest.title),
       status: str(quest.status),
+      priority: str(quest.priority),
+      chapter: str(quest.chapter),
+      hex: str(quest.hex),
       objective: str(quest.objective),
       giver: str(quest.giver),
       folder: str(quest.folder),
       stakes: str(quest.stakes),
+      linkedCompanion: str(quest.linkedCompanion),
+      nextBeat: str(quest.nextBeat),
       updatedAt: str(quest.updatedAt || quest.createdAt),
+    })),
+    events: (state.events || []).map((eventItem) => ({
+      title: str(eventItem.title),
+      category: str(eventItem.category),
+      status: str(eventItem.status),
+      urgency: Number(eventItem.urgency || 0),
+      hex: str(eventItem.hex),
+      clock: Number(eventItem.clock || 0),
+      clockMax: Number(eventItem.clockMax || 0),
+      advancePerTurn: Number(eventItem.advancePerTurn || 0),
+      advanceOn: str(eventItem.advanceOn),
+      impactScope: str(eventItem.impactScope),
+      linkedQuest: str(eventItem.linkedQuest),
+      linkedCompanion: str(eventItem.linkedCompanion),
+      folder: str(eventItem.folder),
+      trigger: str(eventItem.trigger),
+      fallout: str(eventItem.fallout),
+      consequenceSummary: str(eventItem.consequenceSummary),
+      rpImpact: Number(eventItem.rpImpact || 0),
+      unrestImpact: Number(eventItem.unrestImpact || 0),
+      renownImpact: Number(eventItem.renownImpact || 0),
+      fameImpact: Number(eventItem.fameImpact || 0),
+      infamyImpact: Number(eventItem.infamyImpact || 0),
+      foodImpact: Number(eventItem.foodImpact || 0),
+      lumberImpact: Number(eventItem.lumberImpact || 0),
+      luxuriesImpact: Number(eventItem.luxuriesImpact || 0),
+      oreImpact: Number(eventItem.oreImpact || 0),
+      stoneImpact: Number(eventItem.stoneImpact || 0),
+      corruptionImpact: Number(eventItem.corruptionImpact || 0),
+      crimeImpact: Number(eventItem.crimeImpact || 0),
+      decayImpact: Number(eventItem.decayImpact || 0),
+      strifeImpact: Number(eventItem.strifeImpact || 0),
+      lastTriggeredAt: str(eventItem.lastTriggeredAt),
+      lastTriggeredTurn: str(eventItem.lastTriggeredTurn),
+      resolvedAt: str(eventItem.resolvedAt),
+      notes: str(eventItem.notes),
+      updatedAt: str(eventItem.updatedAt || eventItem.createdAt),
     })),
     locations: (state.locations || []).map((location) => ({
       name: str(location.name),
@@ -12270,17 +15731,35 @@ function buildObsidianSyncPayload() {
       heartland: str(kingdom.heartland),
       currentTurnLabel: str(kingdom.currentTurnLabel),
       currentDate: str(kingdom.currentDate),
+      calendarStartDate: str(kingdom.calendarStartDate),
+      calendarAnchorLabel: str(kingdom.calendarAnchorLabel),
       level: Number(kingdom.level || 0),
       size: Number(kingdom.size || 0),
       controlDC: Number(kingdom.controlDC || 0),
       resourcePoints: Number(kingdom.resourcePoints || 0),
-      culture: Number(kingdom.culture || 0),
-      economy: Number(kingdom.economy || 0),
-      loyalty: Number(kingdom.loyalty || 0),
-      stability: Number(kingdom.stability || 0),
+      culture: Number(kingdom.abilities?.culture || 0),
+      economy: Number(kingdom.abilities?.economy || 0),
+      loyalty: Number(kingdom.abilities?.loyalty || 0),
+      stability: Number(kingdom.abilities?.stability || 0),
+      consumption: Number(kingdom.consumption || 0),
+      renown: Number(kingdom.renown || 0),
       unrest: Number(kingdom.unrest || 0),
       fame: Number(kingdom.fame || 0),
       infamy: Number(kingdom.infamy || 0),
+      commodities: {
+        food: Number(kingdom.commodities?.food || 0),
+        lumber: Number(kingdom.commodities?.lumber || 0),
+        luxuries: Number(kingdom.commodities?.luxuries || 0),
+        ore: Number(kingdom.commodities?.ore || 0),
+        stone: Number(kingdom.commodities?.stone || 0),
+      },
+      ruin: {
+        corruption: Number(kingdom.ruin?.corruption || 0),
+        crime: Number(kingdom.ruin?.crime || 0),
+        decay: Number(kingdom.ruin?.decay || 0),
+        strife: Number(kingdom.ruin?.strife || 0),
+        threshold: Number(kingdom.ruin?.threshold || 0),
+      },
       notes: str(kingdom.notes),
       leaders: (kingdom.leaders || []).map((leader) => ({
         role: str(leader.role),
@@ -12303,15 +15782,38 @@ function buildObsidianSyncPayload() {
         status: str(region.status),
         terrain: str(region.terrain),
         workSite: str(region.workSite),
+        discovery: str(region.discovery),
+        danger: str(region.danger),
+        improvement: str(region.improvement),
         notes: str(region.notes),
       })),
       turns: [...(kingdom.turns || [])].slice(-12).map((turn) => ({
         title: str(turn.title),
         date: str(turn.date),
         summary: str(turn.summary),
+        eventSummary: str(turn.eventSummary),
         resourceDelta: Number(turn.resourceDelta || 0),
         unrestDelta: Number(turn.unrestDelta || 0),
         notes: str(turn.notes),
+      })),
+      eventHistory: [...(kingdom.eventHistory || [])].slice(0, 60).map((entry) => ({
+        eventTitle: str(entry.eventTitle),
+        type: str(entry.type),
+        turnTitle: str(entry.turnTitle),
+        hex: str(entry.hex),
+        summary: str(entry.summary),
+        impactApplied: entry.impactApplied === true,
+        at: str(entry.at),
+      })),
+      calendarHistory: [...(kingdom.calendarHistory || [])].slice(0, 120).map((entry) => ({
+        startDate: str(entry.startDate),
+        endDate: str(entry.endDate),
+        date: str(entry.date),
+        daysAdvanced: Number(entry.daysAdvanced || 0),
+        label: str(entry.label),
+        notes: str(entry.notes),
+        source: str(entry.source),
+        createdAt: str(entry.createdAt),
       })),
     },
     hexMap: {
@@ -12514,17 +16016,17 @@ function exportFoundry(kind) {
   const ts = dateStamp();
   if (kind === "npcs") {
     const actors = state.npcs.map(toFoundryActor);
-    return downloadJson(actors, `dm-helper-npcs-foundry-${ts}.json`);
+    return downloadJson(actors, `kingmaker-companion-npcs-foundry-${ts}.json`);
   }
 
   if (kind === "quests") {
     const quests = state.quests.map((q) => toFoundryJournal(q, "quest"));
-    return downloadJson(quests, `dm-helper-quests-foundry-${ts}.json`);
+    return downloadJson(quests, `kingmaker-companion-quests-foundry-${ts}.json`);
   }
 
   if (kind === "locations") {
     const locations = state.locations.map((l) => toFoundryJournal(l, "location"));
-    return downloadJson(locations, `dm-helper-locations-foundry-${ts}.json`);
+    return downloadJson(locations, `kingmaker-companion-locations-foundry-${ts}.json`);
   }
 
   const all = [
@@ -12532,7 +16034,7 @@ function exportFoundry(kind) {
     ...state.quests.map((q) => toFoundryJournal(q, "quest")),
     ...state.locations.map((l) => toFoundryJournal(l, "location")),
   ];
-  downloadJson(all, `dm-helper-full-foundry-pack-${ts}.json`);
+  downloadJson(all, `kingmaker-companion-full-foundry-pack-${ts}.json`);
 }
 
 function toFoundryActor(npc) {
@@ -12545,7 +16047,7 @@ function toFoundryActor(npc) {
     prototypeToken: {},
     flags: {
       dmHelper: {
-        source: "dm-helper-desktop",
+        source: "kingmaker-companion-desktop",
         exportType: "npc",
         exportDate: new Date().toISOString(),
       },
@@ -12589,7 +16091,7 @@ function toFoundryJournal(entry, type) {
     ],
     flags: {
       dmHelper: {
-        source: "dm-helper-desktop",
+        source: "kingmaker-companion-desktop",
         exportType: type,
         exportDate: new Date().toISOString(),
       },
@@ -12748,19 +16250,17 @@ function normalizeState(input) {
       .slice(-AI_HISTORY_LIMIT);
   }
   if (!out.meta.worldFolders || typeof out.meta.worldFolders !== "object" || Array.isArray(out.meta.worldFolders)) {
-    out.meta.worldFolders = { npcs: [], quests: [], locations: [] };
+    out.meta.worldFolders = Object.fromEntries(WORLD_COLLECTIONS.map((collection) => [collection, []]));
   } else {
-    out.meta.worldFolders = {
-      npcs: Array.isArray(out.meta.worldFolders.npcs) ? out.meta.worldFolders.npcs : [],
-      quests: Array.isArray(out.meta.worldFolders.quests) ? out.meta.worldFolders.quests : [],
-      locations: Array.isArray(out.meta.worldFolders.locations) ? out.meta.worldFolders.locations : [],
-    };
+    out.meta.worldFolders = Object.fromEntries(
+      WORLD_COLLECTIONS.map((collection) => [collection, Array.isArray(out.meta.worldFolders[collection]) ? out.meta.worldFolders[collection] : []])
+    );
   }
   out.meta.obsidian =
     out.meta.obsidian && typeof out.meta.obsidian === "object" && !Array.isArray(out.meta.obsidian)
       ? {
           vaultPath: str(out.meta.obsidian.vaultPath),
-          baseFolder: str(out.meta.obsidian.baseFolder) || "DM Helper",
+          baseFolder: str(out.meta.obsidian.baseFolder) || "Kingmaker Companion",
           lastSyncAt: str(out.meta.obsidian.lastSyncAt),
           lastSyncSummary: str(out.meta.obsidian.lastSyncSummary),
           looksLikeVault: out.meta.obsidian.looksLikeVault === true,
@@ -12774,7 +16274,7 @@ function normalizeState(input) {
         }
       : {
           vaultPath: "",
-          baseFolder: "DM Helper",
+          baseFolder: "Kingmaker Companion",
           lastSyncAt: "",
           lastSyncSummary: "",
           looksLikeVault: false,
@@ -12789,10 +16289,14 @@ function normalizeState(input) {
   out.meta.aiMemory = normalizeAiMemoryState(out.meta.aiMemory);
   out.rulesStore = normalizeRulesStore(out.rulesStore);
   out.kingdom = normalizeKingdomState(out.kingdom);
-  out.sessions = Array.isArray(out.sessions) ? out.sessions : [];
+  out.sessions = (Array.isArray(out.sessions) ? out.sessions : []).map((session) => normalizeSessionRecord(session));
+  out.companions = Array.isArray(out.companions) ? out.companions : [];
+  out.events = Array.isArray(out.events) ? out.events : [];
   out.npcs = Array.isArray(out.npcs) ? out.npcs : [];
   out.quests = Array.isArray(out.quests) ? out.quests : [];
   out.locations = Array.isArray(out.locations) ? out.locations : [];
+  out.companions = out.companions.map((item) => ({ ...item, folder: normalizeWorldFolderName(item?.folder) }));
+  out.events = out.events.map((item) => normalizeEventRecord(item));
   out.npcs = out.npcs.map((item) => ({ ...item, folder: normalizeWorldFolderName(item?.folder) }));
   out.quests = out.quests.map((item) => ({ ...item, folder: normalizeWorldFolderName(item?.folder) }));
   out.locations = out.locations.map((item) => ({ ...item, folder: normalizeWorldFolderName(item?.folder) }));
@@ -12804,7 +16308,7 @@ function normalizeState(input) {
 function createStarterState() {
   return {
     meta: {
-      campaignName: "My Campaign",
+      campaignName: "Kingmaker",
       createdAt: new Date().toISOString(),
       pdfFolder: "",
       pdfIndexedAt: "",
@@ -12831,13 +16335,15 @@ function createStarterState() {
       },
       aiHistory: [],
       worldFolders: {
-        npcs: ["Capital", "Frontier"],
-        quests: ["Main Arc", "Waystation"],
-        locations: ["Capital", "Frontier"],
+        companions: ["Core Companions", "Kingdom Roles"],
+        events: ["Kingdom Pressure", "Travel Pressure", "Companion Beats"],
+        npcs: ["Restov", "Greenbelt", "Companions"],
+        quests: ["Greenbelt", "Exploration", "Kingdom"],
+        locations: ["Restov", "Greenbelt", "Stolen Lands"],
       },
       obsidian: {
         vaultPath: "",
-        baseFolder: "DM Helper",
+        baseFolder: "Kingmaker Companion",
         lastSyncAt: "",
         lastSyncSummary: "",
         looksLikeVault: false,
@@ -12861,6 +16367,8 @@ function createStarterState() {
         sourceCounts: {
           sessions: 0,
           openQuests: 0,
+          companions: 0,
+          events: 0,
           npcs: 0,
           locations: 0,
           ruleEntries: 0,
@@ -12870,14 +16378,123 @@ function createStarterState() {
     },
     rulesStore: [],
     sessions: [
+      normalizeSessionRecord({
+        id: uid(),
+        title: "Session 00 - Jamandi's Charter",
+        date: KINGMAKER_DEFAULT_START_DATE,
+        type: "expedition",
+        arc: "Stolen Lands Opening",
+        chapter: "Chapter 1: A Call for Heroes",
+        kingdomTurn: "",
+        focusHex: "A1",
+        leadCompanion: "Linzi",
+        travelObjective: "Reach Oleg's Trading Post, decide the first Greenbelt route, and learn what the bandits have already taken.",
+        weather: "Late Calistril roads are cold, muddy, and still dangerous to camp on carelessly.",
+        pressure: "The Thorn River bandits keep harassing Oleg's supply line until the charter party takes the field.",
+        summary: "The party earned a charter from Lady Jamandi Aldori and now heads toward Oleg's Trading Post to begin taming the Greenbelt.",
+        nextPrep: "Prepare Oleg and Svetlana, early bandit pressure, Greenbelt rumor threads, and the first exploration choices.",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }),
+    ],
+    companions: [
       {
         id: uid(),
-        title: "Session 00 - Campaign Kickoff",
-        date: "",
-        arc: "Frontier Arc",
-        kingdomTurn: "",
-        summary: "Patron briefing complete. Party goals aligned. Travel plan set for the border waystation.",
-        nextPrep: "Prepare patron + quartermaster scenes, one road encounter, and first rumor threads.",
+        name: "Linzi",
+        status: "prospective",
+        influence: 2,
+        currentHex: "A1",
+        kingdomRole: "Chronicler",
+        personalQuest: "Prove the charter party is worth immortalizing in song and story.",
+        notes: "Excellent early morale engine and a natural bridge between session notes, rumors, and companion scenes.",
+        folder: "Core Companions",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: uid(),
+        name: "Amiri",
+        status: "prospective",
+        influence: 1,
+        currentHex: "D4",
+        kingdomRole: "General candidate",
+        personalQuest: "Find something in the Stolen Lands worth fighting for beyond simple survival.",
+        notes: "Strong fit for early frontier pressure, combat fallout, and later kingdom military roles.",
+        folder: "Kingdom Roles",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    ],
+    events: [
+      {
+        id: uid(),
+        title: "First Bandit Collection Run",
+        category: "threat",
+        status: "active",
+        urgency: 4,
+        hex: "D4",
+        linkedQuest: "Secure Oleg's Trading Post",
+        linkedCompanion: "",
+        trigger: "The bandits expect tribute soon and will escalate if the outpost resists.",
+        fallout: "If ignored, supply pressure, local fear, and the party's reputation all worsen.",
+        consequenceSummary: "Bandit pressure hits the fledgling charter's supply line and local trust.",
+        clock: 1,
+        clockMax: 4,
+        advancePerTurn: 1,
+        advanceOn: "turn",
+        impactScope: "claimed-hex",
+        rpImpact: -1,
+        unrestImpact: 1,
+        renownImpact: -1,
+        fameImpact: 0,
+        infamyImpact: 0,
+        foodImpact: -1,
+        lumberImpact: 0,
+        luxuriesImpact: 0,
+        oreImpact: 0,
+        stoneImpact: 0,
+        corruptionImpact: 0,
+        crimeImpact: 1,
+        decayImpact: 0,
+        strifeImpact: 0,
+        notes: "Use this as the first frontier clock the players can feel.",
+        folder: "Travel Pressure",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: uid(),
+        title: "Jamandi Wants Results",
+        category: "kingdom",
+        status: "active",
+        urgency: 3,
+        hex: "A1",
+        linkedQuest: "",
+        linkedCompanion: "Linzi",
+        trigger: "The charter only stays politically valuable if the expedition produces visible progress.",
+        fallout: "Slow movement weakens support, raises scrutiny, and reframes later diplomacy.",
+        consequenceSummary: "If the charter stalls, Restov's support cools and the kingdom starts from a weaker political position.",
+        clock: 0,
+        clockMax: 3,
+        advancePerTurn: 1,
+        advanceOn: "turn",
+        impactScope: "always",
+        rpImpact: 0,
+        unrestImpact: 1,
+        renownImpact: -1,
+        fameImpact: 0,
+        infamyImpact: 0,
+        foodImpact: 0,
+        lumberImpact: 0,
+        luxuriesImpact: 0,
+        oreImpact: 0,
+        stoneImpact: 0,
+        corruptionImpact: 0,
+        crimeImpact: 0,
+        decayImpact: 0,
+        strifeImpact: 1,
+        notes: "A background pressure event for reports, milestones, and political consequences.",
+        folder: "Kingdom Pressure",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -12885,23 +16502,23 @@ function createStarterState() {
     npcs: [
       {
         id: uid(),
-        name: "Lady Ardyn Vale",
-        role: "Noble patron",
-        agenda: "Stabilize the frontier under a reliable chartered force.",
+        name: "Lady Jamandi Aldori",
+        role: "Swordlord patron",
+        agenda: "Charter capable agents to tame the Stolen Lands before rivals or monsters do.",
         disposition: "Allied",
-        folder: "Capital",
-        notes: "Direct, formal, and pragmatic.",
+        folder: "Restov",
+        notes: "Formal, direct, and politically sharp. A strong anchor for charter obligations and Brevic pressure.",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
       {
         id: uid(),
-        name: "Quartermaster Bren",
-        role: "Waystation owner",
-        agenda: "Remove bandit pressure and keep trade routes open.",
+        name: "Oleg Leveton",
+        role: "Trading post owner",
+        agenda: "Keep his outpost standing and break the local bandit extortion.",
         disposition: "Cautiously allied",
-        folder: "Frontier",
-        notes: "Values practical help over promises.",
+        folder: "Greenbelt",
+        notes: "Early frontier contact and a reliable source of practical stakes, rumors, and supply pressure.",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -12909,23 +16526,33 @@ function createStarterState() {
     quests: [
       {
         id: uid(),
-        title: "Establish a Foothold in the Frontier",
+        title: "Secure Oleg's Trading Post",
         status: "open",
-        objective: "Secure local allies, map immediate threat zones, and establish a safe operational base.",
-        giver: "Lady Ardyn Vale",
-        folder: "Main Arc",
-        stakes: "Without early momentum, rivals and bandits control the frontier narrative.",
+        objective: "End the immediate bandit threat and turn the trading post into a dependable expedition base.",
+        giver: "Lady Jamandi Aldori",
+        folder: "Greenbelt",
+        stakes: "If the trading post falls, the charter starts from a position of weakness.",
+        priority: "Now",
+        chapter: "Chapter 3 - Stolen Lands",
+        hex: "D4",
+        linkedCompanion: "",
+        nextBeat: "Let the bandits make one visible move so the players feel the clock before they answer it.",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
       {
         id: uid(),
-        title: "Bandit Pressure at the Waystation",
+        title: "Map the Greenbelt",
         status: "open",
-        objective: "Identify and reduce active bandit operations near Blackbridge Waystation.",
-        giver: "Quartermaster Bren",
-        folder: "Waystation",
-        stakes: "Trade and trust collapse if raids continue.",
+        objective: "Explore nearby hexes, identify threats and opportunities, and build the expedition's first reliable route map.",
+        giver: "Oleg Leveton",
+        folder: "Exploration",
+        stakes: "Without local map knowledge, every later kingdom decision stays reactive.",
+        priority: "Soon",
+        chapter: "Chapter 2 - Into the Wild",
+        hex: "D4",
+        linkedCompanion: "Linzi",
+        nextBeat: "Turn the next expedition leg into a choice between safety, speed, and rumor value.",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -12933,21 +16560,21 @@ function createStarterState() {
     locations: [
       {
         id: uid(),
-        name: "Blackbridge Waystation",
-        hex: "Frontier Route",
-        folder: "Frontier",
-        whatChanged: "Declared as primary safe base for early expedition stages.",
-        notes: "Anchor location for rumors, supplies, and consequence callbacks.",
+        name: "Oleg's Trading Post",
+        hex: "D4",
+        folder: "Greenbelt",
+        whatChanged: "Established as the expedition's first stable frontier foothold.",
+        notes: "Use as the early campaign hub for rumors, supply issues, and fallout from bandit pressure.",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
       {
         id: uid(),
-        name: "Council Hall",
-        hex: "Capital District",
-        folder: "Capital",
-        whatChanged: "Charter issued and authority delegated to party.",
-        notes: "Use for political updates and mission reframing.",
+        name: "Restov",
+        hex: "D4",
+        folder: "Restov",
+        whatChanged: "The party's charter was issued here and the political stakes were set.",
+        notes: "Best place to attach Brevic politics, Aldori obligations, and future diplomatic callbacks.",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
@@ -13159,3 +16786,4 @@ function compactLine(text, max = 120) {
   if (clean.length <= limit) return clean;
   return `${clean.slice(0, limit - 3)}...`;
 }
+

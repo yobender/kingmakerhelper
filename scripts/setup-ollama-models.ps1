@@ -25,4 +25,4 @@ Build-Model 'lorebound-pf2e-ultra-fast:latest' 'lorebound-pf2e-ultra-fast.modelf
 Build-Model 'lorebound-pf2e-pure:latest' 'lorebound-pf2e-pure.modelfile'
 
 Write-Host ''
-Write-Host 'Done. You can now pick these models inside DM Helper.'
+Write-Host 'Done. You can now pick these models inside Kingmaker Companion.'

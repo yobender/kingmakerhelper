@@ -1,0 +1,976 @@
+{
+  "generatedAt": "2026-04-01T16:24:04.287464+00:00",
+  "sourceFolder": "C:\\Users\\Chris Bender\\Downloads\\PathfinderKingmakerAdventurePathPDF-SingleFile",
+  "canonicalSourceCount": 7,
+  "sourceNotes": [
+    "Adventure Path.pdf and Kingmaker.pdf are the same 642-page campaign book.",
+    "Players Guide.pdf and KingmakerSecondEdition_PlayersGuide.pdf are the same player-safe guide.",
+    "Audience values are intended for app partitioning: gm, player, table, and mixed."
+  ],
+  "canonicalSources": [
+    {
+      "id": "adventure-path",
+      "displayTitle": "Kingmaker Adventure Path",
+      "fileName": "Adventure Path.pdf",
+      "aliases": [
+        "Kingmaker.pdf"
+      ],
+      "relativePath": "Adventure Path.pdf",
+      "pages": 642,
+      "sizeBytes": 145457435,
+      "sha256": "ab88b74878763a0e24b6539efd5ab4e08d7e690f14fc9559a1c360fc7e7a1fb0",
+      "sourceHashes": [
+        "ab88b74878763a0e24b6539efd5ab4e08d7e690f14fc9559a1c360fc7e7a1fb0",
+        "d1001b19d73c4d9a8c833d3db714526e30255fdaf27978fc9fc4233c6cc10a10"
+      ],
+      "audience": "gm",
+      "role": "campaign-spine",
+      "appBuckets": [
+        "adventure",
+        "atlas",
+        "kingdom",
+        "warfare",
+        "library"
+      ],
+      "description": "Primary GM book for the full campaign, including the story spine, hexploration, kingdom rules, warfare, treasure, and bestiary appendices.",
+      "pdfTitle": "PZO2020E.pdf",
+      "metadata": {
+        "author": "Copyright 2022 Paizo Inc.",
+        "creator": "Adobe InDesign 17.2 (Macintosh)",
+        "producer": "Adobe PDF Library 16.0.7"
+      },
+      "sections": [
+        {
+          "depth": 0,
+          "title": "Front Matter",
+          "pageStart": 1
+        },
+        {
+          "depth": 1,
+          "title": "Front Cover",
+          "pageStart": 1
+        },
+        {
+          "depth": 1,
+          "title": "Table of Contents",
+          "pageStart": 3
+        },
+        {
+          "depth": 0,
+          "title": "Introduction",
+          "pageStart": 6
+        },
+        {
+          "depth": 1,
+          "title": "Into the Stolen Lands",
+          "pageStart": 6
+        },
+        {
+          "depth": 1,
+          "title": "Running Kingmaker",
+          "pageStart": 7
+        },
+        {
+          "depth": 1,
+          "title": "Character Creation",
+          "pageStart": 9
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 1: A Call for Heroes",
+          "pageStart": 16
+        },
+        {
+          "depth": 1,
+          "title": "Part 1: The Swordlord\u2019s Feast",
+          "pageStart": 17
+        },
+        {
+          "depth": 1,
+          "title": "Part 2: Blood and Blades",
+          "pageStart": 25
+        },
+        {
+          "depth": 1,
+          "title": "Part 3: Into the Fire",
+          "pageStart": 33
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 2: Into the Wild",
+          "pageStart": 44
+        },
+        {
+          "depth": 1,
+          "title": "Part 1: Hexploring the Stolen Lands",
+          "pageStart": 45
+        },
+        {
+          "depth": 1,
+          "title": "Part 2: Hex Encounters",
+          "pageStart": 51
+        },
+        {
+          "depth": 1,
+          "title": "Part 3: The Old Sycamore",
+          "pageStart": 121
+        },
+        {
+          "depth": 1,
+          "title": "Part 4: Sootscale Caverns",
+          "pageStart": 127
+        },
+        {
+          "depth": 1,
+          "title": "Part 5: The Lonely Barrow",
+          "pageStart": 133
+        },
+        {
+          "depth": 1,
+          "title": "Part 6: Isle of the Lizard King",
+          "pageStart": 137
+        },
+        {
+          "depth": 1,
+          "title": "Part 7: Candlemere Island",
+          "pageStart": 143
+        },
+        {
+          "depth": 1,
+          "title": "Part 8: The Forgotten Keep",
+          "pageStart": 149
+        },
+        {
+          "depth": 1,
+          "title": "Part 9: M\u2019Botuu",
+          "pageStart": 155
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 3: Stolen Lands",
+          "pageStart": 162
+        },
+        {
+          "depth": 1,
+          "title": "Part 1: Trouble at Oleg\u2019s",
+          "pageStart": 163
+        },
+        {
+          "depth": 1,
+          "title": "Part 2: Bandits of the Greenbelt",
+          "pageStart": 169
+        },
+        {
+          "depth": 1,
+          "title": "Part 3: Against the Stag Lord",
+          "pageStart": 173
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 4: Rivers Run Red",
+          "pageStart": 186
+        },
+        {
+          "depth": 1,
+          "title": "Part 1: Home Sweet Home",
+          "pageStart": 187
+        },
+        {
+          "depth": 1,
+          "title": "Part 2: Troll Trouble",
+          "pageStart": 201
+        },
+        {
+          "depth": 1,
+          "title": "Part 3: Hunting the Beast",
+          "pageStart": 209
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 5: Cult of the Bloom",
+          "pageStart": 216
+        },
+        {
+          "depth": 1,
+          "title": "Part 1: Seeds of Ruin",
+          "pageStart": 217
+        },
+        {
+          "depth": 1,
+          "title": "Part 2: Full Bloom",
+          "pageStart": 229
+        },
+        {
+          "depth": 1,
+          "title": "Part 3: The Cradle of Lamashtu",
+          "pageStart": 239
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 6: The Varnhold Vanishing",
+          "pageStart": 250
+        },
+        {
+          "depth": 1,
+          "title": "Part 1: Before the Vanishing",
+          "pageStart": 251
+        },
+        {
+          "depth": 1,
+          "title": "Part 2: The Vanished Village",
+          "pageStart": 253
+        },
+        {
+          "depth": 1,
+          "title": "Part 3: Among Nomen",
+          "pageStart": 267
+        },
+        {
+          "depth": 1,
+          "title": "Part 4: Vordakai\u2019s Tomb",
+          "pageStart": 271
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 7: Blood for Blood",
+          "pageStart": 288
+        },
+        {
+          "depth": 1,
+          "title": "Part 1: Trouble in Tatzlford",
+          "pageStart": 289
+        },
+        {
+          "depth": 1,
+          "title": "Part 2: Fort Drelev",
+          "pageStart": 301
+        },
+        {
+          "depth": 1,
+          "title": "Part 3: The Twice-Born Warlord",
+          "pageStart": 319
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 8: War of the River Kings",
+          "pageStart": 332
+        },
+        {
+          "depth": 1,
+          "title": "Part 1: The Rushliight Treachery",
+          "pageStart": 333
+        },
+        {
+          "depth": 1,
+          "title": "Part 2: Behind Enemy Lines",
+          "pageStart": 349
+        },
+        {
+          "depth": 1,
+          "title": "Part 3: The Ghost of Whiterose",
+          "pageStart": 355
+        },
+        {
+          "depth": 1,
+          "title": "Part 4: Infiltration",
+          "pageStart": 367
+        },
+        {
+          "depth": 1,
+          "title": "Part 5: The King\u2019s Palace",
+          "pageStart": 381
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 9: They Lurk Below",
+          "pageStart": 398
+        },
+        {
+          "depth": 1,
+          "title": "Part 1: Threshold of Dread",
+          "pageStart": 399
+        },
+        {
+          "depth": 1,
+          "title": "Part 2: The Depth of Fear",
+          "pageStart": 413
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 10: Sound of a Thousand Screams",
+          "pageStart": 424
+        },
+        {
+          "depth": 1,
+          "title": "Part 1: A Month of Destruction",
+          "pageStart": 425
+        },
+        {
+          "depth": 1,
+          "title": "Part 2: A Thousand Breaths",
+          "pageStart": 443
+        },
+        {
+          "depth": 1,
+          "title": "Part 3: House at the Edge of Time",
+          "pageStart": 457
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 11: Curse of the Lantern King",
+          "pageStart": 480
+        },
+        {
+          "depth": 1,
+          "title": "Part 1: A Broken Apology",
+          "pageStart": 481
+        },
+        {
+          "depth": 1,
+          "title": "Part 2: The Lantern Kingdom",
+          "pageStart": 485
+        },
+        {
+          "depth": 0,
+          "title": "Appendices",
+          "pageStart": 504
+        },
+        {
+          "depth": 1,
+          "title": "Appendix 1: Beyond the Campaign",
+          "pageStart": 505
+        },
+        {
+          "depth": 1,
+          "title": "Appendix 2: Kingdoms",
+          "pageStart": 507
+        },
+        {
+          "depth": 1,
+          "title": "Appendix 3: Warfare",
+          "pageStart": 567
+        },
+        {
+          "depth": 1,
+          "title": "Appendix 4: Kingmaker Treasures",
+          "pageStart": 585
+        },
+        {
+          "depth": 1,
+          "title": "Appendix 5: NPC and Monsters",
+          "pageStart": 591
+        },
+        {
+          "depth": 1,
+          "title": "Additional Resources",
+          "pageStart": 623
+        },
+        {
+          "depth": 0,
+          "title": "Backmatter",
+          "pageStart": 638
+        },
+        {
+          "depth": 1,
+          "title": "OGL",
+          "pageStart": 638
+        },
+        {
+          "depth": 1,
+          "title": "Advertisements",
+          "pageStart": 639
+        },
+        {
+          "depth": 1,
+          "title": "Back Cover",
+          "pageStart": 642
+        }
+      ]
+    },
+    {
+      "id": "companion-guide",
+      "displayTitle": "Kingmaker Companion Guide",
+      "fileName": "Companion Guide.pdf",
+      "aliases": [],
+      "relativePath": "Companion Guide.pdf",
+      "pages": 130,
+      "sizeBytes": 18879057,
+      "sha256": "4fe7d1d4e654d60a485ad248bde4ee828aecdb02067644a58f24a73b910a264e",
+      "sourceHashes": [
+        "4fe7d1d4e654d60a485ad248bde4ee828aecdb02067644a58f24a73b910a264e"
+      ],
+      "audience": "gm",
+      "role": "companion-supplement",
+      "appBuckets": [
+        "companions",
+        "camp",
+        "kingdom",
+        "library"
+      ],
+      "description": "Companion recruitment, influence, personal quests, camping activities, special meals, and Stolen Lands weather support.",
+      "pdfTitle": "PZO2023E.pdf",
+      "metadata": {
+        "author": "Copyright 2022 Paizo Inc.",
+        "creator": "Adobe InDesign 17.1 (Macintosh)",
+        "producer": "Adobe PDF Library 16.0.5"
+      },
+      "sections": [
+        {
+          "depth": 0,
+          "title": "Front Matter",
+          "pageStart": 1
+        },
+        {
+          "depth": 1,
+          "title": "Front Cover",
+          "pageStart": 1
+        },
+        {
+          "depth": 1,
+          "title": "Table of Contents",
+          "pageStart": 3
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 1: Companions",
+          "pageStart": 6
+        },
+        {
+          "depth": 1,
+          "title": "Using Companions",
+          "pageStart": 6
+        },
+        {
+          "depth": 1,
+          "title": "Amiri",
+          "pageStart": 7
+        },
+        {
+          "depth": 1,
+          "title": "Ekundayo",
+          "pageStart": 21
+        },
+        {
+          "depth": 1,
+          "title": "Jubilost",
+          "pageStart": 33
+        },
+        {
+          "depth": 1,
+          "title": "Linzi",
+          "pageStart": 45
+        },
+        {
+          "depth": 1,
+          "title": "Nok-Nok",
+          "pageStart": 57
+        },
+        {
+          "depth": 1,
+          "title": "Tristian",
+          "pageStart": 69
+        },
+        {
+          "depth": 1,
+          "title": "Valerie",
+          "pageStart": 83
+        },
+        {
+          "depth": 1,
+          "title": "Harrim",
+          "pageStart": 95
+        },
+        {
+          "depth": 1,
+          "title": "Jaethal",
+          "pageStart": 97
+        },
+        {
+          "depth": 1,
+          "title": "Kalikke and Kanerah",
+          "pageStart": 99
+        },
+        {
+          "depth": 1,
+          "title": "Octavia",
+          "pageStart": 103
+        },
+        {
+          "depth": 1,
+          "title": "Regongar",
+          "pageStart": 105
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 2: Camping",
+          "pageStart": 108
+        },
+        {
+          "depth": 1,
+          "title": "Campsites",
+          "pageStart": 108
+        },
+        {
+          "depth": 1,
+          "title": "Camping Activities",
+          "pageStart": 110
+        },
+        {
+          "depth": 1,
+          "title": "Special Campsite Meals",
+          "pageStart": 114
+        },
+        {
+          "depth": 1,
+          "title": "Special Meals",
+          "pageStart": 115
+        },
+        {
+          "depth": 0,
+          "title": "Chapter 3: Weather",
+          "pageStart": 122
+        },
+        {
+          "depth": 1,
+          "title": "Stolen Lands Weather",
+          "pageStart": 122
+        },
+        {
+          "depth": 0,
+          "title": "Backmatter",
+          "pageStart": 127
+        },
+        {
+          "depth": 1,
+          "title": "OGL",
+          "pageStart": 127
+        },
+        {
+          "depth": 1,
+          "title": "Advertisements",
+          "pageStart": 128
+        },
+        {
+          "depth": 1,
+          "title": "Back Cover",
+          "pageStart": 130
+        }
+      ]
+    },
+    {
+      "id": "kingdom-management-screen",
+      "displayTitle": "Kingdom Management Screen",
+      "fileName": "Kingdom Management Screen.pdf",
+      "aliases": [],
+      "relativePath": "Kingdom Management Screen.pdf",
+      "pages": 2,
+      "sizeBytes": 4585658,
+      "sha256": "1ce6583571802940712544cef795915b9d17957d9756330722216f502c93eb77",
+      "sourceHashes": [
+        "1ce6583571802940712544cef795915b9d17957d9756330722216f502c93eb77"
+      ],
+      "audience": "table",
+      "role": "quick-reference",
+      "appBuckets": [
+        "kingdom",
+        "player-pack",
+        "library"
+      ],
+      "description": "Two-page kingdom management aid intended for quick reference during play.",
+      "pdfTitle": "PZO2022E.pdf",
+      "metadata": {
+        "author": "Copyright 2022 Paizo Inc.",
+        "creator": "Adobe InDesign 17.1 (Macintosh)",
+        "producer": "Adobe PDF Library 16.0.5"
+      },
+      "sections": [
+        {
+          "depth": 0,
+          "title": "Kingdom Management Screen",
+          "pageStart": 1
+        }
+      ]
+    },
+    {
+      "id": "kingdom-tracker",
+      "displayTitle": "Kingmaker Kingdom Tracker",
+      "fileName": "Kingdom Tracker.pdf",
+      "aliases": [],
+      "relativePath": "Kingdom Tracker.pdf",
+      "pages": 19,
+      "sizeBytes": 5694029,
+      "sha256": "4c45b879e292c4cbe35b49c15f47918beef76c06ddcd8ff2dd7a1cc9c8de2fc6",
+      "sourceHashes": [
+        "4c45b879e292c4cbe35b49c15f47918beef76c06ddcd8ff2dd7a1cc9c8de2fc6"
+      ],
+      "audience": "table",
+      "role": "tracker-pack",
+      "appBuckets": [
+        "kingdom",
+        "warfare",
+        "player-pack",
+        "library"
+      ],
+      "description": "Printable/at-table kingdom tracker with quick references for kingdom turns, armies, and village founding.",
+      "pdfTitle": "PZO2024E.pdf",
+      "metadata": {
+        "author": "Copyright 2022 Paizo Inc.",
+        "creator": "Adobe InDesign 17.2 (Macintosh)",
+        "producer": "Adobe PDF Library 16.0.7"
+      },
+      "sections": [
+        {
+          "depth": 0,
+          "title": "Front Matter",
+          "pageStart": 1
+        },
+        {
+          "depth": 1,
+          "title": "Front Cover",
+          "pageStart": 1
+        },
+        {
+          "depth": 1,
+          "title": "Table of Contents",
+          "pageStart": 2
+        },
+        {
+          "depth": 0,
+          "title": "Kingdom Tracker",
+          "pageStart": 3
+        },
+        {
+          "depth": 1,
+          "title": "Kingdom Information",
+          "pageStart": 3
+        },
+        {
+          "depth": 1,
+          "title": "Settlements",
+          "pageStart": 5
+        },
+        {
+          "depth": 1,
+          "title": "Relations",
+          "pageStart": 6
+        },
+        {
+          "depth": 1,
+          "title": "Events",
+          "pageStart": 7
+        },
+        {
+          "depth": 1,
+          "title": "Buildings",
+          "pageStart": 9
+        },
+        {
+          "depth": 1,
+          "title": "Urban Grid",
+          "pageStart": 12
+        },
+        {
+          "depth": 1,
+          "title": "Kingdom Quick Reference",
+          "pageStart": 13
+        },
+        {
+          "depth": 1,
+          "title": "Army Quick Reference",
+          "pageStart": 15
+        },
+        {
+          "depth": 0,
+          "title": "Backmatter",
+          "pageStart": 18
+        },
+        {
+          "depth": 1,
+          "title": "OGL",
+          "pageStart": 18
+        },
+        {
+          "depth": 1,
+          "title": "Back Cover",
+          "pageStart": 19
+        }
+      ]
+    },
+    {
+      "id": "players-guide",
+      "displayTitle": "Kingmaker Player's Guide",
+      "fileName": "Players Guide.pdf",
+      "aliases": [
+        "KingmakerSecondEdition_PlayersGuide.pdf"
+      ],
+      "relativePath": "Players Guide.pdf",
+      "pages": 87,
+      "sizeBytes": 41605478,
+      "sha256": "5d16875c8ab2b06b7d52216dab0273b788980c5a7d41c02aac6482f61c337f0b",
+      "sourceHashes": [
+        "5d16875c8ab2b06b7d52216dab0273b788980c5a7d41c02aac6482f61c337f0b"
+      ],
+      "audience": "player",
+      "role": "player-pack",
+      "appBuckets": [
+        "player-pack",
+        "kingdom",
+        "warfare",
+        "library"
+      ],
+      "description": "Player-safe character guidance plus spoiler-free kingdom, warfare, and reference sheets.",
+      "pdfTitle": "",
+      "metadata": {
+        "creator": "Adobe InDesign 17.4 (Macintosh)",
+        "producer": "Adobe PDF Library 16.0.7"
+      },
+      "sections": [
+        {
+          "depth": 0,
+          "title": "Character Creation",
+          "pageStart": 4
+        },
+        {
+          "depth": 1,
+          "title": "Ancestry",
+          "pageStart": 4
+        },
+        {
+          "depth": 1,
+          "title": "Backgrounds",
+          "pageStart": 5
+        },
+        {
+          "depth": 1,
+          "title": "Classes",
+          "pageStart": 5
+        },
+        {
+          "depth": 1,
+          "title": "Other Considerations",
+          "pageStart": 7
+        },
+        {
+          "depth": 1,
+          "title": "Kingmaker Backgrounds",
+          "pageStart": 8
+        },
+        {
+          "depth": 0,
+          "title": "Kingdoms",
+          "pageStart": 10
+        },
+        {
+          "depth": 1,
+          "title": "Kingdom Creation",
+          "pageStart": 11
+        },
+        {
+          "depth": 1,
+          "title": "Leveling Up Your Kingdom",
+          "pageStart": 16
+        },
+        {
+          "depth": 1,
+          "title": "Leadership Roles",
+          "pageStart": 18
+        },
+        {
+          "depth": 1,
+          "title": "Kingdom Skills",
+          "pageStart": 21
+        },
+        {
+          "depth": 1,
+          "title": "Kingdom Feats",
+          "pageStart": 36
+        },
+        {
+          "depth": 1,
+          "title": "Kingdom Rules",
+          "pageStart": 38
+        },
+        {
+          "depth": 1,
+          "title": "Running a Kingdom",
+          "pageStart": 43
+        },
+        {
+          "depth": 1,
+          "title": "Gaining Kingdom Experience",
+          "pageStart": 45
+        },
+        {
+          "depth": 1,
+          "title": "Settlements",
+          "pageStart": 45
+        },
+        {
+          "depth": 1,
+          "title": "Kingdom Events",
+          "pageStart": 59
+        },
+        {
+          "depth": 0,
+          "title": "Warfare",
+          "pageStart": 61
+        },
+        {
+          "depth": 1,
+          "title": "Preparing for War",
+          "pageStart": 61
+        },
+        {
+          "depth": 1,
+          "title": "Army Gear",
+          "pageStart": 67
+        },
+        {
+          "depth": 1,
+          "title": "Army Tactics",
+          "pageStart": 68
+        },
+        {
+          "depth": 1,
+          "title": "War Encounters",
+          "pageStart": 70
+        },
+        {
+          "depth": 1,
+          "title": "Basic War Actions",
+          "pageStart": 73
+        },
+        {
+          "depth": 1,
+          "title": "Army Conditions",
+          "pageStart": 76
+        },
+        {
+          "depth": 0,
+          "title": "Resources",
+          "pageStart": 78
+        },
+        {
+          "depth": 1,
+          "title": "Stolen Lands Maps",
+          "pageStart": 78
+        },
+        {
+          "depth": 1,
+          "title": "Kingdom Sheet",
+          "pageStart": 82
+        },
+        {
+          "depth": 1,
+          "title": "Urban Grid",
+          "pageStart": 83
+        },
+        {
+          "depth": 1,
+          "title": "Structures",
+          "pageStart": 84
+        },
+        {
+          "depth": 1,
+          "title": "Army Sheet",
+          "pageStart": 86
+        }
+      ]
+    },
+    {
+      "id": "interactive-maps",
+      "displayTitle": "Kingmaker Interactive Maps",
+      "fileName": "PZO2020 Interactive Maps v2.pdf",
+      "aliases": [],
+      "relativePath": "PZO2020 Interactive Maps v2.pdf",
+      "pages": 56,
+      "sizeBytes": 24285217,
+      "sha256": "d497278c2fb7d527771f714d1d5e68455f3a9e985a9387147d036e94c2027bba",
+      "sourceHashes": [
+        "d497278c2fb7d527771f714d1d5e68455f3a9e985a9387147d036e94c2027bba"
+      ],
+      "audience": "gm",
+      "role": "map-pack",
+      "appBuckets": [
+        "atlas",
+        "maps",
+        "library"
+      ],
+      "description": "Room and encounter map pack for use during prep and tactical play.",
+      "pdfTitle": "PZO2020 Interactive Maps v2.pdf",
+      "metadata": {
+        "author": "Copyright 2022 Paizo Inc.",
+        "creator": "Adobe InDesign 17.4 (Macintosh)",
+        "producer": "Adobe PDF Library 16.0.7"
+      },
+      "sections": [
+        {
+          "depth": 0,
+          "title": "Encounter Map Pack",
+          "pageStart": 1
+        }
+      ]
+    },
+    {
+      "id": "map-folio",
+      "displayTitle": "Kingmaker Map Folio",
+      "fileName": "PZO2026 Kingmaker Map Folio Maps.pdf",
+      "aliases": [],
+      "relativePath": "PZO2026 Kingmaker Map Folio Maps.pdf",
+      "pages": 6,
+      "sizeBytes": 4417416,
+      "sha256": "3de90edfd7a26efd80a7f1a036ac3bc87ba0b38709547ea98cb23510c8e3d625",
+      "sourceHashes": [
+        "3de90edfd7a26efd80a7f1a036ac3bc87ba0b38709547ea98cb23510c8e3d625"
+      ],
+      "audience": "mixed",
+      "role": "regional-maps",
+      "appBuckets": [
+        "atlas",
+        "maps",
+        "player-pack",
+        "library"
+      ],
+      "description": "Regional and settlement map folio for the Stolen Lands, Pitax, and Varnhold.",
+      "pdfTitle": "PZO2026 Kingmaker Map Folio Maps.pdf",
+      "metadata": {
+        "author": "Copyright 2022 Paizo Inc.",
+        "creator": "Adobe InDesign 17.2 (Macintosh)",
+        "producer": "Adobe PDF Library 16.0.7"
+      },
+      "sections": [
+        {
+          "depth": 0,
+          "title": "Varnhold",
+          "pageStart": 1
+        },
+        {
+          "depth": 0,
+          "title": "Pitax",
+          "pageStart": 2
+        },
+        {
+          "depth": 0,
+          "title": "Stolen Lands Regional Maps",
+          "pageStart": 3
+        }
+      ]
+    }
+  ],
+  "duplicateFiles": [
+    {
+      "canonicalSourceId": "adventure-path",
+      "canonicalFileName": "Adventure Path.pdf",
+      "duplicateFileNames": [
+        "Kingmaker.pdf"
+      ]
+    },
+    {
+      "canonicalSourceId": "players-guide",
+      "canonicalFileName": "Players Guide.pdf",
+      "duplicateFileNames": [
+        "KingmakerSecondEdition_PlayersGuide.pdf"
+      ]
+    }
+  ]
+}

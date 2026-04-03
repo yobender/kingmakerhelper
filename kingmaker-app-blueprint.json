@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "product": {
+    "id": "kingmaker-companion",
+    "name": "Kingmaker Companion",
+    "description": "Standalone campaign cockpit for running Pathfinder Kingmaker with source-aware GM and player workflows."
+  },
+  "navigation": [
+    {
+      "id": "command-center",
+      "label": "Command Center",
+      "group": "Run",
+      "collections": ["campaignState", "sessionLog", "currentObjectives", "alerts", "quickLinks"]
+    },
+    {
+      "id": "adventure",
+      "label": "Adventure",
+      "group": "Story",
+      "collections": ["adventureChapters", "storyThreads", "npcs", "scenePrep"]
+    },
+    {
+      "id": "atlas",
+      "label": "Atlas",
+      "group": "Story",
+      "collections": ["hexes", "locations", "regions", "maps"]
+    },
+    {
+      "id": "companions",
+      "label": "Companions",
+      "group": "Story",
+      "collections": ["companions", "companionQuests", "campScenes", "weather"]
+    },
+    {
+      "id": "kingdom",
+      "label": "Kingdom",
+      "group": "Realm",
+      "collections": ["kingdomSheet", "kingdomTurns", "settlements", "kingdomEvents", "warfare"]
+    },
+    {
+      "id": "library",
+      "label": "Library",
+      "group": "Tools",
+      "collections": ["sources", "citations", "pdfIndex", "pageBookmarks"]
+    },
+    {
+      "id": "player-pack",
+      "label": "Player Pack",
+      "group": "Tools",
+      "collections": ["playerResources", "shareableMaps", "blankSheets"]
+    },
+    {
+      "id": "exports",
+      "label": "Exports",
+      "group": "Tools",
+      "collections": ["sessionPacket", "foundryExport", "obsidianExport", "playerHandouts"]
+    }
+  ],
+  "collections": [
+    {
+      "id": "sources",
+      "kind": "system",
+      "description": "Canonical PDF source registry with audience flags, role, sections, and citations."
+    },
+    {
+      "id": "adventureChapters",
+      "kind": "canon",
+      "description": "Chapter and part records from the main campaign book."
+    },
+    {
+      "id": "storyThreads",
+      "kind": "hybrid",
+      "description": "Quest and pressure threads derived from canon plus campaign progress."
+    },
+    {
+      "id": "locations",
+      "kind": "hybrid",
+      "description": "Named locations tied to chapters, hexes, and map assets."
+    },
+    {
+      "id": "hexes",
+      "kind": "hybrid",
+      "description": "Exploration and kingdom-region records keyed by hex coordinate."
+    },
+    {
+      "id": "npcs",
+      "kind": "hybrid",
+      "description": "Recurring figures, faction connections, and campaign-state notes."
+    },
+    {
+      "id": "companions",
+      "kind": "hybrid",
+      "description": "Recruitment, influence, role synergy, and personal-quest progress."
+    },
+    {
+      "id": "kingdomSheet",
+      "kind": "campaign-state",
+      "description": "Current kingdom state, leaders, commodities, and turn pressure."
+    },
+    {
+      "id": "kingdomTurns",
+      "kind": "campaign-state",
+      "description": "Saved turn logs and pending projects."
+    },
+    {
+      "id": "settlements",
+      "kind": "campaign-state",
+      "description": "Settlement records, building status, and local notes."
+    },
+    {
+      "id": "warfare",
+      "kind": "canon-plus-state",
+      "description": "Army rules plus campaign army rosters and war-encounter state."
+    },
+    {
+      "id": "maps",
+      "kind": "canon",
+      "description": "Map folio and interactive map assets with player-safe flags."
+    },
+    {
+      "id": "playerResources",
+      "kind": "canon",
+      "description": "Player-safe backgrounds, kingdom primer, warfare primer, and sheets."
+    }
+  ],
+  "sourceAssignments": [
+    {
+      "sourceId": "adventure-path",
+      "collections": ["sources", "adventureChapters", "storyThreads", "locations", "hexes", "npcs", "kingdomSheet", "warfare"]
+    },
+    {
+      "sourceId": "companion-guide",
+      "collections": ["sources", "companions", "storyThreads", "maps"]
+    },
+    {
+      "sourceId": "players-guide",
+      "collections": ["sources", "playerResources", "kingdomSheet", "warfare", "maps"]
+    },
+    {
+      "sourceId": "kingdom-tracker",
+      "collections": ["sources", "kingdomSheet", "settlements", "warfare"]
+    },
+    {
+      "sourceId": "kingdom-management-screen",
+      "collections": ["sources", "kingdomSheet"]
+    },
+    {
+      "sourceId": "interactive-maps",
+      "collections": ["sources", "maps", "locations"]
+    },
+    {
+      "sourceId": "map-folio",
+      "collections": ["sources", "maps", "playerResources", "locations"]
+    }
+  ]

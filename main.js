@@ -1,11 +1,15 @@
 ﻿const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron");
 const { spawn } = require("child_process");
+const fsSync = require("fs");
 const fs = require("fs/promises");
 const path = require("path");
 const { pathToFileURL } = require("url");
 const pdfParse = require("pdf-parse");
 
-const DEFAULT_PDF_FOLDER = "C:\\Users\\Chris Bender\\OneDrive\\Desktop";
+const DEFAULT_PDF_FOLDER = "C:\\Users\\Chris Bender\\Downloads\\PathfinderKingmakerAdventurePathPDF-SingleFile";
+const CAMPAIGN_STATE_FILENAME = "campaign-state.v1.json";
+const RENDERER_BUILD_DIR = "renderer-dist";
+const VITE_DEV_SERVER_URL = String(process.env.VITE_DEV_SERVER_URL || "").trim();
 const MAX_CHARS_PER_FILE = 300000;
 const DEFAULT_AI_ENDPOINT = "http://127.0.0.1:11434";
 const DEFAULT_AI_MODEL = "llama3.1:8b";
@@ -101,13 +105,13 @@ function loadKingdomRulesData() {
 
 wireProcessStabilityGuards();
 
-function createWindow() {
+async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 920,
     minWidth: 1200,
     minHeight: 760,
-    title: "DM Helper",
+    title: "Kingmaker Companion",
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
@@ -118,7 +122,7 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile(path.join(__dirname, "index.html"));
+  await loadRenderer(mainWindow);
   wireSpellcheckContextMenu(mainWindow);
   mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
     safeMainLog("renderer-console", `${sourceId || "renderer"}:${line || 0} [${level}] ${message}`);
@@ -134,14 +138,76 @@ function createWindow() {
   });
 }
 
+async function loadRenderer(targetWindow) {
+  if (VITE_DEV_SERVER_URL) {
+    await targetWindow.loadURL(VITE_DEV_SERVER_URL);
+    return;
+  }
+
+  const rendererEntryPath = path.join(__dirname, RENDERER_BUILD_DIR, "index.html");
+  if (fsSync.existsSync(rendererEntryPath)) {
+    await targetWindow.loadFile(rendererEntryPath);
+    return;
+  }
+
+  const message = [
+    "<h1>Renderer Build Missing</h1>",
+    "<p>Kingmaker Companion could not find the compiled React renderer.</p>",
+    "<p>Run <code>npm run build:renderer</code> or <code>npm start</code> from the project folder.</p>",
+  ].join("");
+  await targetWindow.loadURL(`data:text/html,${encodeURIComponent(message)}`);
+}
+
+function getCampaignStatePath() {
+  return path.join(app.getPath("userData"), CAMPAIGN_STATE_FILENAME);
+}
+
+async function readCampaignStateFromDisk() {
+  const filePath = getCampaignStatePath();
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    return {
+      exists: true,
+      path: filePath,
+      state: JSON.parse(raw),
+    };
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return {
+        exists: false,
+        path: filePath,
+        state: null,
+      };
+    }
+    throw error;
+  }
+}
+
+async function writeCampaignStateToDisk(statePayload) {
+  if (!statePayload || typeof statePayload !== "object" || Array.isArray(statePayload)) {
+    throw new Error("Campaign state payload must be an object.");
+  }
+
+  const filePath = getCampaignStatePath();
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, `${JSON.stringify(statePayload, null, 2)}\n`, "utf8");
+  return {
+    ok: true,
+    path: filePath,
+    savedAt: new Date().toISOString(),
+  };
+}
+
 app.whenReady().then(async () => {
   await loadPdfIndexCacheFromDisk();
   await loadAonRulesCacheFromDisk();
   registerIpc();
-  createWindow();
+  await createWindow();
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+      void createWindow();
+    }
   });
 });
 
@@ -514,6 +580,49 @@ function mdBullets(items, fallback = "_None_") {
   return clean.length ? clean.map((item) => `- ${item}`).join("\n") : fallback;
 }
 
+const EVENT_IMPACT_FIELD_DEFS = Object.freeze([
+  ["rpImpact", "RP"],
+  ["unrestImpact", "Unrest"],
+  ["renownImpact", "Renown"],
+  ["fameImpact", "Fame"],
+  ["infamyImpact", "Infamy"],
+  ["foodImpact", "Food"],
+  ["lumberImpact", "Lumber"],
+  ["luxuriesImpact", "Luxuries"],
+  ["oreImpact", "Ore"],
+  ["stoneImpact", "Stone"],
+  ["corruptionImpact", "Corruption"],
+  ["crimeImpact", "Crime"],
+  ["decayImpact", "Decay"],
+  ["strifeImpact", "Strife"],
+]);
+
+function coerceInteger(value, fallback = 0) {
+  const parsed = Number.parseInt(String(value ?? "").trim(), 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function formatSignedNumber(value) {
+  const num = coerceInteger(value, 0);
+  return num > 0 ? `+${num}` : `${num}`;
+}
+
+function formatEventClockSummary(entry) {
+  const clock = Math.max(0, coerceInteger(entry?.clock, 0));
+  const clockMax = Math.max(1, coerceInteger(entry?.clockMax, 4));
+  return `${clock}/${clockMax}`;
+}
+
+function describeEventImpactSummary(entry) {
+  const parts = EVENT_IMPACT_FIELD_DEFS
+    .map(([key, label]) => {
+      const value = coerceInteger(entry?.[key], 0);
+      return value === 0 ? "" : `${label} ${formatSignedNumber(value)}`;
+    })
+    .filter(Boolean);
+  return parts.length ? parts.join(", ") : "No kingdom impact recorded.";
+}
+
 function mdWikiLink(folder, noteName, label = "") {
   const cleanFolder = String(folder || "").trim();
   const target = cleanFolder && cleanFolder !== "." ? `${cleanFolder}/${noteName}` : `${noteName}`;
@@ -532,8 +641,15 @@ function buildSessionNote(entry) {
     `# ${entry.title || "Session"}`,
     "",
     `- Date: ${mdLine(entry.date)}`,
+    `- Type: ${mdLine(entry.type)}`,
     `- Arc: ${mdLine(entry.arc)}`,
+    `- Chapter Lane: ${mdLine(entry.chapter)}`,
     `- Kingdom Turn: ${mdLine(entry.kingdomTurn)}`,
+    `- Focus Hex: ${mdLine(entry.focusHex)}`,
+    `- Lead Companion: ${mdLine(entry.leadCompanion)}`,
+    `- Travel Objective: ${mdLine(entry.travelObjective)}`,
+    `- Weather / Camp: ${mdLine(entry.weather)}`,
+    `- Frontier Pressure: ${mdLine(entry.pressure)}`,
     `- Updated: ${mdLine(entry.updatedAt)}`,
     "",
     "## Summary",
@@ -549,12 +665,85 @@ function buildNpcNote(entry) {
     `# ${entry.name || "NPC"}`,
     "",
     `- Role: ${mdLine(entry.role)}`,
+    `- Faction: ${mdLine(entry.faction)}`,
+    `- Status: ${mdLine(entry.status)}`,
     `- Disposition: ${mdLine(entry.disposition)}`,
+    `- Importance: ${mdLine(entry.importance)}`,
+    `- Creature Level: ${mdLine(entry.creatureLevel)}`,
+    `- Location: ${mdLine(entry.location)}`,
+    `- Hex: ${mdLine(entry.hex)}`,
+    `- Linked Quest: ${mdLine(entry.linkedQuest)}`,
+    `- Linked Event: ${mdLine(entry.linkedEvent)}`,
+    `- Kingdom Role: ${mdLine(entry.kingdomRole)}`,
     `- Folder: ${mdLine(entry.folder)}`,
     `- Updated: ${mdLine(entry.updatedAt)}`,
     "",
+    "## First Impression",
+    mdLine(entry.firstImpression),
+    "",
     "## Agenda",
     mdLine(entry.agenda),
+    "",
+    "## Leverage",
+    mdLine(entry.leverage),
+    "",
+    "## Pressure",
+    mdLine(entry.pressure),
+    "",
+    "## Rumor",
+    mdLine(entry.rumor),
+    "",
+    "## Secret",
+    mdLine(entry.secret),
+    "",
+    "## Next Scene",
+    mdLine(entry.nextScene),
+    "",
+    "## Kingdom Notes",
+    mdLine(entry.kingdomNotes),
+    "",
+    "## Notes",
+    mdLine(entry.notes),
+  ].join("\n");
+}
+
+function buildCompanionNote(entry) {
+  return [
+    `# ${entry.name || "Companion"}`,
+    "",
+    `- Status: ${mdLine(entry.status)}`,
+    `- Influence: ${mdLine(entry.influence)}`,
+    `- Current Hex: ${mdLine(entry.currentHex)}`,
+    `- Travel State: ${mdLine(entry.travelState)}`,
+    `- Spotlight: ${mdLine(entry.spotlight)}`,
+    `- Kingdom Role: ${mdLine(entry.kingdomRole)}`,
+    `- Linked Quest: ${mdLine(entry.linkedQuest)}`,
+    `- Linked Event: ${mdLine(entry.linkedEvent)}`,
+    `- Personal Quest: ${mdLine(entry.personalQuest)}`,
+    `- Quest Stage: ${mdLine(entry.questStage)}`,
+    `- Folder: ${mdLine(entry.folder)}`,
+    `- Updated: ${mdLine(entry.updatedAt)}`,
+    "",
+    "## Recruitment / Hook",
+    mdLine(entry.recruitment),
+    "",
+    "## Influence",
+    mdLine(entry.influenceNotes),
+    "",
+    "## Relationship Hooks",
+    mdLine(entry.relationshipHooks),
+    "",
+    "## Friction",
+    mdLine(entry.friction),
+    "",
+    "## Camp",
+    mdLine([entry.campRole, entry.campNotes].filter(Boolean).join(" - ")),
+    "",
+    "## Kingdom Fit",
+    mdLine([entry.kingdomRole, entry.kingdomNotes].filter(Boolean).join(" - ")),
+    "",
+    "## Next Scene",
+    mdLine(entry.nextScene),
     "",
     "## Notes",
     mdLine(entry.notes),
@@ -566,7 +755,12 @@ function buildQuestNote(entry) {
     `# ${entry.title || "Quest"}`,
     "",
     `- Status: ${mdLine(entry.status)}`,
+    `- Priority: ${mdLine(entry.priority)}`,
+    `- Chapter / Arc: ${mdLine(entry.chapter)}`,
+    `- Hex: ${mdLine(entry.hex)}`,
     `- Giver: ${mdLine(entry.giver)}`,
+    `- Linked Companion: ${mdLine(entry.linkedCompanion)}`,
+    `- Linked Event: ${mdLine(entry.linkedEvent)}`,
     `- Folder: ${mdLine(entry.folder)}`,
     `- Updated: ${mdLine(entry.updatedAt)}`,
     "",
@@ -575,6 +769,54 @@ function buildQuestNote(entry) {
     "",
     "## Stakes",
     mdLine(entry.stakes),
+    "",
+    "## Next Beat",
+    mdLine(entry.nextBeat),
+    "",
+    "## Blockers",
+    mdLine(entry.blockers),
+    "",
+    "## Reward / Payoff",
+    mdLine(entry.reward),
+    "",
+    "## Notes",
+    mdLine(entry.notes),
+  ].join("\n");
+}
+
+function buildEventNote(entry) {
+  const impactSummary = describeEventImpactSummary(entry);
+  return [
+    `# ${entry.title || "Event"}`,
+    "",
+    `- Category: ${mdLine(entry.category)}`,
+    `- Status: ${mdLine(entry.status)}`,
+    `- Urgency: ${mdLine(entry.urgency)}`,
+    `- Hex: ${mdLine(entry.hex)}`,
+    `- Linked Quest: ${mdLine(entry.linkedQuest)}`,
+    `- Linked Companion: ${mdLine(entry.linkedCompanion)}`,
+    `- Clock: ${mdLine(formatEventClockSummary(entry))}`,
+    `- Advance: ${mdLine(`${coerceInteger(entry.advancePerTurn, 0)}/turn via ${String(entry.advanceOn || "manual")}`)}`,
+    `- Impact Scope: ${mdLine(entry.impactScope)}`,
+    `- Last Triggered: ${mdLine(entry.lastTriggeredTurn || entry.lastTriggeredAt)}`,
+    `- Resolved At: ${mdLine(entry.resolvedAt)}`,
+    `- Folder: ${mdLine(entry.folder)}`,
+    `- Updated: ${mdLine(entry.updatedAt)}`,
+    "",
+    "## Trigger",
+    mdLine(entry.trigger),
+    "",
+    "## Consequence Summary",
+    mdLine(entry.consequenceSummary || entry.fallout),
+    "",
+    "## Fallout",
+    mdLine(entry.fallout),
+    "",
+    "## Kingdom Impact",
+    mdLine(impactSummary),
+    "",
+    "## Notes",
+    mdLine(entry.notes),
   ].join("\n");
 }
 
@@ -582,12 +824,30 @@ function buildLocationNote(entry) {
   return [
     `# ${entry.name || "Location"}`,
     "",
+    `- Type: ${mdLine(entry.type)}`,
+    `- Status: ${mdLine(entry.status)}`,
     `- Hex / Area: ${mdLine(entry.hex)}`,
+    `- Controlling Faction: ${mdLine(entry.controllingFaction)}`,
+    `- Linked Quest: ${mdLine(entry.linkedQuest)}`,
+    `- Linked Event: ${mdLine(entry.linkedEvent)}`,
+    `- Linked NPC: ${mdLine(entry.linkedNpc)}`,
     `- Folder: ${mdLine(entry.folder)}`,
     `- Updated: ${mdLine(entry.updatedAt)}`,
     "",
     "## What Changed",
     mdLine(entry.whatChanged),
+    "",
+    "## Scene Texture",
+    mdLine(entry.sceneTexture),
+    "",
+    "## Opportunities",
+    mdLine(entry.opportunities),
+    "",
+    "## Risks",
+    mdLine(entry.risks),
+    "",
+    "## Rumor",
+    mdLine(entry.rumor),
     "",
     "## Notes",
     mdLine(entry.notes),
@@ -595,6 +855,8 @@ function buildLocationNote(entry) {
 }
 
 function buildKingdomNote(entry) {
+  const commodities = entry?.commodities && typeof entry.commodities === "object" ? entry.commodities : {};
+  const ruin = entry?.ruin && typeof entry.ruin === "object" ? entry.ruin : {};
   return [
     `# ${entry.name || "Kingdom Sheet"}`,
     "",
@@ -604,12 +866,16 @@ function buildKingdomNote(entry) {
     `- Heartland: ${mdLine(entry.heartland)}`,
     `- Turn: ${mdLine(entry.currentTurnLabel)}`,
     `- Date: ${mdLine(entry.currentDate)}`,
+    `- Calendar Anchor: ${mdLine(entry.calendarStartDate)}${entry.calendarAnchorLabel ? ` (${mdLine(entry.calendarAnchorLabel, "")})` : ""}`,
     `- Level: ${mdLine(entry.level)}`,
     `- Size: ${mdLine(entry.size)}`,
     `- Control DC: ${mdLine(entry.controlDC)}`,
     `- Resource Points: ${mdLine(entry.resourcePoints)}`,
-    `- Culture / Economy / Loyalty / Stability: ${entry.culture} / ${entry.economy} / ${entry.loyalty} / ${entry.stability}`,
-    `- Unrest / Fame / Infamy: ${entry.unrest} / ${entry.fame} / ${entry.infamy}`,
+    `- Consumption: ${mdLine(entry.consumption)}`,
+    `- Culture / Economy / Loyalty / Stability: ${coerceInteger(entry.culture, 0)} / ${coerceInteger(entry.economy, 0)} / ${coerceInteger(entry.loyalty, 0)} / ${coerceInteger(entry.stability, 0)}`,
+    `- Unrest / Renown / Fame / Infamy: ${coerceInteger(entry.unrest, 0)} / ${coerceInteger(entry.renown, 0)} / ${coerceInteger(entry.fame, 0)} / ${coerceInteger(entry.infamy, 0)}`,
+    `- Commodities: Food ${coerceInteger(commodities.food, 0)} / Lumber ${coerceInteger(commodities.lumber, 0)} / Luxuries ${coerceInteger(commodities.luxuries, 0)} / Ore ${coerceInteger(commodities.ore, 0)} / Stone ${coerceInteger(commodities.stone, 0)}`,
+    `- Ruin: Corruption ${coerceInteger(ruin.corruption, 0)} / Crime ${coerceInteger(ruin.crime, 0)} / Decay ${coerceInteger(ruin.decay, 0)} / Strife ${coerceInteger(ruin.strife, 0)} / Threshold ${coerceInteger(ruin.threshold, 0)}`,
     "",
     "## Kingdom Notes",
     mdLine(entry.notes),
@@ -621,10 +887,44 @@ function buildKingdomNote(entry) {
     mdBullets((entry.settlements || []).map((settlement) => `${settlement.name} (${settlement.size}) • influence ${settlement.influence} • ${settlement.civicStructure || "No civic structure"}${settlement.notes ? ` — ${settlement.notes}` : ""}`)),
     "",
     "## Claimed Regions",
-    mdBullets((entry.regions || []).map((region) => `${region.hex}: ${region.status || "Unknown"}${region.terrain ? ` • ${region.terrain}` : ""}${region.workSite ? ` • ${region.workSite}` : ""}${region.notes ? ` — ${region.notes}` : ""}`)),
+    mdBullets(
+      (entry.regions || []).map(
+        (region) =>
+          `${region.hex}: ${region.status || "Unknown"}${region.terrain ? ` • ${region.terrain}` : ""}${region.workSite ? ` • ${region.workSite}` : ""}${
+            region.discovery ? ` • discovery: ${region.discovery}` : ""
+          }${region.danger ? ` • danger: ${region.danger}` : ""}${region.improvement ? ` • improvement: ${region.improvement}` : ""}${region.notes ? ` — ${region.notes}` : ""}`
+      )
+    ),
     "",
     "## Recent Kingdom Turns",
-    mdBullets((entry.turns || []).map((turn) => `${turn.title || "Turn"}${turn.date ? ` (${turn.date})` : ""} • RP ${turn.resourceDelta >= 0 ? "+" : ""}${turn.resourceDelta} • Unrest ${turn.unrestDelta >= 0 ? "+" : ""}${turn.unrestDelta}${turn.summary ? ` — ${turn.summary}` : ""}${turn.notes ? ` | ${turn.notes}` : ""}`)),
+    mdBullets(
+      (entry.turns || []).map(
+        (turn) =>
+          `${turn.title || "Turn"}${turn.date ? ` (${turn.date})` : ""} • RP ${turn.resourceDelta >= 0 ? "+" : ""}${turn.resourceDelta} • Unrest ${turn.unrestDelta >= 0 ? "+" : ""}${turn.unrestDelta}${
+            turn.summary ? ` — ${turn.summary}` : ""
+          }${turn.eventSummary ? ` | event: ${turn.eventSummary}` : ""}${turn.notes ? ` | ${turn.notes}` : ""}`
+      )
+    ),
+    "",
+    "## Recent Event History",
+    mdBullets(
+      (entry.eventHistory || []).map(
+        (item) =>
+          `${item.eventTitle || "Event"}${item.type ? ` (${item.type})` : ""}${item.turnTitle ? ` • ${item.turnTitle}` : ""}${item.hex ? ` • ${item.hex}` : ""}${
+            item.summary ? ` — ${item.summary}` : ""
+          }${item.impactApplied === true ? " | kingdom impact applied" : ""}${item.at ? ` | ${item.at}` : ""}`
+      )
+    ),
+    "",
+    "## Calendar History",
+    mdBullets(
+      (entry.calendarHistory || []).map(
+        (item) =>
+          `${item.startDate && item.endDate && item.startDate !== item.endDate ? `${item.startDate} -> ${item.endDate}` : item.endDate || item.date || "Unknown date"}${
+            item.daysAdvanced > 1 ? ` (${item.daysAdvanced} days)` : ""
+          }${item.label ? ` • ${item.label}` : ""}${item.notes ? ` — ${item.notes}` : ""}${item.source ? ` | ${item.source}` : ""}`
+      )
+    ),
   ].join("\n");
 }
 
@@ -649,13 +949,20 @@ function buildHexMapNote(entry, regions) {
     mdBullets((entry.markers || []).map((marker) => `${marker.title} (${marker.type}) at ${marker.hex}${marker.notes ? ` — ${marker.notes}` : ""}`)),
     "",
     "## Region Snapshot",
-    mdBullets((regions || []).map((region) => `${region.hex}: ${region.status || "Unknown"}${region.terrain ? ` • ${region.terrain}` : ""}${region.workSite ? ` • ${region.workSite}` : ""}${region.notes ? ` — ${region.notes}` : ""}`)),
+    mdBullets(
+      (regions || []).map(
+        (region) =>
+          `${region.hex}: ${region.status || "Unknown"}${region.terrain ? ` • ${region.terrain}` : ""}${region.workSite ? ` • ${region.workSite}` : ""}${
+            region.discovery ? ` • discovery: ${region.discovery}` : ""
+          }${region.danger ? ` • danger: ${region.danger}` : ""}${region.improvement ? ` • improvement: ${region.improvement}` : ""}${region.notes ? ` — ${region.notes}` : ""}`
+      )
+    ),
   ].join("\n");
 }
 
 function buildLiveCaptureNote(entries) {
   return [
-    "# Live Capture",
+    "# Table Notes",
     "",
     mdBullets((entries || []).map((entry) => `${entry.timestamp || "Unknown time"} • ${entry.kind || "Note"}${entry.sessionId ? ` • ${entry.sessionId}` : ""} — ${entry.note || ""}`)),
   ].join("\n");
@@ -663,18 +970,20 @@ function buildLiveCaptureNote(entries) {
 
 function buildCampaignHomeNote(payload, noteRefs) {
   return [
-    `# ${payload.campaignName || "DM Helper Campaign"}`,
+    `# ${payload.campaignName || "Kingmaker Companion Campaign"}`,
     "",
     `- Synced: ${mdLine(payload.generatedAt)}`,
     `- Sessions: ${(payload.sessions || []).length}`,
     `- NPCs: ${(payload.npcs || []).length}`,
+    `- Companions: ${(payload.companions || []).length}`,
     `- Quests: ${(payload.quests || []).length}`,
+    `- Events: ${(payload.events || []).length}`,
     `- Locations: ${(payload.locations || []).length}`,
     "",
     "## Quick Links",
     `- Kingdom Sheet: ${mdWikiLink("Kingdom", noteRefs.kingdom, "Kingdom Sheet")}`,
     `- Hex Map: ${mdWikiLink("Hex Map", noteRefs.hexMap, "Hex Map")}`,
-    `- Live Capture: ${mdWikiLink(".", noteRefs.liveCapture, "Live Capture")}`,
+    `- Table Notes: ${mdWikiLink(".", noteRefs.liveCapture, "Table Notes")}`,
     "",
     "## Sessions",
     mdBullets(noteRefs.sessions.map((entry) => mdWikiLink("Sessions", entry.noteName, entry.label))),
@@ -682,8 +991,14 @@ function buildCampaignHomeNote(payload, noteRefs) {
     "## NPCs",
     mdBullets(noteRefs.npcs.map((entry) => mdWikiLink("NPCs", entry.noteName, entry.label))),
     "",
+    "## Companions",
+    mdBullets(noteRefs.companions.map((entry) => mdWikiLink("Companions", entry.noteName, entry.label))),
+    "",
     "## Quests",
     mdBullets(noteRefs.quests.map((entry) => mdWikiLink("Quests", entry.noteName, entry.label))),
+    "",
+    "## Events",
+    mdBullets(noteRefs.events.map((entry) => mdWikiLink("Events", entry.noteName, entry.label))),
     "",
     "## Locations",
     mdBullets(noteRefs.locations.map((entry) => mdWikiLink("Locations", entry.noteName, entry.label))),
@@ -695,13 +1010,15 @@ async function syncObsidianVault(payload) {
   if (!vaultPath) {
     throw new Error("Vault path is required.");
   }
-  const baseFolderName = sanitizeVaultFileName(payload?.baseFolder || "DM Helper", "DM Helper");
+  const baseFolderName = sanitizeVaultFileName(payload?.baseFolder || "Kingmaker Companion", "Kingmaker Companion");
   const rootFolder = path.join(vaultPath, baseFolderName);
   const looksLikeVault = await pathExists(path.join(vaultPath, ".obsidian"));
   await fs.mkdir(rootFolder, { recursive: true });
   await fs.mkdir(path.join(rootFolder, "Sessions"), { recursive: true });
   await fs.mkdir(path.join(rootFolder, "NPCs"), { recursive: true });
+  await fs.mkdir(path.join(rootFolder, "Companions"), { recursive: true });
   await fs.mkdir(path.join(rootFolder, "Quests"), { recursive: true });
+  await fs.mkdir(path.join(rootFolder, "Events"), { recursive: true });
   await fs.mkdir(path.join(rootFolder, "Locations"), { recursive: true });
   await fs.mkdir(path.join(rootFolder, "Kingdom"), { recursive: true });
   await fs.mkdir(path.join(rootFolder, "Hex Map"), { recursive: true });
@@ -709,17 +1026,21 @@ async function syncObsidianVault(payload) {
   const refs = {
     sessions: [],
     npcs: [],
+    companions: [],
     quests: [],
+    events: [],
     locations: [],
     kingdom: "Kingdom Sheet",
     hexMap: "Hex Map",
-    liveCapture: "Live Capture",
+    liveCapture: "Table Notes",
   };
 
   const usedNames = {
     sessions: new Set(),
     npcs: new Set(),
+    companions: new Set(),
     quests: new Set(),
+    events: new Set(),
     locations: new Set(),
   };
 
@@ -739,10 +1060,24 @@ async function syncObsidianVault(payload) {
     filesWritten += 1;
   }
 
+  for (const companion of Array.isArray(payload?.companions) ? payload.companions : []) {
+    const noteName = uniqueVaultNoteName(companion?.name || "Companion", usedNames.companions);
+    await writeVaultMarkdownFile(rootFolder, ["Companions", `${noteName}.md`], buildCompanionNote(companion));
+    refs.companions.push({ noteName, label: companion?.name || noteName });
+    filesWritten += 1;
+  }
+
   for (const quest of Array.isArray(payload?.quests) ? payload.quests : []) {
     const noteName = uniqueVaultNoteName(quest?.title || "Quest", usedNames.quests);
     await writeVaultMarkdownFile(rootFolder, ["Quests", `${noteName}.md`], buildQuestNote(quest));
     refs.quests.push({ noteName, label: quest?.title || noteName });
+    filesWritten += 1;
+  }
+
+  for (const eventEntry of Array.isArray(payload?.events) ? payload.events : []) {
+    const noteName = uniqueVaultNoteName(eventEntry?.title || "Event", usedNames.events);
+    await writeVaultMarkdownFile(rootFolder, ["Events", `${noteName}.md`], buildEventNote(eventEntry));
+    refs.events.push({ noteName, label: eventEntry?.title || noteName });
     filesWritten += 1;
   }
 
@@ -909,7 +1244,7 @@ async function getObsidianVaultContext(payload) {
   if (!vaultPath) {
     throw new Error("Vault path is required.");
   }
-  const baseFolderName = sanitizeVaultFileName(payload?.baseFolder || "DM Helper", "DM Helper");
+  const baseFolderName = sanitizeVaultFileName(payload?.baseFolder || "Kingmaker Companion", "Kingmaker Companion");
   const readWholeVault = payload?.readWholeVault !== false;
   const maxNotes = Math.max(1, Math.min(12, Number.parseInt(String(payload?.maxNotes || OBSIDIAN_AI_CONTEXT_DEFAULT_NOTE_LIMIT), 10) || OBSIDIAN_AI_CONTEXT_DEFAULT_NOTE_LIMIT));
   const maxChars = Math.max(800, Math.min(12000, Number.parseInt(String(payload?.maxChars || OBSIDIAN_AI_CONTEXT_DEFAULT_CHAR_LIMIT), 10) || OBSIDIAN_AI_CONTEXT_DEFAULT_CHAR_LIMIT));
@@ -1008,7 +1343,7 @@ async function writeObsidianAiNote(payload) {
   if (!content) {
     throw new Error("AI output is empty.");
   }
-  const baseFolderName = sanitizeVaultFileName(payload?.baseFolder || "DM Helper", "DM Helper");
+  const baseFolderName = sanitizeVaultFileName(payload?.baseFolder || "Kingmaker Companion", "Kingmaker Companion");
   const rootFolder = path.join(vaultPath, baseFolderName);
   const noteFolderSegments = sanitizeVaultRelativeSegments(payload?.noteFolder, ["AI Notes"]);
   const noteName = sanitizeVaultFileName(payload?.title || "AI Note", "AI Note");
@@ -1307,6 +1642,14 @@ function emitPdfSummarizeProgress(sender, payload) {
 }
 
 function registerIpc() {
+  ipcMain.handle("campaign:load-state", async () => {
+    return readCampaignStateFromDisk();
+  });
+
+  ipcMain.handle("campaign:save-state", async (_event, payload) => {
+    return writeCampaignStateToDisk(payload || {});
+  });
+
   ipcMain.handle("pdf:get-default-folder", async () => {
     return DEFAULT_PDF_FOLDER;
   });
@@ -2348,7 +2691,7 @@ function splitTextIntoChunks(text, chunkSize = 7600, maxChunks = 6) {
 
 function buildPdfChunkSummaryPrompt({ fileName, chunkText, index, total }) {
   return [
-    `You are summarizing indexed PDF content for DM Helper, a GM prep tool.`,
+    `You are summarizing indexed PDF content for Kingmaker Companion, a standalone Kingmaker GM prep tool.`,
     `Book: ${fileName}`,
     `Chunk ${index} of ${total}.`,
     `Task: extract the most useful GM-facing facts from this chunk only.`,
@@ -2376,7 +2719,7 @@ function buildPdfChunkSummaryPrompt({ fileName, chunkText, index, total }) {
 
 function buildPdfFinalSummaryPrompt({ fileName, chunkSummaries }) {
   return [
-    `You are combining chunk summaries into one persistent GM-ready book brief for DM Helper.`,
+    `You are combining chunk summaries into one persistent GM-ready book brief for Kingmaker Companion.`,
     `Book: ${fileName}`,
     `Return these headings exactly:`,
     `Adventure Premise:`,
@@ -2403,7 +2746,7 @@ function buildPdfFinalSummaryPrompt({ fileName, chunkSummaries }) {
 
 function buildPdfFinalSummaryRetryPrompt({ fileName, chunkSummaries }) {
   return [
-    `You are fixing a weak or incomplete summary for DM Helper.`,
+    `You are fixing a weak or incomplete summary for Kingmaker Companion.`,
     `Book: ${fileName}`,
     `Return only a clean GM summary in this exact structure:`,
     `Adventure Premise:`,
@@ -2516,7 +2859,7 @@ function combineChunkSummariesFallback(fileName, chunkSummaries) {
       `What To Prep First:`,
       `- Summarize the selected PDF again after confirming the indexed text looks clean.`,
       `Fast Table Reference:`,
-      `- Keep PDF Intel open for exact page lookups.`,
+      `- Keep Source Library open for exact page lookups.`,
     ].join("\n");
   }
 
@@ -2920,6 +3263,8 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
   const recentSessions = Array.isArray(context?.recentSessions) ? context.recentSessions : [];
   const openQuests = Array.isArray(context?.openQuests) ? context.openQuests : [];
   const quests = Array.isArray(context?.quests) ? context.quests : [];
+  const companions = Array.isArray(context?.companions) ? context.companions : [];
+  const events = Array.isArray(context?.events) ? context.events : [];
   const npcs = Array.isArray(context?.npcs) ? context.npcs : [];
   const locations = Array.isArray(context?.locations) ? context.locations : [];
   const kingdom = context?.kingdom || null;
@@ -2966,10 +3311,12 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
   const tabContext = summarizeForPrompt(String(context?.tabContext || ""), limits.tab);
   const pdfSnippets = Array.isArray(context?.pdfSnippets) ? context.pdfSnippets : [];
   const pdfEnabled = context?.pdfContextEnabled === true;
-  const appRoleLines = getDmHelperAppRoleLines(activeTab);
+  const appRoleLines = getKingmakerAppRoleLines(activeTab);
   const recentSessionLines = summarizeRecentSessionsForPrompt(recentSessions, compactContext ? 3 : 5);
   const trackedNpcLines = summarizeTrackedNpcsForPrompt(npcs, compactContext ? 5 : 8);
+  const trackedCompanionLines = summarizeTrackedCompanionsForPrompt(companions, compactContext ? 5 : 8);
   const trackedQuestLines = summarizeTrackedQuestsForPrompt(quests, compactContext ? 5 : 8);
+  const activeEventLines = summarizeTrackedEventsForPrompt(events, compactContext ? 5 : 8);
   const trackedLocationLines = summarizeTrackedLocationsForPrompt(locations, compactContext ? 5 : 8);
   const kingdomLines = summarizeKingdomForPrompt(kingdom, compactContext);
   const historyLimit = compactContext ? 6 : 10;
@@ -2989,7 +3336,9 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
       "Produce structured, table-ready session notes. Follow requested section labels exactly and provide substantive detail (not just one short paragraph).",
     recap: "Rewrite as a short read-aloud recap for players (3-6 sentences).",
     npc: "Produce one table-ready NPC using the requested labels exactly. Give the NPC a clear motive, pressure, and immediately playable detail.",
+    companion: "Produce one table-ready companion record using the requested labels exactly. Make influence, travel state, and kingdom-role usefulness obvious.",
     quest: "Rewrite as a quest objective with stakes and next actionable beat.",
+    event: "Produce one table-ready event record using the requested labels exactly. Make the pressure clock, trigger, kingdom consequence, fallout, and links explicit.",
     location: "Rewrite as a location briefing with atmosphere and immediate tension.",
     prep: "Rewrite as next-session prep bullet points.",
   };
@@ -3020,6 +3369,8 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
     `Open quests: ${openQuests.map((q) => summarizeForPrompt(String(q?.title || ""), 80)).join("; ") || "None listed."}`,
     ...(trackedQuestLines.length ? ["Tracked quest records:", ...trackedQuestLines] : ["Tracked quest records: None listed."]),
     ...(trackedNpcLines.length ? ["Tracked NPC records:", ...trackedNpcLines] : ["Tracked NPC records: None listed."]),
+    ...(trackedCompanionLines.length ? ["Tracked companion records:", ...trackedCompanionLines] : ["Tracked companion records: None listed."]),
+    ...(activeEventLines.length ? ["Tracked event records:", ...activeEventLines] : ["Tracked event records: None listed."]),
     ...(trackedLocationLines.length ? ["Tracked location records:", ...trackedLocationLines] : ["Tracked location records: None listed."]),
     ...(kingdomLines.length ? ["Kingdom records:", ...kingdomLines] : []),
     ...(campaignMemorySummary || recentSessionMemory || activeQuestMemory || activeEntityMemory || canonMemory || rulingsDigest
@@ -3126,24 +3477,26 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
   return lines.join("\n");
 }
 
-function getDmHelperAppRoleLines(activeTab) {
+function getKingmakerAppRoleLines(activeTab) {
   const tabId = String(activeTab || "").toLowerCase();
   const workflowByTab = {
     dashboard: "You are planning the GM's next moves. Output should be ready to attach to the latest session prep in the app.",
     sessions: "You are helping maintain the session record. Output should be ready to apply into the latest session summary or next-prep fields.",
-    capture: "You are cleaning raw table notes into structured records the app can keep as live capture or session notes.",
-    writing: "You are drafting clean GM-facing text that the writing helper can store or paste into campaign notes.",
-    kingdom: "You are helping run a PF2e Kingmaker kingdom inside DM Helper. Output should be ready to save into kingdom notes, turn logs, settlement plans, or leader assignments.",
-    npcs: "You are creating or enriching structured NPC records for DM Helper. Output may be imported directly into NPC entries.",
-    quests: "You are creating or refining structured quest records for DM Helper. Output may be imported directly into quest entries.",
-    locations: "You are creating or refining structured location records for DM Helper. Output may be imported directly into location entries.",
+    capture: "You are cleaning raw table notes into structured records the app can keep as campaign notes or session notes.",
+    writing: "You are drafting clean GM-facing text that Scene Forge can store or paste into campaign notes.",
+    kingdom: "You are helping run a PF2e Kingmaker kingdom inside Kingmaker Companion. Output should be ready to save into kingdom notes, turn logs, settlement plans, or leader assignments.",
+    npcs: "You are creating or enriching structured NPC records for Kingmaker Companion. Output may be imported directly into NPC entries.",
+    companions: "You are creating or enriching structured companion records for Kingmaker Companion. Output may be imported directly into companion entries.",
+    quests: "You are creating or refining structured quest records for Kingmaker Companion. Output may be imported directly into quest entries.",
+    events: "You are creating or refining structured event pressure records for Kingmaker Companion. Output may be imported directly into event entries.",
+    locations: "You are creating or refining structured location records for Kingmaker Companion. Output may be imported directly into location entries.",
     pdf: "You are answering from indexed PDF context or producing a PDF query the app can run immediately.",
-    foundry: "You are preparing handoff/export notes that the GM can use in Foundry and store in session prep.",
+    foundry: "You are preparing export or integration notes that the GM can use in Foundry or another linked tool.",
   };
   return [
-    "App role: You are Loremaster inside the DM Helper app, helping the GM build and maintain structured campaign records and usable session prep.",
-    `Current app workflow: ${workflowByTab[tabId] || "You are helping the GM create content that can be saved back into DM Helper without cleanup."}`,
-    "Write content that fits the app workflow for the active tab and is ready to save or apply inside DM Helper.",
+    "App role: You are Companion AI inside the Kingmaker Companion app, helping the GM build and maintain structured Kingmaker records and usable session prep.",
+    `Current app workflow: ${workflowByTab[tabId] || "You are helping the GM create content that can be saved back into Kingmaker Companion without cleanup."}`,
+    "Write content that fits the app workflow for the active tab and is ready to save or apply inside Kingmaker Companion.",
   ];
 }
 
@@ -3168,11 +3521,32 @@ function summarizeTrackedNpcsForPrompt(npcs, limit = 6) {
       if (!name) return "";
       const parts = [
         summarizeForPrompt(String(npc?.role || ""), 40),
+        summarizeForPrompt(String(npc?.faction || ""), 36),
         summarizeForPrompt(String(npc?.agenda || ""), 70),
         summarizeForPrompt(String(npc?.disposition || ""), 32),
+        summarizeForPrompt(String(npc?.pressure || ""), 70),
+        summarizeForPrompt(String(npc?.kingdomRole || ""), 50),
       ].filter(Boolean);
       const notes = summarizeForPrompt(String(npc?.notes || ""), 120);
       return `- ${name}${parts.length ? ` | ${parts.join(" | ")}` : ""}${notes ? ` | notes: ${notes}` : ""}`;
+    })
+    .filter(Boolean);
+}
+
+function summarizeTrackedCompanionsForPrompt(companions, limit = 6) {
+  return (companions || [])
+    .slice(0, Math.max(0, Number(limit) || 0))
+    .map((companion) => {
+      const name = summarizeForPrompt(String(companion?.name || ""), 60);
+      if (!name) return "";
+      const status = summarizeForPrompt(String(companion?.status || ""), 24);
+      const currentHex = summarizeForPrompt(String(companion?.currentHex || ""), 18);
+      const travelState = summarizeForPrompt(String(companion?.travelState || ""), 22);
+      const role = summarizeForPrompt(String(companion?.kingdomRole || ""), 48);
+      const quest = summarizeForPrompt(String(companion?.personalQuest || ""), 80);
+      const nextScene = summarizeForPrompt(String(companion?.nextScene || ""), 90);
+      const notes = summarizeForPrompt(String(companion?.notes || ""), 110);
+      return `- ${name}${status ? ` (${status})` : ""} | influence ${Number.parseInt(String(companion?.influence || "0"), 10) || 0}${currentHex ? ` | hex: ${currentHex}` : ""}${travelState ? ` | travel: ${travelState}` : ""}${role ? ` | role: ${role}` : ""}${quest ? ` | personal quest: ${quest}` : ""}${nextScene ? ` | next scene: ${nextScene}` : ""}${notes ? ` | notes: ${notes}` : ""}`;
     })
     .filter(Boolean);
 }
@@ -3184,10 +3558,34 @@ function summarizeTrackedQuestsForPrompt(quests, limit = 6) {
       const title = summarizeForPrompt(String(quest?.title || ""), 70);
       if (!title) return "";
       const status = summarizeForPrompt(String(quest?.status || ""), 24);
+      const priority = summarizeForPrompt(String(quest?.priority || ""), 16);
+      const hex = summarizeForPrompt(String(quest?.hex || ""), 18);
       const objective = summarizeForPrompt(String(quest?.objective || ""), 90);
       const stakes = summarizeForPrompt(String(quest?.stakes || ""), 110);
       const giver = summarizeForPrompt(String(quest?.giver || ""), 48);
-      return `- ${title}${status ? ` (${status})` : ""}${giver ? ` | giver: ${giver}` : ""}${objective ? ` | objective: ${objective}` : ""}${stakes ? ` | stakes: ${stakes}` : ""}`;
+      const nextBeat = summarizeForPrompt(String(quest?.nextBeat || ""), 100);
+      return `- ${title}${status ? ` (${status})` : ""}${priority ? ` | priority: ${priority}` : ""}${giver ? ` | giver: ${giver}` : ""}${hex ? ` | hex: ${hex}` : ""}${objective ? ` | objective: ${objective}` : ""}${stakes ? ` | stakes: ${stakes}` : ""}${nextBeat ? ` | next beat: ${nextBeat}` : ""}`;
+    })
+    .filter(Boolean);
+}
+
+function summarizeTrackedEventsForPrompt(events, limit = 6) {
+  return (events || [])
+    .slice(0, Math.max(0, Number(limit) || 0))
+    .map((eventEntry) => {
+      const title = summarizeForPrompt(String(eventEntry?.title || ""), 70);
+      if (!title) return "";
+      const category = summarizeForPrompt(String(eventEntry?.category || ""), 24);
+      const status = summarizeForPrompt(String(eventEntry?.status || ""), 24);
+      const hex = summarizeForPrompt(String(eventEntry?.hex || ""), 18);
+      const clock = summarizeForPrompt(formatEventClockSummary(eventEntry), 12);
+      const trigger = summarizeForPrompt(String(eventEntry?.trigger || ""), 90);
+      const consequence = summarizeForPrompt(String(eventEntry?.consequenceSummary || ""), 90);
+      const fallout = summarizeForPrompt(String(eventEntry?.fallout || ""), 90);
+      const impact = summarizeForPrompt(describeEventImpactSummary(eventEntry), 120);
+      return `- ${title}${category ? ` (${category})` : ""}${status ? ` | ${status}` : ""}${clock ? ` | clock ${clock}` : ""}${hex ? ` | hex: ${hex}` : ""}${
+        trigger ? ` | trigger: ${trigger}` : ""
+      }${consequence ? ` | consequence: ${consequence}` : ""}${fallout ? ` | fallout: ${fallout}` : ""}${impact && impact !== "No kingdom impact recorded." ? ` | impact: ${impact}` : ""}`;
     })
     .filter(Boolean);
 }
@@ -3199,9 +3597,12 @@ function summarizeTrackedLocationsForPrompt(locations, limit = 6) {
       const name = summarizeForPrompt(String(location?.name || ""), 70);
       if (!name) return "";
       const hex = summarizeForPrompt(String(location?.hex || ""), 24);
+      const type = summarizeForPrompt(String(location?.type || ""), 24);
+      const status = summarizeForPrompt(String(location?.status || ""), 24);
       const whatChanged = summarizeForPrompt(String(location?.whatChanged || ""), 90);
+      const risks = summarizeForPrompt(String(location?.risks || ""), 90);
       const notes = summarizeForPrompt(String(location?.notes || ""), 110);
-      return `- ${name}${hex ? ` [${hex}]` : ""}${whatChanged ? ` | changed: ${whatChanged}` : ""}${notes ? ` | notes: ${notes}` : ""}`;
+      return `- ${name}${type ? ` (${type})` : ""}${status ? ` | ${status}` : ""}${hex ? ` [${hex}]` : ""}${whatChanged ? ` | changed: ${whatChanged}` : ""}${risks ? ` | risk: ${risks}` : ""}${notes ? ` | notes: ${notes}` : ""}`;
     })
     .filter(Boolean);
 }
@@ -3214,10 +3615,20 @@ function summarizeKingdomForPrompt(kingdom, compactContext = true) {
   const settlements = Array.isArray(data?.settlements) ? data.settlements : [];
   const regions = Array.isArray(data?.regions) ? data.regions : [];
   const recentTurns = Array.isArray(data?.recentTurns) ? data.recentTurns : [];
+  const recentEventHistory = Array.isArray(data?.recentEventHistory)
+    ? data.recentEventHistory
+    : Array.isArray(data?.eventHistory)
+      ? data.eventHistory
+      : [];
+  const recentCalendarHistory = Array.isArray(data?.recentCalendarHistory)
+    ? data.recentCalendarHistory
+    : Array.isArray(data?.calendarHistory)
+      ? data.calendarHistory
+      : [];
   const commodities = data?.commodities || {};
   const ruin = data?.ruin || {};
   const lines = [
-    `- Sheet: ${summarizeForPrompt(String(data?.name || "Unnamed kingdom"), 90)} | turn ${summarizeForPrompt(String(data?.currentTurnLabel || "not set"), 36)} | level ${Number.parseInt(String(data?.level || "1"), 10) || 1} | size ${Number.parseInt(String(data?.size || "1"), 10) || 1} | Control DC ${Number.parseInt(String(data?.controlDC || "14"), 10) || 14}`,
+    `- Sheet: ${summarizeForPrompt(String(data?.name || "Unnamed kingdom"), 90)} | turn ${summarizeForPrompt(String(data?.currentTurnLabel || "not set"), 36)} | date ${summarizeForPrompt(String(data?.currentDate || "not set"), 36)} | level ${Number.parseInt(String(data?.level || "1"), 10) || 1} | size ${Number.parseInt(String(data?.size || "1"), 10) || 1} | Control DC ${Number.parseInt(String(data?.controlDC || "14"), 10) || 14}`,
     `- Economy: RP ${Number.parseInt(String(data?.resourcePoints || "0"), 10) || 0} | resource die ${summarizeForPrompt(String(data?.resourceDie || "d4"), 8)} | consumption ${Math.max(0, Number.parseInt(String(data?.consumption || "0"), 10) || 0)} | commodities F:${Number.parseInt(String(commodities.food || "0"), 10) || 0} L:${Number.parseInt(String(commodities.lumber || "0"), 10) || 0} Lux:${Number.parseInt(String(commodities.luxuries || "0"), 10) || 0} O:${Number.parseInt(String(commodities.ore || "0"), 10) || 0} S:${Number.parseInt(String(commodities.stone || "0"), 10) || 0}`,
     `- Pressure: unrest ${Math.max(0, Number.parseInt(String(data?.unrest || "0"), 10) || 0)} | renown ${Math.max(0, Number.parseInt(String(data?.renown || "0"), 10) || 0)} | fame ${Math.max(0, Number.parseInt(String(data?.fame || "0"), 10) || 0)} | infamy ${Math.max(0, Number.parseInt(String(data?.infamy || "0"), 10) || 0)} | ruin C:${Math.max(0, Number.parseInt(String(ruin.corruption || "0"), 10) || 0)} Cr:${Math.max(0, Number.parseInt(String(ruin.crime || "0"), 10) || 0)} D:${Math.max(0, Number.parseInt(String(ruin.decay || "0"), 10) || 0)} S:${Math.max(0, Number.parseInt(String(ruin.strife || "0"), 10) || 0)} / threshold ${Math.max(1, Number.parseInt(String(ruin.threshold || "5"), 10) || 5)}`,
     `- Rules profile: ${summarizeForPrompt(String(profile?.label || "Kingdom profile"), 90)} | ${summarizeForPrompt(String(profile?.summary || ""), compactContext ? 180 : 260)}`,
@@ -3284,12 +3695,36 @@ function summarizeKingdomForPrompt(kingdom, compactContext = true) {
     .slice(0, compactContext ? 4 : 6)
     .map((entry) => `- Pending: ${summarizeForPrompt(String(entry || ""), compactContext ? 100 : 140)}`)
     .filter(Boolean);
+  const eventLines = recentEventHistory
+    .slice(0, compactContext ? 4 : 6)
+    .map((item) => {
+      const title = summarizeForPrompt(String(item?.eventTitle || item?.title || ""), 48);
+      if (!title) return "";
+      const type = summarizeForPrompt(String(item?.type || ""), 20);
+      const turn = summarizeForPrompt(String(item?.turnTitle || ""), 28);
+      const summary = summarizeForPrompt(String(item?.summary || ""), compactContext ? 90 : 130);
+      return `- Event pressure: ${title}${type ? ` (${type})` : ""}${turn ? ` | ${turn}` : ""}${summary ? ` | ${summary}` : ""}${item?.impactApplied === true ? " | impact applied" : ""}`;
+    })
+    .filter(Boolean);
+  const calendarLines = recentCalendarHistory
+    .slice(0, compactContext ? 4 : 6)
+    .map((item) => {
+      const endDate = summarizeForPrompt(String(item?.endDate || item?.date || ""), 36);
+      if (!endDate) return "";
+      const startDate = summarizeForPrompt(String(item?.startDate || ""), 36);
+      const label = summarizeForPrompt(String(item?.label || ""), 72);
+      const notes = summarizeForPrompt(String(item?.notes || ""), compactContext ? 80 : 120);
+      return `- Calendar: ${startDate && startDate !== endDate ? `${startDate} -> ${endDate}` : endDate}${label ? ` | ${label}` : ""}${notes ? ` | ${notes}` : ""}`;
+    })
+    .filter(Boolean);
   const notes = summarizeForPrompt(String(data?.notes || ""), compactContext ? 180 : 280);
   if (leaderLines.length) lines.push(...leaderLines);
   if (settlementLines.length) lines.push(...settlementLines);
   if (regionLines.length) lines.push(...regionLines);
   if (turnLines.length) lines.push(...turnLines);
   if (projectLines.length) lines.push(...projectLines);
+  if (eventLines.length) lines.push(...eventLines);
+  if (calendarLines.length) lines.push(...calendarLines);
   if (notes) lines.push(`- Kingdom notes: ${notes}`);
   return lines;
 }
@@ -3323,12 +3758,32 @@ function getModeSpecificPromptLines(mode, input, context = null) {
     }
     return lines;
   }
+  if (String(mode || "").toLowerCase() === "companion") {
+    return [
+      "Format requirements:",
+      "Return exactly these top-level labels: Name, Status, Influence, Current Hex, Kingdom Role, Personal Quest, Notes.",
+      "Under Notes include 4 to 6 short bullets covering loyalty or leverage, current pressure or tension, best camp or travel scene, and best use in the next session.",
+      'Use one of these status values when possible: "prospective", "recruited", "traveling", "kingdom-role", or "departed".',
+      "Keep influence as a whole number from 0 to 10.",
+    ];
+  }
+  if (String(mode || "").toLowerCase() === "event") {
+    return [
+      "Format requirements:",
+      "Return exactly these top-level labels: Title, Category, Status, Urgency, Hex, Linked Quest, Linked Companion, Clock, Clock Max, Advance / Turn, Advance Mode, Impact Scope, Trigger, Consequence Summary, Fallout, Kingdom Impact, Notes.",
+      "Under Kingdom Impact include short bullets for only the non-zero kingdom changes using these labels: RP, Unrest, Renown, Fame, Infamy, Food, Lumber, Luxuries, Ore, Stone, Corruption, Crime, Decay, Strife.",
+      'Use one of these categories when possible: "kingdom", "companion", "quest", "travel", "threat", or "story".',
+      'Use one of these status values when possible: "seeded", "active", "escalated", "cooldown", "resolved", or "failed".',
+      "Keep urgency as a whole number from 1 to 5.",
+      'Use one of these impact scope values when possible: "always", "claimed-hex", or "none".',
+    ];
+  }
   if (activeTab === "kingdom") {
     return [
       "Kingdom workflow requirements:",
       "Base advice on the current kingdom sheet and the active V&K rules profile before inventing new plans.",
       "When you suggest changes, make the consequences and tradeoffs explicit so the GM can decide whether to update the records.",
-      "Prefer outputs that help the GM record the turn cleanly: action order, what changed, risks, and what should be saved into DM Helper.",
+      "Prefer outputs that help the GM record the turn cleanly: action order, what changed, risks, and what should be saved into Kingmaker Companion.",
     ];
   }
   return [];
@@ -3634,16 +4089,6 @@ function generateFallbackAiOutput(mode, input, tabId) {
   if (normalizedMode === "assistant") {
     return generateAssistantFallbackAnswer(cleanInput);
   }
-  if (tabId) {
-    const byTab = generateCopilotFallbackByTab(tabId, cleanInput);
-    if (byTab) return byTab;
-  }
-  if (normalizedMode === "prep") {
-    return toPrepBullets(cleanInput || "Prepare a concise opening, one obstacle, and one reveal.");
-  }
-  if (normalizedMode === "recap") {
-    return buildRecapFallback(cleanInput || "The party advanced their goals and uncovered a new threat.");
-  }
   if (normalizedMode === "npc") {
     return [
       "Name: Frontier Broker",
@@ -3660,11 +4105,77 @@ function generateFallbackAiOutput(mode, input, tabId) {
       "- Best way to use them in the next session: Make them the quickest path to progress, then reveal their complication when the party commits.",
     ].join("\n");
   }
+  if (normalizedMode === "companion") {
+    return [
+      "Name: Restless Swordlord Ally",
+      "Status: recruited",
+      "Influence: 4",
+      "Current Hex: D4",
+      "Kingdom Role: General candidate",
+      "Personal Quest: Prove they can shape the Stolen Lands without becoming another tyrant.",
+      "Notes:",
+      "- Loyalty or leverage: They respond well to bold action but hate avoidable cruelty.",
+      "- Current pressure or tension: A rival wants them tied down to court politics instead of the frontier.",
+      "- Best camp or travel scene: They challenge the party's plan and reveal what outcome they actually fear.",
+      "- Best use in the next session: Put them beside a kingdom or quest decision that tests trust.",
+    ].join("\n");
+  }
   if (normalizedMode === "quest") {
-    return `Objective: ${ensureSentence(cleanInput || "Advance the active quest with one clear obstacle and one consequence for delay")}`;
+    return [
+      "Title: Secure the Main Route",
+      "Status: open",
+      "Priority: Soon",
+      "Chapter: Stolen Lands Opening",
+      "Hex: D4",
+      `Objective: ${ensureSentence(cleanInput || "Advance the active quest with one clear obstacle and one consequence for delay")}`,
+      "Giver: Local council envoy",
+      "Stakes: Trade and trust collapse if route remains unsafe.",
+      "Linked Companion: ",
+      "Next Beat: Point the party at the clearest immediate lead.",
+    ].join("\n");
+  }
+  if (normalizedMode === "event") {
+    return [
+      "Title: Border Pressure Rising",
+      "Category: kingdom",
+      "Status: active",
+      "Urgency: 3",
+      "Hex: D4",
+      "Linked Quest: Secure the Main Route",
+      "Linked Companion: ",
+      "Clock: 1",
+      "Clock Max: 4",
+      "Advance / Turn: 1",
+      "Advance Mode: turn",
+      "Impact Scope: claimed-hex",
+      "Trigger: Delays at the frontier give rival forces time to test the kingdom's response.",
+      "Consequence Summary: If ignored, the kingdom loses control of the border story and has to absorb a public setback.",
+      "Fallout: If ignored, unrest rises and a nearby ally loses confidence in the party's rule.",
+      "Kingdom Impact:",
+      "- RP: -1",
+      "- Unrest: 1",
+      "- Renown: -1",
+      "- Crime: 1",
+      "Notes: Track this as a pressure clock tied to the next kingdom turn or travel leg.",
+    ].join("\n");
   }
   if (normalizedMode === "location") {
-    return `Location Note: ${ensureSentence(cleanInput || "Describe atmosphere, immediate tension, and one clue tied to current events")}`;
+    return [
+      "Name: Old Waystation",
+      "Hex: D4",
+      `What Changed: ${ensureSentence(cleanInput || "Describe atmosphere, immediate tension, and one clue tied to current events")}`,
+      "Notes: Use one visual detail, one immediate problem, and one clue the party can act on right away.",
+    ].join("\n");
+  }
+  if (tabId) {
+    const byTab = generateCopilotFallbackByTab(tabId, cleanInput);
+    if (byTab) return byTab;
+  }
+  if (normalizedMode === "prep") {
+    return toPrepBullets(cleanInput || "Prepare a concise opening, one obstacle, and one reveal.");
+  }
+  if (normalizedMode === "recap") {
+    return buildRecapFallback(cleanInput || "The party advanced their goals and uncovered a new threat.");
   }
   return ensureSentence(cleanInput || "Session notes organized into practical GM prep text.");
 }
@@ -3744,7 +4255,7 @@ function generateCopilotFallbackByTab(tabId, input) {
       "- Rising unrest or ruin near the threshold can make the next event spiral fast.",
       "- Consumption and local settlement limits can quietly punish overexpansion.",
       "",
-      "What To Record In DM Helper:",
+      "What To Record In Kingmaker Companion:",
       "- Which leaders acted, what changed, and which projects are still pending.",
       "- Any rulings or reminders you need before the next kingdom turn.",
     ].join("\n");
@@ -3765,13 +4276,58 @@ function generateCopilotFallbackByTab(tabId, input) {
       "- Best way to use them in the next session: Introduce them as the fastest path to a lead, then make the price for help social rather than monetary.",
     ].join("\n");
   }
+  if (tabId === "companions") {
+    return [
+      "Name: Frontier Scout",
+      "Status: traveling",
+      "Influence: 5",
+      "Current Hex: D4",
+      "Kingdom Role: Warden candidate",
+      "Personal Quest: Find proof that a missing patrol was betrayed from inside the kingdom.",
+      "Notes:",
+      "- Loyalty or leverage: Trust grows when the party follows through on frontier promises.",
+      "- Current pressure or tension: They suspect someone useful to the kingdom is hiding the truth.",
+      "- Best camp or travel scene: They share a hard choice from the road and ask who the kingdom protects first.",
+      "- Best use in the next session: Tie them to a travel complication or a border-defense decision.",
+    ].join("\n");
+  }
   if (tabId === "quests") {
     return [
       "Title: Secure the Main Route",
       "Status: open",
+      "Priority: Soon",
+      "Chapter: Stolen Lands Opening",
+      "Hex: D4",
       "Objective: Clear threats blocking movement between key settlements.",
       "Giver: Local council envoy",
       "Stakes: Trade and trust collapse if route remains unsafe.",
+      "Linked Companion: ",
+      "Next Beat: Push the party toward the first concrete lead on the route.",
+    ].join("\n");
+  }
+  if (tabId === "events") {
+    return [
+      "Title: Bandit Tribute Deadline",
+      "Category: threat",
+      "Status: active",
+      "Urgency: 4",
+      "Hex: D4",
+      "Linked Quest: Secure the Main Route",
+      "Linked Companion: ",
+      "Clock: 2",
+      "Clock Max: 4",
+      "Advance / Turn: 1",
+      "Advance Mode: turn",
+      "Impact Scope: claimed-hex",
+      "Trigger: The local threat makes a demand and expects visible submission.",
+      "Consequence Summary: Failure to answer the threat on time costs the kingdom supplies, legitimacy, and breathing room.",
+      "Fallout: Delay hardens enemy confidence and damages local trust in the party.",
+      "Kingdom Impact:",
+      "- RP: -1",
+      "- Unrest: 1",
+      "- Food: -1",
+      "- Crime: 1",
+      "Notes: Advance this if the party spends time elsewhere or fails to project control.",
     ].join("\n");
   }
   if (tabId === "locations") {
@@ -3819,7 +4375,7 @@ function generateAssistantFallbackAnswer(input) {
   }
   if (/\b(who|what)\s+are\s+you\b/.test(lower)) {
     return [
-      "I am your DM Helper Loremaster running on your local AI setup.",
+      "I am your Kingmaker Companion AI running on your local AI setup.",
       "I can help with hooks, session prep, kingdom turns, encounters, NPCs, quests, and note cleanup.",
       "Ask me for one specific thing and I will draft it in table-ready format.",
     ].join("\n");
@@ -4026,7 +4582,7 @@ function maybeBuildSourceScopeReply(mode, input, context = null) {
     return [
       "I only use files indexed in this app.",
       "No PDFs are indexed yet.",
-      "Open PDF Intel and run Index PDFs, then ask again.",
+      "Open Source Library and run Index PDFs, then ask again.",
     ].join("\n");
   }
 
@@ -4039,7 +4595,7 @@ function maybeBuildSourceScopeReply(mode, input, context = null) {
     lines.push(`- ...and ${total - files.length} more indexed files.`);
   }
   if (!liveCount && contextCount > 0) {
-    lines.push("Note: these come from saved campaign index metadata. Re-index in PDF Intel to load full live text context.");
+    lines.push("Note: these come from saved campaign index metadata. Re-index in Source Library to load full live text context.");
   }
   lines.push("If a book is not in this indexed list, I do not have access to it.");
   return lines.join("\n");

@@ -1,10 +1,10 @@
 # Kingdom Guide
 
-This guide explains the built-in PF2e Kingmaker kingdom support in DM Helper.
+This guide explains the built-in PF2e Kingmaker kingdom support in Kingmaker Companion.
 
 ## Rules profile
 
-DM Helper uses a versioned kingdom rules profile so the app can stay aligned with the exact rules you want to run.
+Kingmaker Companion uses a versioned kingdom rules profile so the app can stay aligned with the exact rules you want to run.
 
 The current default profile is:
 
@@ -34,7 +34,7 @@ The Kingdom tab keeps a structured kingdom sheet inside the campaign save:
 
 ## What the AI knows
 
-Loremaster is now told that it is operating inside DM Helper and that the Kingdom tab is a structured subsystem, not just freeform notes.
+Loremaster is now told that it is operating inside Kingmaker Companion and that the Kingdom tab is a structured subsystem, not just freeform notes.
 
 When you use Loremaster from the Kingdom tab, it receives:
 

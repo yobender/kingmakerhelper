@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("kmDesktop", {
+  loadCampaignState: () => ipcRenderer.invoke("campaign:load-state"),
+  saveCampaignState: (payload) => ipcRenderer.invoke("campaign:save-state", payload),
   getDefaultPdfFolder: () => ipcRenderer.invoke("pdf:get-default-folder"),
   getPdfIndexSummary: () => ipcRenderer.invoke("pdf:get-index-summary"),
   pickPdfFolder: () => ipcRenderer.invoke("pdf:pick-folder"),

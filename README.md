@@ -1,6 +1,16 @@
-# DM Helper (Desktop)
+# Kingmaker Companion (Desktop)
 
-Standalone desktop app for running tabletop RPG sessions.
+Standalone desktop app for running Pathfinder Kingmaker as its own product, independent from the broader DM Helper stack.
+
+## Architecture files added for the Kingmaker pass
+
+- `KINGMAKER_COMPANION_ARCHITECTURE.md` - recommended app layout and source organization based on the supplied PDFs
+- `kingmaker-app-blueprint.json` - machine-readable module and collection blueprint
+- `kingmaker-source-manifest.json` - deduplicated manifest of the Kingmaker PDF bundle
+
+Refresh the source manifest any time the PDF bundle changes:
+
+- `npm run refresh:library`
 
 ## What this app does for you as GM
 
@@ -30,7 +40,7 @@ Standalone desktop app for running tabletop RPG sessions.
 
 Default PDF folder is set to:
 
-`C:\Users\Chris Bender\OneDrive\Desktop`
+`C:\Users\Chris Bender\Downloads\PathfinderKingmakerAdventurePathPDF-SingleFile`
 
 In the app:
 
@@ -87,15 +97,19 @@ In the app:
    - `cd <your-project-folder>`
 2. Install dependencies:
    - `npm install`
-3. Start desktop app:
+3. Start the rebuilt desktop app:
    - `npm run start`
+
+For live React/Vite development with Electron:
+
+- `npm run dev`
 
 ## Build portable Windows app (.exe)
 
 1. From this folder:
    - `npm run dist`
 2. Output will be in:
-   - `dist\DM Helper*.exe`
+   - `dist\Kingmaker Companion*.exe`
 
 ## Move To Another PC
 
@@ -133,7 +147,7 @@ Best practical path:
 Optional if you want the exact same indexed-summary cache:
 
 - Copy this file:
-  - `C:\Users\Chris Bender\AppData\Roaming\dm-helper\pdf-index-cache.v1.json`
+  - `C:\Users\Chris Bender\AppData\Roaming\kingmaker-companion\pdf-index-cache.v1.json`
 
 Recommended for GitHub:
 

@@ -1,0 +1,1551 @@
+:root {
+  color-scheme: light;
+  --km-bg: #f5f0e5;
+  --km-bg-soft: #fbf8f1;
+  --km-panel: rgba(255, 252, 245, 0.95);
+  --km-panel-strong: rgba(255, 250, 242, 0.985);
+  --km-ink: #241c14;
+  --km-muted: #6e5c46;
+  --km-line: rgba(188, 162, 120, 0.42);
+  --km-accent: #326553;
+  --km-accent-soft: rgba(50, 101, 83, 0.1);
+  --km-warm: #c59223;
+  --km-shadow: 0 18px 42px rgba(56, 40, 20, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--km-ink);
+  background:
+    radial-gradient(circle at 10% 15%, rgba(197, 146, 35, 0.15), transparent 32%),
+    radial-gradient(circle at 88% 18%, rgba(50, 101, 83, 0.1), transparent 28%),
+    radial-gradient(circle at 20% 82%, rgba(150, 85, 38, 0.12), transparent 30%),
+    linear-gradient(180deg, #f8f4ec 0%, var(--km-bg) 55%, #efe7d7 100%);
+}
+
+a {
+  color: inherit;
+}
+
+.km-shell {
+  min-height: 100vh;
+}
+
+.km-header {
+  background: rgba(250, 247, 239, 0.88);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--km-line);
+}
+
+.km-navbar {
+  background: linear-gradient(180deg, rgba(255, 252, 245, 0.78), rgba(244, 237, 221, 0.9));
+  border-right: 1px solid var(--km-line);
+}
+
+.km-main {
+  background: transparent;
+}
+
+.km-loading-shell {
+  min-height: calc(100vh - 140px);
+}
+
+.km-sidebar-scroll {
+  height: 100%;
+}
+
+.km-sidebar-brand {
+  padding: 16px 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(188, 162, 120, 0.34);
+  background: linear-gradient(180deg, rgba(255, 251, 244, 0.94), rgba(247, 239, 224, 0.84));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.km-sidebar-title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.km-sidebar-brand p,
+.km-sidebar-brand .mantine-Text-root:last-child {
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.km-sidebar-section {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.76rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--km-muted);
+}
+
+.km-nav-link {
+  border-radius: 18px;
+}
+
+.km-nav-link[data-active="true"] {
+  background: linear-gradient(135deg, rgba(50, 101, 83, 0.16), rgba(197, 146, 35, 0.16));
+}
+
+.km-nav-link .mantine-NavLink-description {
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.km-panel {
+  background: linear-gradient(180deg, var(--km-panel-strong), var(--km-panel));
+  border: 1px solid var(--km-line);
+  box-shadow: var(--km-shadow);
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.hero-panel {
+  padding: clamp(20px, 3vw, 30px);
+}
+
+.hero-panel__header {
+  row-gap: 18px;
+}
+
+.hero-panel__copy {
+  flex: 1 1 620px;
+}
+
+.hero-panel__actions {
+  flex: 0 1 auto;
+}
+
+.km-eyebrow {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--km-accent);
+}
+
+.km-shell-title {
+  margin: 0;
+}
+
+.km-section-kicker {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--km-muted);
+}
+
+.metric-card {
+  height: 100%;
+  padding: 20px 22px;
+  min-height: 168px;
+}
+
+.metric-card-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
+.metric-card--interactive {
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+  cursor: pointer;
+}
+
+.metric-card-button:hover .metric-card--interactive,
+.metric-card-button:focus-visible .metric-card--interactive {
+  transform: translateY(-2px);
+  border-color: rgba(50, 101, 83, 0.4);
+  box-shadow: 0 18px 36px rgba(68, 47, 20, 0.12);
+}
+
+.metric-label {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--km-muted);
+}
+
+.metric-value {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: clamp(1.3rem, 2vw, 1.9rem);
+  line-height: 1.12;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.metric-value--number {
+  font-size: clamp(1.85rem, 2.8vw, 2.65rem);
+}
+
+.metric-value--compact {
+  font-size: clamp(1.16rem, 1.55vw, 1.55rem);
+  line-height: 1.18;
+}
+
+.metric-value--long {
+  font-size: clamp(1rem, 1.15vw, 1.3rem);
+  line-height: 1.22;
+}
+
+.metric-helper {
+  margin-top: auto;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  line-height: 1.42;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.metric-action {
+  margin-top: auto;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--km-accent);
+}
+
+.focus-card {
+  min-height: 100%;
+}
+
+.km-content-panel {
+  padding: 22px 24px;
+}
+
+.km-panel-link,
+.km-card-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
+.km-panel-link .km-run-sheet-card--interactive,
+.km-card-button .km-pressure-card--interactive {
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.km-panel-link:hover .km-run-sheet-card--interactive,
+.km-panel-link:focus-visible .km-run-sheet-card--interactive,
+.km-card-button:hover .km-pressure-card--interactive,
+.km-card-button:focus-visible .km-pressure-card--interactive {
+  transform: translateY(-2px);
+  border-color: rgba(50, 101, 83, 0.4);
+  box-shadow: 0 18px 36px rgba(68, 47, 20, 0.12);
+}
+
+.km-bullet-row {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  align-items: start;
+  gap: 10px;
+}
+
+.km-bullet-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 0.38rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--km-accent), var(--km-warm));
+  box-shadow: 0 0 0 4px rgba(50, 101, 83, 0.08);
+}
+
+.km-action-row {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid rgba(188, 162, 120, 0.22);
+  text-align: left;
+  transition: color 120ms ease;
+}
+
+.km-action-row:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.km-action-row:last-of-type {
+  padding-bottom: 0;
+}
+
+.km-action-row:hover .km-action-row__link,
+.km-action-row:focus-visible .km-action-row__link {
+  color: var(--km-accent);
+}
+
+.km-action-row__dot {
+  margin-top: 0.42rem;
+}
+
+.km-action-row__content {
+  min-width: 0;
+}
+
+.km-action-row__link {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--km-muted);
+  white-space: nowrap;
+}
+
+.km-pressure-card,
+.session-card {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.9);
+}
+
+.km-radix-tabs {
+  display: grid;
+  gap: 14px;
+}
+
+.km-radix-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 7px;
+  border-radius: 999px;
+  background: rgba(255, 250, 241, 0.78);
+  border: 1px solid rgba(188, 162, 120, 0.34);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.km-radix-trigger {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--km-muted);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+}
+
+.km-radix-trigger[data-state="active"] {
+  background: linear-gradient(135deg, rgba(50, 101, 83, 0.16), rgba(197, 146, 35, 0.18));
+  color: var(--km-ink);
+  transform: translateY(-1px);
+}
+
+.km-radix-content {
+  display: grid;
+  gap: 14px;
+}
+
+.km-run-sheet-card {
+  min-height: 164px;
+}
+
+.km-kingdom-accordion {
+  display: grid;
+  gap: 14px;
+}
+
+.km-kingdom-accordion .mantine-Accordion-item {
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  border-radius: 22px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(255, 252, 245, 0.98), rgba(255, 249, 240, 0.95));
+  box-shadow: var(--km-shadow);
+}
+
+.km-kingdom-accordion .mantine-Accordion-control {
+  background: transparent;
+  padding: 16px 20px;
+}
+
+.km-kingdom-accordion .mantine-Accordion-label {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--km-ink);
+}
+
+.km-kingdom-accordion .mantine-Accordion-content {
+  padding: 0 20px 20px;
+}
+
+.km-toolbar-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.km-capture-preview,
+.km-capture-entry {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.92);
+}
+
+.km-record-card {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.9);
+}
+
+.km-record-card .mantine-Text-root {
+  overflow-wrap: break-word;
+  word-break: normal;
+  text-wrap: pretty;
+}
+
+.km-kingdom-calendar-head,
+.km-kingdom-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.km-kingdom-calendar-weekday {
+  text-align: center;
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--km-muted);
+}
+
+.km-kingdom-calendar-cell {
+  min-height: 84px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(188, 162, 120, 0.28);
+  background: rgba(255, 251, 244, 0.86);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.km-kingdom-calendar-cell--empty {
+  background: rgba(246, 240, 227, 0.44);
+  border-style: dashed;
+}
+
+.km-kingdom-calendar-cell--current {
+  border-color: rgba(50, 101, 83, 0.48);
+  box-shadow: inset 0 0 0 1px rgba(50, 101, 83, 0.18);
+}
+
+.km-kingdom-calendar-cell--marked {
+  background: linear-gradient(180deg, rgba(255, 251, 244, 0.94), rgba(236, 245, 240, 0.92));
+}
+
+.km-capture-entry__note {
+  white-space: pre-wrap;
+  line-height: 1.58;
+}
+
+.km-hexmap-board-panel,
+.km-hexmap-inspector {
+  padding: 22px 24px;
+}
+
+.km-hexmap-stage-shell {
+  position: relative;
+  min-height: clamp(460px, 72vh, 940px);
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(188, 162, 120, 0.36);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(197, 146, 35, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(252, 248, 239, 0.96), rgba(244, 236, 221, 0.94));
+  cursor: grab;
+  touch-action: none;
+  overscroll-behavior: contain;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.km-hexmap-stage-shell.is-placement-mode {
+  cursor: crosshair;
+}
+
+.km-hexmap-stage-shell.is-dragging {
+  cursor: grabbing;
+}
+
+.km-hexmap-stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.km-hexmap-cell {
+  fill-opacity: var(--hex-fill-opacity, 0.32);
+  stroke: rgba(77, 58, 29, var(--hex-stroke-opacity, 0.54));
+  stroke-width: 2.1;
+  transition: fill-opacity 140ms ease, stroke 140ms ease, transform 140ms ease;
+}
+
+.km-hexmap-cell-group {
+  cursor: pointer;
+}
+
+.km-hexmap-cell-group:hover .km-hexmap-cell,
+.km-hexmap-cell.is-selected {
+  fill-opacity: 0.58;
+  stroke: rgba(36, 28, 20, 0.94);
+}
+
+.km-hexmap-cell.is-drop-target {
+  fill-opacity: 0.7;
+  stroke: rgba(50, 101, 83, 0.98);
+  stroke-width: 3;
+}
+
+.km-hexmap-selection-group,
+.km-hexmap-site-category-group,
+.km-hexmap-party-group,
+.km-hexmap-force-group,
+.km-hexmap-marker-group,
+.km-hexmap-selection-ring,
+.km-hexmap-selection-dot {
+  pointer-events: none;
+}
+
+.km-hexmap-selection-ring {
+  fill: none;
+  stroke: rgba(50, 101, 83, 0.98);
+  stroke-width: 4.5;
+  filter: drop-shadow(0 0 10px rgba(50, 101, 83, 0.22));
+}
+
+.km-hexmap-selection-dot {
+  fill: rgba(50, 101, 83, 0.98);
+  stroke: rgba(255, 248, 240, 0.98);
+  stroke-width: 2.4;
+  filter: drop-shadow(0 0 6px rgba(50, 101, 83, 0.28));
+}
+
+.km-hexmap-site-category-bubble {
+  stroke: rgba(255, 248, 240, 0.92);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 6px rgba(40, 30, 18, 0.16));
+}
+
+.km-hexmap-label,
+.km-hexmap-sub-label,
+.km-hexmap-party-label {
+  fill: #241c14;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.km-hexmap-label,
+.km-hexmap-sub-label {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+}
+
+.km-hexmap-label {
+  font-size: 16px;
+  letter-spacing: 0.05em;
+}
+
+.km-hexmap-label.is-selected {
+  fill: #1d5444;
+  font-weight: 700;
+}
+
+.km-hexmap-sub-label {
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.km-hexmap-party-marker {
+  fill: rgba(50, 101, 83, 0.96);
+  stroke: rgba(255, 248, 240, 0.96);
+  stroke-width: 2.5;
+}
+
+.km-hexmap-party-label {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 14px;
+  font-weight: 700;
+  fill: #fffdf8;
+}
+
+.km-hexmap-force-marker {
+  stroke: rgba(255, 248, 240, 0.88);
+  stroke-width: 1.6;
+}
+
+.km-hexmap-marker-bubble {
+  stroke: rgba(255, 248, 240, 0.88);
+  stroke-width: 1.4;
+}
+
+.km-hexmap-inline-icon {
+  color: #fffdf8;
+  pointer-events: none;
+}
+
+.km-hexmap-inline-icon * {
+  stroke: currentColor;
+}
+
+.km-hexmap-trail-line {
+  fill: none;
+  stroke: rgba(50, 101, 83, 0.54);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 10 7;
+}
+
+.km-hexmap-trail-dot {
+  fill: rgba(50, 101, 83, 0.38);
+  stroke: rgba(255, 248, 240, 0.9);
+  stroke-width: 1.5;
+}
+
+.km-hexmap-trail-dot.is-current {
+  fill: rgba(50, 101, 83, 0.95);
+}
+
+.km-hexmap-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+}
+
+.km-hexmap-icon-chip {
+  appearance: none;
+  border: 1px solid rgba(188, 162, 120, 0.34);
+  border-radius: 18px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 251, 244, 0.88);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-hexmap-icon-chip[draggable="true"] {
+  cursor: grab;
+}
+
+.km-hexmap-icon-chip:active {
+  cursor: grabbing;
+}
+
+.km-hexmap-icon-chip:hover,
+.km-hexmap-icon-chip.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.42);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-hexmap-icon-chip__glyph,
+.km-hexmap-legend-swatch {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--chip-accent, rgba(50, 101, 83, 0.16));
+  color: #fffdf8;
+  flex-shrink: 0;
+}
+
+.km-hexmap-icon-chip__glyph *,
+.km-hexmap-legend-swatch * {
+  stroke: currentColor;
+}
+
+.km-hexmap-legend-row {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(188, 162, 120, 0.3);
+  background: rgba(255, 251, 244, 0.9);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-hexmap-legend-row:hover,
+.km-hexmap-legend-row.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.38);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-hexmap-legend-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.km-hexmap-placement-card {
+  border-style: dashed;
+  background:
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 240, 225, 0.92));
+}
+
+.km-hexmap-inspector {
+  position: sticky;
+  top: 0;
+}
+
+.km-hexmap-inspector-summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.km-hexmap-inspector-summary .km-record-card {
+  min-height: 0;
+}
+
+.km-hexmap-summary-label {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.76rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--km-muted);
+  margin-bottom: 8px;
+}
+
+.km-hexmap-inspector-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  border-radius: 28px;
+}
+
+.km-hexmap-inspector-tabs .km-radix-trigger {
+  width: 100%;
+  text-align: center;
+}
+
+.km-companion-roster-panel,
+.km-companion-detail-panel {
+  padding: 22px 24px;
+}
+
+.km-companion-roster-list {
+  display: grid;
+  gap: 10px;
+  max-height: 860px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.km-companion-roster-item {
+  appearance: none;
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  padding: 15px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.92);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-companion-roster-item:hover,
+.km-companion-roster-item.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.4);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-companion-roster-item__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.km-companion-roster-item__title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.km-companion-roster-item__meta {
+  font-size: 0.82rem;
+  color: var(--km-muted);
+  text-transform: capitalize;
+}
+
+.km-companion-roster-item__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.km-companion-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(50, 101, 83, 0.1);
+  color: var(--km-accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.km-companion-roster-item__summary {
+  color: var(--km-muted);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.km-companion-hero {
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background:
+    radial-gradient(circle at 84% 18%, rgba(50, 101, 83, 0.08), transparent 30%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 240, 225, 0.92));
+}
+
+.km-npc-roster-panel,
+.km-npc-detail-panel {
+  padding: 22px 24px;
+}
+
+.km-npc-roster-list {
+  display: grid;
+  gap: 10px;
+  max-height: 860px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.km-npc-roster-item {
+  appearance: none;
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  padding: 15px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.92);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-npc-roster-item:hover,
+.km-npc-roster-item.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.4);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-npc-roster-item__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.km-npc-roster-item__title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.km-npc-roster-item__meta {
+  font-size: 0.82rem;
+  color: var(--km-muted);
+  text-transform: capitalize;
+}
+
+.km-npc-roster-item__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.km-npc-roster-item__summary {
+  color: var(--km-muted);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.km-npc-hero {
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background:
+    radial-gradient(circle at 84% 18%, rgba(124, 77, 39, 0.1), transparent 30%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 240, 225, 0.92));
+}
+
+.km-quest-roster-panel,
+.km-quest-detail-panel {
+  padding: 22px 24px;
+}
+
+.km-quest-roster-list {
+  display: grid;
+  gap: 10px;
+  max-height: 860px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.km-quest-roster-item {
+  appearance: none;
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  padding: 15px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.92);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-quest-roster-item:hover,
+.km-quest-roster-item.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.4);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-quest-roster-item__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.km-quest-roster-item__title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.km-quest-roster-item__meta {
+  font-size: 0.82rem;
+  color: var(--km-muted);
+  text-transform: capitalize;
+}
+
+.km-quest-roster-item__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.km-quest-roster-item__summary {
+  color: var(--km-muted);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.km-quest-hero {
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background:
+    radial-gradient(circle at 84% 18%, rgba(62, 96, 142, 0.1), transparent 30%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 240, 225, 0.92));
+}
+
+.km-location-roster-panel,
+.km-location-detail-panel {
+  padding: 22px 24px;
+}
+
+.km-location-roster-list {
+  display: grid;
+  gap: 10px;
+  max-height: 860px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.km-location-roster-item {
+  appearance: none;
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  padding: 15px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.92);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-location-roster-item:hover,
+.km-location-roster-item.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.4);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-location-roster-item__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.km-location-roster-item__title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.km-location-roster-item__meta {
+  font-size: 0.82rem;
+  color: var(--km-muted);
+  text-transform: capitalize;
+}
+
+.km-location-roster-item__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.km-location-roster-item__summary {
+  color: var(--km-muted);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.km-location-hero {
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background:
+    radial-gradient(circle at 84% 18%, rgba(70, 111, 81, 0.1), transparent 30%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 240, 225, 0.92));
+}
+
+.km-guide-anchor {
+  padding: 14px 15px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.28);
+  background: rgba(255, 251, 244, 0.88);
+}
+
+.km-event-roster-panel,
+.km-event-detail-panel {
+  padding: 22px 24px;
+}
+
+.km-event-list {
+  display: grid;
+  gap: 10px;
+  max-height: 860px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.km-event-list-item {
+  appearance: none;
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  padding: 15px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.92);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-event-list-item:hover,
+.km-event-list-item.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.4);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-event-list-item__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.km-event-list-item__title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.km-event-list-item__meta {
+  font-size: 0.82rem;
+  color: var(--km-muted);
+  text-transform: capitalize;
+}
+
+.km-event-list-item__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.km-event-list-item__summary {
+  color: var(--km-muted);
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+
+.km-event-hero {
+  padding: 18px 20px;
+  border-radius: 22px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background:
+    radial-gradient(circle at 84% 18%, rgba(197, 146, 35, 0.1), transparent 30%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 240, 225, 0.92));
+}
+
+.km-event-generator-card {
+  background:
+    radial-gradient(circle at 86% 14%, rgba(50, 101, 83, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 240, 225, 0.92));
+}
+
+.km-event-roll-result {
+  min-height: 100%;
+}
+
+.km-event-generator-table {
+  max-height: 780px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.km-event-generator-row {
+  display: grid;
+  gap: 12px;
+  padding: 15px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.3);
+  background: rgba(255, 251, 244, 0.9);
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-event-generator-row:hover,
+.km-event-generator-row.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.38);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-event-generator-row__head {
+  flex: 1;
+  min-width: 0;
+}
+
+.km-event-generator-row__roll {
+  flex-shrink: 0;
+  min-width: 40px;
+  justify-content: center;
+}
+
+.km-rules-search-panel,
+.km-rules-selected-card {
+  background:
+    radial-gradient(circle at 84% 18%, rgba(62, 96, 142, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 240, 225, 0.92));
+}
+
+.km-rules-results-list,
+.km-rules-store-list,
+.km-rules-memory-list {
+  display: grid;
+  gap: 10px;
+  max-height: 860px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.km-rules-result-item,
+.km-rules-store-card {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.92);
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-rules-result-item:hover,
+.km-rules-result-item.is-active,
+.km-rules-store-card:hover,
+.km-rules-store-card.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.4);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-rules-result-item__copy,
+.km-rules-store-card__copy {
+  min-width: 0;
+}
+
+.km-rules-result-item__path {
+  overflow-wrap: anywhere;
+}
+
+.km-rules-memory-card {
+  min-height: 100%;
+}
+
+.km-source-control-panel,
+.km-source-brief-panel,
+.km-source-detail-panel {
+  background:
+    radial-gradient(circle at 84% 18%, rgba(50, 101, 83, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 240, 225, 0.92));
+}
+
+.km-source-results-list,
+.km-source-registry-list {
+  display: grid;
+  gap: 10px;
+  max-height: 860px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.km-source-result-card,
+.km-source-card {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.92);
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-source-result-card:hover,
+.km-source-card:hover,
+.km-source-card.is-active {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.4);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-source-card {
+  appearance: none;
+  width: 100%;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+}
+
+.km-source-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+}
+
+.km-source-card__title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.km-source-card__meta {
+  font-size: 0.82rem;
+  color: var(--km-muted);
+}
+
+.km-source-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.km-source-card__summary,
+.km-source-result-card__copy {
+  min-width: 0;
+}
+
+.km-source-sections-list {
+  display: grid;
+  gap: 6px;
+  max-height: 420px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.km-vault-sync-panel,
+.km-vault-context-panel,
+.km-vault-write-panel {
+  background:
+    radial-gradient(circle at 84% 18%, rgba(50, 101, 83, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 240, 225, 0.92));
+}
+
+.km-vault-note-list {
+  display: grid;
+  gap: 10px;
+  max-height: 760px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.km-vault-note-card {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.92);
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-vault-note-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.4);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-vault-note-card__copy {
+  min-width: 0;
+}
+
+.km-vault-path {
+  overflow-wrap: anywhere;
+}
+
+.km-vault-guide-list {
+  display: grid;
+  gap: 8px;
+}
+
+.km-export-foundry-panel,
+.km-export-bridge-panel {
+  background:
+    radial-gradient(circle at 84% 18%, rgba(50, 101, 83, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(247, 240, 225, 0.92));
+}
+
+.km-export-card-list,
+.km-export-bridge-list,
+.km-export-workflow-list {
+  display: grid;
+  gap: 10px;
+}
+
+.km-export-card,
+.km-export-bridge-card,
+.km-export-workflow-card {
+  border-radius: 18px;
+  border: 1px solid rgba(188, 162, 120, 0.32);
+  background: rgba(255, 251, 244, 0.92);
+}
+
+.km-export-card {
+  appearance: none;
+  width: 100%;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-export-card:hover,
+.km-export-card.is-active,
+.km-export-bridge-card:hover,
+.km-export-workflow-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(50, 101, 83, 0.4);
+  box-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+}
+
+.km-export-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+
+.km-export-card__title {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.km-export-card__meta {
+  font-size: 0.82rem;
+  color: var(--km-muted);
+}
+
+.km-export-card__summary,
+.km-export-bridge-card__copy {
+  min-width: 0;
+}
+
+.km-export-card__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.km-export-card__actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.km-export-bridge-card,
+.km-export-workflow-card {
+  padding: 16px 18px;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-export-guide-list {
+  display: grid;
+  gap: 8px;
+}
+
+.km-export-filename {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+  .km-radix-list {
+    border-radius: 24px;
+  }
+
+  .km-radix-trigger {
+    width: 100%;
+    text-align: center;
+  }
+
+  .km-content-panel,
+  .metric-card {
+    padding: 18px 18px;
+  }
+
+  .km-kingdom-calendar-head,
+  .km-kingdom-calendar-grid {
+    gap: 8px;
+  }
+
+  .km-kingdom-calendar-cell {
+    min-height: 72px;
+    padding: 10px;
+  }
+
+  .km-hexmap-board-panel,
+  .km-hexmap-inspector,
+  .km-companion-roster-panel,
+  .km-companion-detail-panel,
+  .km-npc-roster-panel,
+  .km-npc-detail-panel,
+  .km-quest-roster-panel,
+  .km-quest-detail-panel,
+  .km-location-roster-panel,
+  .km-location-detail-panel,
+  .km-event-roster-panel,
+  .km-event-detail-panel {
+    padding: 18px;
+  }
+
+  .km-hexmap-stage-shell {
+    min-height: 420px;
+  }
+
+  .km-hexmap-inspector {
+    position: static;
+  }
+
+  .km-hexmap-inspector-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .km-companion-roster-item__head {
+    flex-direction: column;
+  }
+
+  .km-npc-roster-item__head {
+    flex-direction: column;
+  }
+
+  .km-quest-roster-item__head {
+    flex-direction: column;
+  }
+
+  .km-location-roster-item__head {
+    flex-direction: column;
+  }
+
+  .km-event-list-item__head {
+    flex-direction: column;
+  }
+
+  .km-source-card__head {
+    flex-direction: column;
+  }
+
+  .km-event-generator-row > .mantine-Group-root {
+    align-items: stretch;
+  }
+
+  .km-export-card__head {
+    flex-direction: column;
+  }
+}

@@ -29,6 +29,36 @@ body {
   position: relative;
 }
 
+.legacy-banner {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  background: rgba(255, 252, 245, 0.94);
+  border-bottom: 1px solid rgba(215, 197, 163, 0.92);
+  backdrop-filter: blur(12px);
+}
+
+.legacy-banner-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.legacy-banner strong {
+  font-family: "Cinzel", Georgia, serif;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.legacy-banner span {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .bg-orb {
   position: fixed;
   border-radius: 999px;
@@ -426,6 +456,119 @@ body {
 
 .flow-panel {
   background: linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(245, 235, 214, 0.95) 100%);
+}
+
+.dashboard-hero-grid {
+  align-items: stretch;
+}
+
+.dashboard-hero-panel {
+  border-left: 4px solid #8a4e5f;
+}
+
+.dashboard-hero-summary {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.dashboard-continue-grid,
+.dashboard-pressure-grid,
+.dashboard-travel-grid,
+.dashboard-kingdom-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-companion-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-run-list,
+.dashboard-lane-list,
+.dashboard-pressure-list {
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-run-item,
+.dashboard-lane-card,
+.dashboard-continue-card {
+  background: #fffefb;
+}
+
+.adventurelog-hero-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.adventurelog-hero-panel {
+  border-left: 4px solid #8a4e5f;
+}
+
+.adventurelog-hero-summary {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.adventurelog-kpi-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.adventurelog-run-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.adventurelog-card {
+  background: #fffefb;
+}
+
+.session-entry-card {
+  display: grid;
+  gap: 10px;
+}
+
+.session-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.session-frame-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.session-frame-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffaf2;
+  padding: 10px;
+}
+
+.session-frame-card h5 {
+  margin: 0 0 6px;
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: 0.92rem;
+  color: var(--accent-strong);
+}
+
+.session-frame-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .flow-list {
@@ -1352,6 +1495,78 @@ textarea {
   font-style: italic;
 }
 
+.kingdom-calendar-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.kingdom-calendar-week {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.kingdom-calendar-week--labels {
+  margin-top: 12px;
+}
+
+.kingdom-calendar-label {
+  text-align: center;
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.kingdom-calendar-cell {
+  min-height: 74px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 252, 245, 0.92);
+  padding: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  box-shadow: inset 0 0 0 1px rgba(215, 197, 163, 0.2);
+}
+
+.kingdom-calendar-cell.is-empty {
+  background: rgba(237, 228, 210, 0.35);
+  border-style: dashed;
+}
+
+.kingdom-calendar-cell.is-past {
+  background: linear-gradient(180deg, rgba(255, 252, 245, 0.98), rgba(239, 230, 210, 0.9));
+}
+
+.kingdom-calendar-cell.is-current {
+  border-color: #c27a22;
+  box-shadow: 0 0 0 2px rgba(194, 122, 34, 0.18);
+}
+
+.kingdom-calendar-cell.has-entry .kingdom-calendar-day {
+  color: var(--accent-strong);
+}
+
+.kingdom-calendar-day {
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-weight: 700;
+}
+
+.kingdom-calendar-marker {
+  min-width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(47, 122, 99, 0.16);
+  color: var(--accent-strong);
+  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 @media (max-width: 960px) {
   .grid-3 {
     grid-template-columns: 1fr;
@@ -1386,6 +1601,18 @@ textarea {
   }
 
   .memory-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-continue-grid,
+  .dashboard-pressure-grid,
+  .dashboard-travel-grid,
+  .dashboard-companion-grid,
+  .dashboard-kingdom-grid,
+  .adventurelog-hero-grid,
+  .adventurelog-kpi-grid,
+  .adventurelog-run-grid,
+  .session-frame-grid {
     grid-template-columns: 1fr;
   }
 
