@@ -244,8 +244,16 @@ export function getHexSiteCategoryVisual(siteCategory) {
   return HEX_SITE_CATEGORY_VISUALS[stringValue(siteCategory)] || null;
 }
 
-export function getHexStatusColor(status) {
+export function getHexStatusColor(status, darkBoard = false) {
   const clean = stringValue(status).toLowerCase();
+  if (darkBoard) {
+    if (clean === "claimed") return "#5d9f86";
+    if (clean === "reconnoitered") return "#94855a";
+    if (clean === "work site") return "#a07149";
+    if (clean === "settlement") return "#4b8f97";
+    if (clean === "contested") return "#b96a5a";
+    return "#5e6878";
+  }
   if (clean === "claimed") return "#4d8f74";
   if (clean === "reconnoitered") return "#d5c187";
   if (clean === "work site") return "#9b6f45";

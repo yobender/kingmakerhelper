@@ -6,8 +6,10 @@ export default function PageHeader({ eyebrow, title, description, actions }) {
       <Group justify="space-between" align="flex-start" gap="xl" wrap="wrap" className="hero-panel__header">
         <Stack gap="xs" maw={880} className="hero-panel__copy">
           {eyebrow ? <Text className="km-eyebrow">{eyebrow}</Text> : null}
-          <Title order={1}>{title}</Title>
-          <Text size="lg" c="dimmed">
+          <Title order={1} className="hero-panel__title">
+            {title}
+          </Title>
+          <Text size="lg" c="dimmed" className="hero-panel__description">
             {description}
           </Text>
         </Stack>

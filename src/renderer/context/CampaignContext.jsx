@@ -420,6 +420,33 @@ export function CampaignProvider({ children }) {
     return nextConfig;
   };
 
+  const updateMeta = (patch = {}) => {
+    const base = normalizeCampaignState(campaign);
+    const nextMeta = {
+      ...base.meta,
+      ...(patch || {}),
+      aiConfig: patch?.aiConfig
+        ? normalizeAiConfig({
+            ...(base.meta?.aiConfig || {}),
+            ...(patch.aiConfig || {}),
+          })
+        : base.meta?.aiConfig,
+      obsidian: patch?.obsidian
+        ? {
+            ...(base.meta?.obsidian || {}),
+            ...(patch.obsidian || {}),
+          }
+        : base.meta?.obsidian,
+    };
+
+    replaceCampaign({
+      ...base,
+      meta: nextMeta,
+    });
+
+    return nextMeta;
+  };
+
   const syncRulesMemory = (base, overrides = {}) => {
     const nextCampaign = normalizeCampaignState(base);
     const nextManualRulings = Object.prototype.hasOwnProperty.call(overrides, "manualRulings")
@@ -1330,6 +1357,7 @@ export function CampaignProvider({ children }) {
         rows: nextRows,
         hexSize: nextHexSize,
         showLabels: draft?.showLabels == null ? currentHexMap.showLabels !== false : draft.showLabels === true,
+        darkBoard: draft?.darkBoard == null ? currentHexMap.darkBoard !== false : draft.darkBoard === true,
         backgroundOpacity: Math.max(0, Math.min(0.95, Number(draft?.backgroundOpacity ?? currentHexMap.backgroundOpacity ?? 0.78))),
         backgroundScale: Math.max(
           HEX_MAP_BACKGROUND_SCALE_MIN,
@@ -1737,6 +1765,7 @@ export function CampaignProvider({ children }) {
       clearCaptureEntries,
       appendCaptureToSession,
       applyToLatestSession,
+      updateMeta,
       updateAiConfig,
       saveRulesMemory,
       upsertRulesStoreEntry,

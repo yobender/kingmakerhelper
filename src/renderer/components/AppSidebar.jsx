@@ -4,15 +4,16 @@ import { NAV_GROUPS } from "../lib/routes";
 
 export default function AppSidebar({ campaignName, onNavigate }) {
   const location = useLocation();
+  const brandDescription = "Kingmaker notes, prep, kingdom state, and reference material in one local workspace.";
 
   return (
     <ScrollArea className="km-sidebar-scroll" scrollbarSize={6}>
-      <Stack gap="xl" p="md">
+      <Stack gap="lg" p="sm">
         <Box className="km-sidebar-brand">
           <Text className="km-eyebrow">Kingmaker Companion</Text>
           <Text className="km-sidebar-title">{campaignName}</Text>
           <Text size="sm" c="dimmed">
-            Standalone Kingmaker workspace with a React shell in front and the legacy tools still available while the migration runs.
+            {brandDescription}
           </Text>
         </Box>
 
@@ -21,7 +22,7 @@ export default function AppSidebar({ campaignName, onNavigate }) {
             {index > 0 ? <Divider variant="dashed" /> : null}
             <Group justify="space-between" align="center">
               <Text className="km-sidebar-section">{group.label}</Text>
-              <Badge variant="light" color="moss">
+              <Badge variant="outline" color="gray">
                 {group.items.length}
               </Badge>
             </Group>
@@ -34,7 +35,7 @@ export default function AppSidebar({ campaignName, onNavigate }) {
                 description={item.description}
                 active={location.pathname === item.path}
                 className="km-nav-link"
-                leftSection={<item.icon size={18} stroke={1.8} />}
+                leftSection={<item.icon size={15} stroke={1.7} />}
                 onClick={onNavigate}
               />
             ))}

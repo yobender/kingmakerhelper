@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Button, Checkbox, Grid, Group, Paper, Select, Stack, Text, TextInput, Textarea, Title } from "@mantine/core";
+import { Badge, Button, Checkbox, Grid, Group, Paper, Select, Stack, Text, Textarea, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useNavigate } from "react-router-dom";
@@ -20,29 +20,10 @@ const MODE_DESCRIPTIONS = Object.freeze({
   prep: "Convert rough ideas into a clean prep checklist for the next session.",
 });
 
-const TEMPERATURE_OPTIONS = ["0.1", "0.2", "0.4", "0.7", "1.0"].map((value) => ({
-  value,
-  label: value,
-}));
-
-const MAX_TOKEN_OPTIONS = ["320", "640", "1024", "1600"].map((value) => ({
-  value,
-  label: value,
-}));
-
-const TIMEOUT_OPTIONS = ["120", "240", "480", "900"].map((value) => ({
-  value,
-  label: `${value}s`,
-}));
-
 function clipText(value, limit = 160) {
   const clean = String(value || "").replace(/\s+/g, " ").trim();
   if (clean.length <= limit) return clean;
   return `${clean.slice(0, Math.max(0, limit - 3)).trim()}...`;
-}
-
-function formatConfigMessage(value) {
-  return String(value || "").trim() || "No local AI status yet.";
 }
 
 export default function SceneForgePage() {
@@ -57,8 +38,6 @@ export default function SceneForgePage() {
     autoAppendToPrep: false,
   });
   const [aiBusy, setAiBusy] = useState(false);
-  const [aiStatus, setAiStatus] = useState("");
-  const [availableModels, setAvailableModels] = useState([]);
 
   const currentModeLabel = getWritingModeLabel(draft.mode);
   const aiReady = Boolean(desktopApi?.generateLocalAiText);
@@ -92,7 +71,7 @@ export default function SceneForgePage() {
     {
       label: "Local AI",
       value: aiReady ? "Desktop Bridge" : "Browser Preview",
-      helper: aiReady ? `${aiConfig.model} @ ${aiConfig.endpoint}` : "Launch the desktop app to use local AI generation.",
+      helper: aiReady ? `${aiConfig.model} @ ${aiConfig.endpoint}. Shared defaults live in Settings.` : "Launch the desktop app to use local AI generation and manage defaults in Settings.",
       valueTone: "compact",
     },
   ];
@@ -190,7 +169,6 @@ export default function SceneForgePage() {
     }
 
     setAiBusy(true);
-    setAiStatus("Generating with local AI...");
     try {
       const response = await desktopApi.generateLocalAiText({
         mode: draft.mode,
@@ -205,7 +183,6 @@ export default function SceneForgePage() {
           input: draft.input,
         });
       updateDraftField("output", output);
-      setAiStatus(`Connected to ${response?.endpoint || aiConfig.endpoint}${response?.model ? ` using ${response.model}` : ""}.`);
 
       if (draft.autoAppendToPrep) {
         const result = actions.applyToLatestSession("nextPrep", output, { mode: "append" });
@@ -226,7 +203,6 @@ export default function SceneForgePage() {
       });
     } catch (error) {
       const message = String(error?.message || error || "Unknown error");
-      setAiStatus(message);
       notifications.show({
         color: "ember",
         title: "AI generation failed",
@@ -237,74 +213,6 @@ export default function SceneForgePage() {
     }
   };
 
-  const handleTestAi = async () => {
-    if (!desktopApi?.testLocalAi) {
-      notifications.show({
-        color: "ember",
-        title: "Desktop AI unavailable",
-        message: "Test connection is only available in the desktop app build.",
-      });
-      return;
-    }
-
-    setAiBusy(true);
-    setAiStatus("Testing local AI connection...");
-    try {
-      const result = await desktopApi.testLocalAi(aiConfig);
-      setAvailableModels(Array.isArray(result?.models) ? result.models : []);
-      setAiStatus(result?.message || "Local AI connection ok.");
-      notifications.show({
-        color: "moss",
-        title: "Connection ok",
-        message: result?.message || "Local AI connection ok.",
-      });
-    } catch (error) {
-      const message = String(error?.message || error || "Unknown error");
-      setAiStatus(message);
-      notifications.show({
-        color: "ember",
-        title: "Connection test failed",
-        message,
-      });
-    } finally {
-      setAiBusy(false);
-    }
-  };
-
-  const handleLoadModels = async () => {
-    if (!desktopApi?.listLocalAiModels) {
-      notifications.show({
-        color: "ember",
-        title: "Model list unavailable",
-        message: "Installed model discovery only works in the desktop app build.",
-      });
-      return;
-    }
-
-    setAiBusy(true);
-    setAiStatus("Loading installed local AI models...");
-    try {
-      const result = await desktopApi.listLocalAiModels(aiConfig);
-      const models = Array.isArray(result?.models) ? result.models : [];
-      setAvailableModels(models);
-      setAiStatus(models.length ? `Loaded ${models.length} installed model${models.length === 1 ? "" : "s"}.` : "No installed models were reported.");
-    } catch (error) {
-      const message = String(error?.message || error || "Unknown error");
-      setAiStatus(message);
-      notifications.show({
-        color: "ember",
-        title: "Model list failed",
-        message,
-      });
-    } finally {
-      setAiBusy(false);
-    }
-  };
-
-  const handleConfigChange = (field, value) => {
-    actions.updateAiConfig({ [field]: value });
-  };
-
   return (
     <Stack gap="xl">
       <PageHeader
@@ -313,6 +221,9 @@ export default function SceneForgePage() {
         description="Turn rough notes into clean Kingmaker prep, recap text, and record-ready output without dropping the active frontier context."
         actions={
           <>
+            <Button variant="default" onClick={() => navigate("/system/settings")}>
+              Open Settings
+            </Button>
             <Button variant="default" onClick={() => navigate("/campaign/table-notes")}>
               Open Table Notes
             </Button>
@@ -338,9 +249,6 @@ export default function SceneForgePage() {
           </Tabs.Trigger>
           <Tabs.Trigger value="reference" className="km-radix-trigger">
             Reference Lane
-          </Tabs.Trigger>
-          <Tabs.Trigger value="ai" className="km-radix-trigger">
-            Local AI
           </Tabs.Trigger>
         </Tabs.List>
 
@@ -537,124 +445,6 @@ export default function SceneForgePage() {
               </Paper>
             </Grid.Col>
           </Grid>
-        </Tabs.Content>
-
-        <Tabs.Content value="ai" className="km-radix-content">
-          <Paper className="km-panel km-content-panel">
-            <Stack gap="md">
-              <Group justify="space-between" align="flex-start">
-                <div>
-                  <Text className="km-section-kicker">Local AI Setup</Text>
-                  <Title order={3}>Ollama Bridge</Title>
-                </div>
-                <Badge color={aiReady ? "moss" : "gray"} variant="light">
-                  {aiReady ? "Desktop Runtime" : "Browser Preview"}
-                </Badge>
-              </Group>
-
-              <Grid gutter="md">
-                <Grid.Col span={{ base: 12, md: 6 }}>
-                  <TextInput
-                    label="Endpoint"
-                    value={aiConfig.endpoint}
-                    onChange={(event) => handleConfigChange("endpoint", event.currentTarget.value)}
-                    placeholder="http://127.0.0.1:11434"
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, md: 6 }}>
-                  <TextInput
-                    label="Model"
-                    value={aiConfig.model}
-                    onChange={(event) => handleConfigChange("model", event.currentTarget.value)}
-                    placeholder="llama3.1:8b"
-                  />
-                </Grid.Col>
-              </Grid>
-
-              <Grid gutter="md">
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Select
-                    label="Temperature"
-                    value={String(aiConfig.temperature)}
-                    onChange={(value) => handleConfigChange("temperature", Number(value || "0.2"))}
-                    data={TEMPERATURE_OPTIONS}
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Select
-                    label="Max Output Tokens"
-                    value={String(aiConfig.maxOutputTokens)}
-                    onChange={(value) => handleConfigChange("maxOutputTokens", Number(value || "320"))}
-                    data={MAX_TOKEN_OPTIONS}
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Select
-                    label="Timeout (seconds)"
-                    value={String(aiConfig.timeoutSec)}
-                    onChange={(value) => handleConfigChange("timeoutSec", Number(value || "120"))}
-                    data={TIMEOUT_OPTIONS}
-                  />
-                </Grid.Col>
-              </Grid>
-
-              <Grid gutter="md">
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Checkbox
-                    checked={aiConfig.compactContext !== false}
-                    onChange={(event) => handleConfigChange("compactContext", event.currentTarget.checked)}
-                    label="Compact context"
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Checkbox
-                    checked={aiConfig.usePdfContext !== false}
-                    onChange={(event) => handleConfigChange("usePdfContext", event.currentTarget.checked)}
-                    label="Use PDF context"
-                  />
-                </Grid.Col>
-                <Grid.Col span={{ base: 12, md: 4 }}>
-                  <Checkbox
-                    checked={aiConfig.useAonRules !== false}
-                    onChange={(event) => handleConfigChange("useAonRules", event.currentTarget.checked)}
-                    label="Use AON rules lookup"
-                  />
-                </Grid.Col>
-              </Grid>
-
-              <Group gap="sm" className="km-toolbar-wrap">
-                <Button color="moss" onClick={handleTestAi} disabled={aiBusy}>
-                  Test Local AI
-                </Button>
-                <Button variant="default" onClick={handleLoadModels} disabled={aiBusy}>
-                  Refresh Models
-                </Button>
-              </Group>
-
-              <Text size="sm" c="dimmed">
-                {formatConfigMessage(aiStatus)}
-              </Text>
-
-              {availableModels.length ? (
-                <Stack gap="sm">
-                  <Text className="km-section-kicker">Installed Models</Text>
-                  <Group gap="sm" className="km-toolbar-wrap">
-                    {availableModels.map((modelName) => (
-                      <Button
-                        key={modelName}
-                        size="compact-sm"
-                        variant={modelName === aiConfig.model ? "filled" : "light"}
-                        color="moss"
-                        onClick={() => handleConfigChange("model", modelName)}
-                      >
-                        {modelName}
-                      </Button>
-                    ))}
-                  </Group>
-                </Stack>
-              ) : null}
-            </Stack>
-          </Paper>
         </Tabs.Content>
       </Tabs.Root>
     </Stack>

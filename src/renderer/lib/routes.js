@@ -11,6 +11,7 @@ import {
   IconMapPin,
   IconMasksTheater,
   IconNotebook,
+  IconSettings2,
   IconScale,
   IconSparkles,
   IconUsersGroup,
@@ -172,9 +173,28 @@ export const NAV_GROUPS = [
       },
     ],
   },
+  {
+    label: "System",
+    items: [
+      {
+        id: "settings",
+        path: "/system/settings",
+        label: "Settings",
+        description: "Appearance, workspace actions, and local AI defaults.",
+        icon: IconSettings2,
+        legacyTab: "",
+        status: "rebuilt",
+      },
+    ],
+  },
 ];
 
-export const ALL_ROUTES = NAV_GROUPS.flatMap((group) => group.items);
+export const ALL_ROUTES = NAV_GROUPS.flatMap((group) =>
+  group.items.map((item) => ({
+    ...item,
+    groupLabel: group.label,
+  })),
+);
 
 export function getRouteByPath(pathname) {
   return ALL_ROUTES.find((route) => route.path === pathname) || null;

@@ -5,6 +5,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import AppSidebar from "./components/AppSidebar";
 import ShellHeader from "./components/ShellHeader";
+import WorkspaceStrip from "./components/WorkspaceStrip";
 import { CampaignProvider, useCampaign } from "./context/CampaignContext";
 import { getRouteByPath, ALL_ROUTES } from "./lib/routes";
 import { formatGolarionDate } from "./lib/golarion";
@@ -24,6 +25,7 @@ import SourceLibraryPage from "./pages/SourceLibraryPage";
 import TableNotesPage from "./pages/TableNotesPage";
 import ExportsLinksPage from "./pages/ExportsLinksPage";
 import VaultSyncPage from "./pages/VaultSyncPage";
+import SettingsPage from "./pages/SettingsPage";
 import PlaceholderPage from "./pages/PlaceholderPage";
 
 export default function App() {
@@ -100,9 +102,9 @@ function AppFrame() {
   return (
     <>
       <AppShell
-        padding="lg"
-        header={{ height: 90 }}
-        navbar={{ width: 320, breakpoint: "sm", collapsed: { mobile: !opened } }}
+        padding="md"
+        header={{ height: 78 }}
+        navbar={{ width: 292, breakpoint: "sm", collapsed: { mobile: !opened } }}
         className="km-shell"
       >
         <AppShell.Header className="km-header">
@@ -112,12 +114,10 @@ function AppFrame() {
             campaignName={campaign.meta?.campaignName || "Kingmaker"}
             currentDateLabel={formatGolarionDate(campaign.kingdom?.currentDate)}
             pageTitle={route.label}
+            routeGroup={route.groupLabel}
             lastSavedAt={lastSavedAt}
             persistenceError={persistenceError}
             isDesktop={Boolean(desktopApi)}
-            onExport={handleExport}
-            onImport={handleImport}
-            onReset={handleReset}
           />
         </AppShell.Header>
 
@@ -125,7 +125,7 @@ function AppFrame() {
           <AppSidebar campaignName={campaign.meta?.campaignName || "Kingmaker"} onNavigate={close} />
         </AppShell.Navbar>
 
-        <AppShell.Main className="km-main">
+        <AppShell.Main className="km-main km-main--workspace">
           {isHydrating ? (
             <Center className="km-loading-shell">
               <Stack align="center" gap="sm">
@@ -134,28 +134,37 @@ function AppFrame() {
               </Stack>
             </Center>
           ) : (
-            <Routes>
-              <Route path="/" element={<Navigate to="/campaign/command-center" replace />} />
-              <Route path="/campaign/command-center" element={<CommandCenterPage />} />
-              <Route path="/campaign/adventure-log" element={<AdventureLogPage />} />
-              <Route path="/campaign/table-notes" element={<TableNotesPage />} />
-              <Route path="/campaign/scene-forge" element={<SceneForgePage />} />
-              <Route path="/world/kingdom" element={<KingdomPage />} />
-              <Route path="/world/hex-map" element={<HexMapPage />} />
-              <Route path="/world/companions" element={<CompanionsPage />} />
-              <Route path="/world/events" element={<EventsPage />} />
-              <Route path="/world/npcs" element={<NpcsPage />} />
-              <Route path="/world/quests" element={<QuestsPage />} />
-              <Route path="/world/locations" element={<LocationsPage />} />
-              <Route path="/reference/rules" element={<RulesReferencePage />} />
-              <Route path="/reference/source-library" element={<SourceLibraryPage />} />
-              <Route path="/links/vault-sync" element={<VaultSyncPage />} />
-              <Route path="/links/exports" element={<ExportsLinksPage />} />
-              {ALL_ROUTES.filter((entry) => entry.status !== "rebuilt").map((entry) => (
-                <Route key={entry.path} path={entry.path} element={<PlaceholderPage route={entry} />} />
-              ))}
-              <Route path="*" element={<Navigate to="/campaign/command-center" replace />} />
-            </Routes>
+            <Stack gap="md" className="km-main-stack">
+              <WorkspaceStrip
+                campaignName={campaign.meta?.campaignName || "Kingmaker"}
+                sectionLabel={route.groupLabel}
+                pageTitle={route.label}
+              />
+
+              <Routes>
+                <Route path="/" element={<Navigate to="/campaign/command-center" replace />} />
+                <Route path="/campaign/command-center" element={<CommandCenterPage />} />
+                <Route path="/campaign/adventure-log" element={<AdventureLogPage />} />
+                <Route path="/campaign/table-notes" element={<TableNotesPage />} />
+                <Route path="/campaign/scene-forge" element={<SceneForgePage />} />
+                <Route path="/world/kingdom" element={<KingdomPage />} />
+                <Route path="/world/hex-map" element={<HexMapPage />} />
+                <Route path="/world/companions" element={<CompanionsPage />} />
+                <Route path="/world/events" element={<EventsPage />} />
+                <Route path="/world/npcs" element={<NpcsPage />} />
+                <Route path="/world/quests" element={<QuestsPage />} />
+                <Route path="/world/locations" element={<LocationsPage />} />
+                <Route path="/reference/rules" element={<RulesReferencePage />} />
+                <Route path="/reference/source-library" element={<SourceLibraryPage />} />
+                <Route path="/links/vault-sync" element={<VaultSyncPage />} />
+                <Route path="/links/exports" element={<ExportsLinksPage />} />
+                <Route path="/system/settings" element={<SettingsPage onExport={handleExport} onImport={handleImport} onReset={handleReset} />} />
+                {ALL_ROUTES.filter((entry) => entry.status !== "rebuilt").map((entry) => (
+                  <Route key={entry.path} path={entry.path} element={<PlaceholderPage route={entry} />} />
+                ))}
+                <Route path="*" element={<Navigate to="/campaign/command-center" replace />} />
+              </Routes>
+            </Stack>
           )}
         </AppShell.Main>
       </AppShell>

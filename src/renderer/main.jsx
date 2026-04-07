@@ -12,16 +12,31 @@ import { HashRouter } from "react-router-dom";
 import { MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import App from "./App";
-import { theme } from "./theme";
+import { UiThemeProvider, useUiTheme } from "./context/UiThemeContext";
+import { createMantineTheme } from "./theme";
 import "./styles.css";
 
-createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <MantineProvider theme={theme} defaultColorScheme="light">
+function ThemedApp() {
+  const { uiThemeId, activeTheme } = useUiTheme();
+
+  return (
+    <MantineProvider
+      theme={createMantineTheme(uiThemeId)}
+      defaultColorScheme={activeTheme.colorScheme || "light"}
+      forceColorScheme={activeTheme.colorScheme || "light"}
+    >
       <Notifications position="top-right" />
       <HashRouter>
         <App />
       </HashRouter>
     </MantineProvider>
+  );
+}
+
+createRoot(document.getElementById("root")).render(
+  <StrictMode>
+    <UiThemeProvider>
+      <ThemedApp />
+    </UiThemeProvider>
   </StrictMode>
 );

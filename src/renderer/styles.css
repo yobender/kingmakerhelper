@@ -1,6 +1,11 @@
 :root {
   color-scheme: light;
+  --km-font-copy: "Segoe UI", system-ui, sans-serif;
+  --km-font-heading: "Segoe UI", system-ui, sans-serif;
+  --km-font-mono: "JetBrains Mono", "Cascadia Code", monospace;
   --km-bg: #f5f0e5;
+  --km-bg-base: #f8f4ec;
+  --km-bg-depth: #efe7d7;
   --km-bg-soft: #fbf8f1;
   --km-panel: rgba(255, 252, 245, 0.95);
   --km-panel-strong: rgba(255, 250, 242, 0.985);
@@ -11,6 +16,278 @@
   --km-accent-soft: rgba(50, 101, 83, 0.1);
   --km-warm: #c59223;
   --km-shadow: 0 18px 42px rgba(56, 40, 20, 0.14);
+  --km-header-bg: rgba(250, 247, 239, 0.88);
+  --km-navbar-top: rgba(255, 252, 245, 0.78);
+  --km-navbar-bottom: rgba(244, 237, 221, 0.9);
+  --km-brand-border: rgba(188, 162, 120, 0.34);
+  --km-brand-top: rgba(255, 251, 244, 0.94);
+  --km-brand-bottom: rgba(247, 239, 224, 0.84);
+  --km-brand-highlight: rgba(255, 255, 255, 0.6);
+  --km-card-bg: rgba(255, 251, 244, 0.92);
+  --km-card-bg-soft: rgba(255, 251, 244, 0.9);
+  --km-card-bg-faint: rgba(255, 251, 244, 0.88);
+  --km-card-bg-strong: rgba(255, 251, 244, 0.94);
+  --km-card-border: rgba(188, 162, 120, 0.32);
+  --km-card-border-soft: rgba(188, 162, 120, 0.28);
+  --km-card-border-strong: rgba(188, 162, 120, 0.36);
+  --km-divider: rgba(188, 162, 120, 0.22);
+  --km-interactive-border: rgba(50, 101, 83, 0.4);
+  --km-interactive-border-soft: rgba(50, 101, 83, 0.38);
+  --km-interactive-border-strong: rgba(50, 101, 83, 0.48);
+  --km-accent-wash: rgba(50, 101, 83, 0.16);
+  --km-accent-veil: rgba(50, 101, 83, 0.08);
+  --km-accent-ring: rgba(50, 101, 83, 0.18);
+  --km-accent-strong: rgba(50, 101, 83, 0.98);
+  --km-accent-strong-soft: rgba(50, 101, 83, 0.96);
+  --km-accent-trail: rgba(50, 101, 83, 0.54);
+  --km-body-glow-1: rgba(197, 146, 35, 0.15);
+  --km-body-glow-2: rgba(50, 101, 83, 0.1);
+  --km-body-glow-3: rgba(150, 85, 38, 0.12);
+  --km-nav-active-bg: linear-gradient(135deg, rgba(50, 101, 83, 0.16), rgba(197, 146, 35, 0.16));
+  --km-tabs-bg: rgba(255, 250, 241, 0.78);
+  --km-tabs-border: rgba(188, 162, 120, 0.34);
+  --km-tab-active-bg: linear-gradient(135deg, rgba(50, 101, 83, 0.16), rgba(197, 146, 35, 0.18));
+  --km-tab-active-ink: var(--km-ink);
+  --km-button-default-bg: rgba(255, 251, 244, 0.92);
+  --km-button-default-border: rgba(188, 162, 120, 0.38);
+  --km-button-soft-shadow: 0 8px 18px rgba(56, 40, 20, 0.08);
+  --km-button-strong-shadow: 0 14px 28px rgba(43, 34, 21, 0.16);
+  --km-hover-shadow: 0 10px 24px rgba(56, 40, 20, 0.1);
+  --km-hover-shadow-lg: 0 18px 36px rgba(68, 47, 20, 0.12);
+  --km-input-bg: rgba(255, 252, 245, 0.96);
+  --km-input-border: rgba(188, 162, 120, 0.34);
+  --km-input-highlight: rgba(255, 255, 255, 0.7);
+  --km-dropdown-bg: rgba(255, 251, 244, 0.98);
+  --km-dropdown-hover: rgba(50, 101, 83, 0.12);
+  --km-nav-hover-bg: rgba(50, 101, 83, 0.08);
+  --km-surface-texture:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 42%);
+}
+
+:root[data-km-theme="obsidian-vault"] {
+  color-scheme: dark;
+  --km-font-copy: "Segoe UI", system-ui, sans-serif;
+  --km-font-heading: "Segoe UI", system-ui, sans-serif;
+  --km-font-mono: "JetBrains Mono", "Cascadia Code", monospace;
+  --km-bg: #16181d;
+  --km-bg-base: #101218;
+  --km-bg-depth: #1b1f27;
+  --km-bg-soft: #1c1f26;
+  --km-panel: rgba(27, 31, 39, 0.96);
+  --km-panel-strong: rgba(31, 36, 45, 0.985);
+  --km-ink: #e6e8ef;
+  --km-muted: #9da4b5;
+  --km-line: rgba(123, 131, 150, 0.22);
+  --km-accent: #8f9cff;
+  --km-accent-soft: rgba(143, 156, 255, 0.16);
+  --km-warm: #d0a86a;
+  --km-shadow: 0 24px 64px rgba(0, 0, 0, 0.42);
+  --km-header-bg: rgba(19, 22, 29, 0.88);
+  --km-navbar-top: rgba(18, 21, 28, 0.9);
+  --km-navbar-bottom: rgba(24, 28, 35, 0.94);
+  --km-brand-border: rgba(123, 131, 150, 0.2);
+  --km-brand-top: rgba(28, 33, 42, 0.98);
+  --km-brand-bottom: rgba(23, 27, 35, 0.94);
+  --km-brand-highlight: rgba(255, 255, 255, 0.05);
+  --km-card-bg: rgba(29, 33, 42, 0.94);
+  --km-card-bg-soft: rgba(26, 30, 38, 0.92);
+  --km-card-bg-faint: rgba(23, 27, 34, 0.88);
+  --km-card-bg-strong: rgba(33, 38, 48, 0.96);
+  --km-card-border: rgba(123, 131, 150, 0.18);
+  --km-card-border-soft: rgba(123, 131, 150, 0.14);
+  --km-card-border-strong: rgba(123, 131, 150, 0.24);
+  --km-divider: rgba(123, 131, 150, 0.14);
+  --km-interactive-border: rgba(143, 156, 255, 0.42);
+  --km-interactive-border-soft: rgba(143, 156, 255, 0.32);
+  --km-interactive-border-strong: rgba(143, 156, 255, 0.54);
+  --km-accent-wash: rgba(143, 156, 255, 0.16);
+  --km-accent-veil: rgba(143, 156, 255, 0.12);
+  --km-accent-ring: rgba(143, 156, 255, 0.24);
+  --km-accent-strong: rgba(143, 156, 255, 0.96);
+  --km-accent-strong-soft: rgba(143, 156, 255, 0.9);
+  --km-accent-trail: rgba(143, 156, 255, 0.48);
+  --km-body-glow-1: rgba(208, 168, 106, 0.08);
+  --km-body-glow-2: rgba(143, 156, 255, 0.08);
+  --km-body-glow-3: rgba(73, 85, 114, 0.14);
+  --km-nav-active-bg: linear-gradient(135deg, rgba(143, 156, 255, 0.16), rgba(208, 168, 106, 0.08));
+  --km-tabs-bg: rgba(18, 21, 28, 0.84);
+  --km-tabs-border: rgba(123, 131, 150, 0.2);
+  --km-tab-active-bg: linear-gradient(180deg, rgba(143, 156, 255, 0.18), rgba(143, 156, 255, 0.1));
+  --km-tab-active-ink: #f1f3fb;
+  --km-button-default-bg: rgba(33, 38, 48, 0.94);
+  --km-button-default-border: rgba(123, 131, 150, 0.24);
+  --km-button-soft-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  --km-button-strong-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+  --km-hover-shadow: 0 12px 26px rgba(0, 0, 0, 0.22);
+  --km-hover-shadow-lg: 0 18px 36px rgba(0, 0, 0, 0.26);
+  --km-input-bg: rgba(21, 25, 33, 0.96);
+  --km-input-border: rgba(123, 131, 150, 0.2);
+  --km-input-highlight: rgba(255, 255, 255, 0.04);
+  --km-dropdown-bg: rgba(24, 28, 36, 0.98);
+  --km-dropdown-hover: rgba(143, 156, 255, 0.14);
+  --km-nav-hover-bg: rgba(143, 156, 255, 0.08);
+  --km-surface-texture:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 34%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015), transparent 46%);
+}
+
+:root[data-km-theme="war-table"] {
+  --km-bg: #e6edf1;
+  --km-bg-base: #f3f7fa;
+  --km-bg-depth: #d8e2e8;
+  --km-bg-soft: #f7fafc;
+  --km-panel: rgba(248, 252, 255, 0.94);
+  --km-panel-strong: rgba(252, 254, 255, 0.985);
+  --km-ink: #1d2530;
+  --km-muted: #5a6774;
+  --km-line: rgba(116, 133, 148, 0.36);
+  --km-accent: #315c70;
+  --km-accent-soft: rgba(49, 92, 112, 0.12);
+  --km-warm: #af7a34;
+  --km-shadow: 0 22px 48px rgba(20, 30, 38, 0.16);
+  --km-header-bg: rgba(236, 242, 246, 0.9);
+  --km-navbar-top: rgba(247, 251, 253, 0.82);
+  --km-navbar-bottom: rgba(223, 233, 239, 0.92);
+  --km-brand-border: rgba(116, 133, 148, 0.3);
+  --km-brand-top: rgba(247, 251, 253, 0.96);
+  --km-brand-bottom: rgba(223, 233, 239, 0.88);
+  --km-brand-highlight: rgba(255, 255, 255, 0.72);
+  --km-card-bg: rgba(247, 251, 253, 0.94);
+  --km-card-bg-soft: rgba(243, 249, 252, 0.92);
+  --km-card-bg-faint: rgba(240, 246, 250, 0.88);
+  --km-card-bg-strong: rgba(250, 253, 255, 0.96);
+  --km-card-border: rgba(116, 133, 148, 0.28);
+  --km-card-border-soft: rgba(116, 133, 148, 0.24);
+  --km-card-border-strong: rgba(116, 133, 148, 0.34);
+  --km-divider: rgba(116, 133, 148, 0.2);
+  --km-interactive-border: rgba(49, 92, 112, 0.42);
+  --km-interactive-border-soft: rgba(49, 92, 112, 0.38);
+  --km-interactive-border-strong: rgba(49, 92, 112, 0.5);
+  --km-accent-wash: rgba(49, 92, 112, 0.18);
+  --km-accent-veil: rgba(49, 92, 112, 0.1);
+  --km-accent-ring: rgba(49, 92, 112, 0.2);
+  --km-accent-strong: rgba(49, 92, 112, 0.98);
+  --km-accent-strong-soft: rgba(49, 92, 112, 0.94);
+  --km-accent-trail: rgba(49, 92, 112, 0.54);
+  --km-body-glow-1: rgba(175, 122, 52, 0.14);
+  --km-body-glow-2: rgba(49, 92, 112, 0.12);
+  --km-body-glow-3: rgba(74, 110, 135, 0.12);
+  --km-nav-active-bg: linear-gradient(135deg, rgba(49, 92, 112, 0.18), rgba(175, 122, 52, 0.18));
+  --km-tabs-bg: rgba(243, 248, 251, 0.88);
+  --km-tabs-border: rgba(116, 133, 148, 0.3);
+  --km-tab-active-bg: linear-gradient(135deg, rgba(49, 92, 112, 0.18), rgba(175, 122, 52, 0.22));
+  --km-button-default-bg: rgba(244, 249, 252, 0.96);
+  --km-button-default-border: rgba(116, 133, 148, 0.34);
+  --km-button-soft-shadow: 0 10px 18px rgba(20, 30, 38, 0.08);
+  --km-button-strong-shadow: 0 14px 28px rgba(20, 30, 38, 0.18);
+  --km-hover-shadow: 0 12px 26px rgba(20, 30, 38, 0.1);
+  --km-hover-shadow-lg: 0 20px 40px rgba(20, 30, 38, 0.12);
+}
+
+:root[data-km-theme="verdant-atlas"] {
+  --km-bg: #e9f0e3;
+  --km-bg-base: #f5f8f1;
+  --km-bg-depth: #dbe6d2;
+  --km-bg-soft: #fbfdf8;
+  --km-panel: rgba(251, 253, 247, 0.95);
+  --km-panel-strong: rgba(254, 255, 252, 0.985);
+  --km-ink: #1f261a;
+  --km-muted: #5a654b;
+  --km-line: rgba(126, 141, 98, 0.34);
+  --km-accent: #41693b;
+  --km-accent-soft: rgba(65, 105, 59, 0.12);
+  --km-warm: #977129;
+  --km-shadow: 0 20px 46px rgba(36, 50, 23, 0.14);
+  --km-header-bg: rgba(244, 248, 240, 0.9);
+  --km-navbar-top: rgba(250, 253, 247, 0.84);
+  --km-navbar-bottom: rgba(229, 238, 220, 0.92);
+  --km-brand-border: rgba(126, 141, 98, 0.28);
+  --km-brand-top: rgba(250, 253, 247, 0.96);
+  --km-brand-bottom: rgba(229, 238, 220, 0.9);
+  --km-brand-highlight: rgba(255, 255, 255, 0.72);
+  --km-card-bg: rgba(249, 252, 245, 0.94);
+  --km-card-bg-soft: rgba(244, 248, 239, 0.92);
+  --km-card-bg-faint: rgba(239, 245, 233, 0.9);
+  --km-card-bg-strong: rgba(252, 254, 249, 0.96);
+  --km-card-border: rgba(126, 141, 98, 0.28);
+  --km-card-border-soft: rgba(126, 141, 98, 0.24);
+  --km-card-border-strong: rgba(126, 141, 98, 0.34);
+  --km-divider: rgba(126, 141, 98, 0.2);
+  --km-interactive-border: rgba(65, 105, 59, 0.42);
+  --km-interactive-border-soft: rgba(65, 105, 59, 0.38);
+  --km-interactive-border-strong: rgba(65, 105, 59, 0.48);
+  --km-accent-wash: rgba(65, 105, 59, 0.18);
+  --km-accent-veil: rgba(65, 105, 59, 0.1);
+  --km-accent-ring: rgba(65, 105, 59, 0.2);
+  --km-accent-strong: rgba(65, 105, 59, 0.98);
+  --km-accent-strong-soft: rgba(65, 105, 59, 0.94);
+  --km-accent-trail: rgba(65, 105, 59, 0.54);
+  --km-body-glow-1: rgba(151, 113, 41, 0.14);
+  --km-body-glow-2: rgba(65, 105, 59, 0.12);
+  --km-body-glow-3: rgba(120, 144, 88, 0.12);
+  --km-nav-active-bg: linear-gradient(135deg, rgba(65, 105, 59, 0.18), rgba(151, 113, 41, 0.18));
+  --km-tabs-bg: rgba(244, 249, 239, 0.9);
+  --km-tabs-border: rgba(126, 141, 98, 0.28);
+  --km-tab-active-bg: linear-gradient(135deg, rgba(65, 105, 59, 0.18), rgba(151, 113, 41, 0.22));
+  --km-button-default-bg: rgba(246, 250, 241, 0.96);
+  --km-button-default-border: rgba(126, 141, 98, 0.34);
+  --km-button-soft-shadow: 0 9px 18px rgba(36, 50, 23, 0.08);
+  --km-button-strong-shadow: 0 14px 28px rgba(36, 50, 23, 0.16);
+  --km-hover-shadow: 0 12px 26px rgba(36, 50, 23, 0.1);
+  --km-hover-shadow-lg: 0 18px 38px rgba(36, 50, 23, 0.12);
+}
+
+:root[data-km-theme="charter-hall"],
+:root[data-km-theme="war-table"],
+:root[data-km-theme="verdant-atlas"] {
+  color-scheme: dark;
+  --km-bg: #17191f;
+  --km-bg-base: #101218;
+  --km-bg-depth: #1b1f27;
+  --km-bg-soft: #1d2128;
+  --km-panel: rgba(27, 31, 39, 0.96);
+  --km-panel-strong: rgba(32, 37, 46, 0.985);
+  --km-ink: #e6e8ef;
+  --km-muted: #9da4b5;
+  --km-line: rgba(123, 131, 150, 0.22);
+  --km-shadow: 0 18px 40px rgba(0, 0, 0, 0.26);
+  --km-header-bg: rgba(19, 22, 29, 0.9);
+  --km-navbar-top: rgba(16, 18, 24, 0.98);
+  --km-navbar-bottom: rgba(21, 24, 31, 0.98);
+  --km-brand-border: rgba(123, 131, 150, 0.18);
+  --km-brand-top: rgba(26, 30, 37, 0.96);
+  --km-brand-bottom: rgba(20, 23, 29, 0.94);
+  --km-brand-highlight: rgba(255, 255, 255, 0.04);
+  --km-card-bg: rgba(29, 33, 41, 0.94);
+  --km-card-bg-soft: rgba(24, 28, 35, 0.94);
+  --km-card-bg-faint: rgba(22, 25, 32, 0.9);
+  --km-card-bg-strong: rgba(34, 39, 48, 0.96);
+  --km-card-border: rgba(123, 131, 150, 0.18);
+  --km-card-border-soft: rgba(123, 131, 150, 0.14);
+  --km-card-border-strong: rgba(123, 131, 150, 0.24);
+  --km-divider: rgba(123, 131, 150, 0.14);
+  --km-button-default-bg: rgba(34, 39, 48, 0.96);
+  --km-button-default-border: rgba(123, 131, 150, 0.22);
+  --km-button-soft-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+  --km-button-strong-shadow: 0 14px 28px rgba(0, 0, 0, 0.24);
+  --km-hover-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+  --km-hover-shadow-lg: 0 16px 30px rgba(0, 0, 0, 0.24);
+  --km-input-bg: rgba(21, 25, 33, 0.96);
+  --km-input-border: rgba(123, 131, 150, 0.2);
+  --km-input-highlight: rgba(255, 255, 255, 0.04);
+  --km-dropdown-bg: rgba(24, 28, 36, 0.98);
+  --km-dropdown-hover: color-mix(in srgb, var(--km-accent) 18%, transparent);
+  --km-tabs-bg: rgba(16, 18, 24, 0.9);
+  --km-tabs-border: rgba(123, 131, 150, 0.2);
+  --km-nav-hover-bg: color-mix(in srgb, var(--km-accent) 12%, transparent);
+  --km-nav-active-bg: linear-gradient(135deg, color-mix(in srgb, var(--km-accent) 16%, transparent), color-mix(in srgb, var(--km-warm) 10%, transparent));
+  --km-tab-active-bg: linear-gradient(180deg, color-mix(in srgb, var(--km-accent) 20%, transparent), color-mix(in srgb, var(--km-accent) 12%, transparent));
+  --km-body-glow-1: color-mix(in srgb, var(--km-warm) 8%, transparent);
+  --km-body-glow-2: color-mix(in srgb, var(--km-accent) 8%, transparent);
+  --km-body-glow-3: rgba(73, 85, 114, 0.12);
+  --km-surface-texture:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 34%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012), transparent 42%);
 }
 
 * {
@@ -26,11 +303,12 @@ body,
 body {
   margin: 0;
   color: var(--km-ink);
+  font-family: var(--km-font-copy);
   background:
-    radial-gradient(circle at 10% 15%, rgba(197, 146, 35, 0.15), transparent 32%),
-    radial-gradient(circle at 88% 18%, rgba(50, 101, 83, 0.1), transparent 28%),
-    radial-gradient(circle at 20% 82%, rgba(150, 85, 38, 0.12), transparent 30%),
-    linear-gradient(180deg, #f8f4ec 0%, var(--km-bg) 55%, #efe7d7 100%);
+    radial-gradient(circle at 10% 15%, var(--km-body-glow-1), transparent 32%),
+    radial-gradient(circle at 88% 18%, var(--km-body-glow-2), transparent 28%),
+    radial-gradient(circle at 20% 82%, var(--km-body-glow-3), transparent 30%),
+    linear-gradient(180deg, var(--km-bg-base) 0%, var(--km-bg) 55%, var(--km-bg-depth) 100%);
 }
 
 a {
@@ -42,22 +320,97 @@ a {
 }
 
 .km-header {
-  background: rgba(250, 247, 239, 0.88);
-  backdrop-filter: blur(16px);
+  background: var(--km-header-bg);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--km-line);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--km-line) 72%, transparent);
 }
 
 .km-navbar {
-  background: linear-gradient(180deg, rgba(255, 252, 245, 0.78), rgba(244, 237, 221, 0.9));
+  background: linear-gradient(180deg, var(--km-navbar-top), var(--km-navbar-bottom));
   border-right: 1px solid var(--km-line);
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--km-line) 48%, transparent);
 }
 
 .km-main {
   background: transparent;
 }
 
+.km-main--workspace {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--km-card-bg-faint) 28%, transparent), transparent 18%),
+    linear-gradient(90deg, color-mix(in srgb, var(--km-line) 34%, transparent) 0, color-mix(in srgb, var(--km-line) 34%, transparent) 1px, transparent 1px, transparent 48px);
+  background-size: auto, 48px 48px;
+}
+
+.km-main-stack {
+  width: min(100%, 1680px);
+  margin: 0 auto;
+}
+
 .km-loading-shell {
   min-height: calc(100vh - 140px);
+}
+
+.km-header-bar {
+  min-height: 100%;
+}
+
+.km-header-bar__brand {
+  min-width: 0;
+}
+
+.km-header-bar__title-row {
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 6px;
+}
+
+.km-header-bar__eyebrow {
+  text-wrap: pretty;
+}
+
+.km-header-status {
+  margin-left: auto;
+}
+
+.km-header-route-badge {
+  font-size: 0.63rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.km-workspace-strip {
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--km-card-border-soft);
+  background: var(--km-surface-texture), linear-gradient(180deg, var(--km-card-bg-strong), var(--km-card-bg-soft));
+  box-shadow: var(--km-button-soft-shadow);
+  backdrop-filter: blur(8px);
+}
+
+.km-workspace-strip__crumbs {
+  min-width: 0;
+}
+
+.km-workspace-strip__label,
+.km-workspace-strip__divider {
+  font-family: var(--km-font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--km-muted);
+}
+
+.km-workspace-strip__crumb {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.km-workspace-strip__crumb--active {
+  color: var(--km-ink);
+  font-weight: 600;
 }
 
 .km-sidebar-scroll {
@@ -65,17 +418,18 @@ a {
 }
 
 .km-sidebar-brand {
-  padding: 16px 18px;
-  border-radius: 22px;
-  border: 1px solid rgba(188, 162, 120, 0.34);
-  background: linear-gradient(180deg, rgba(255, 251, 244, 0.94), rgba(247, 239, 224, 0.84));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--km-brand-border);
+  background: var(--km-surface-texture), linear-gradient(180deg, var(--km-brand-top), var(--km-brand-bottom));
+  box-shadow: inset 0 1px 0 var(--km-brand-highlight);
 }
 
 .km-sidebar-title {
-  font-family: "Cinzel", Georgia, serif;
-  font-size: 1.15rem;
-  font-weight: 700;
+  font-family: var(--km-font-copy);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
 .km-sidebar-brand p,
@@ -85,40 +439,80 @@ a {
 }
 
 .km-sidebar-section {
-  font-family: "JetBrains Mono", "Courier New", monospace;
-  font-size: 0.76rem;
-  letter-spacing: 0.12em;
+  font-family: var(--km-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--km-muted);
 }
 
 .km-nav-link {
-  border-radius: 18px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding-block: 2px;
+  transition: background 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-nav-link:hover {
+  background: var(--km-nav-hover-bg);
+  border-color: var(--km-card-border-soft);
 }
 
 .km-nav-link[data-active="true"] {
-  background: linear-gradient(135deg, rgba(50, 101, 83, 0.16), rgba(197, 146, 35, 0.16));
+  background: var(--km-nav-active-bg);
+  border-color: var(--km-interactive-border-soft);
+  box-shadow: inset 3px 0 0 var(--km-accent);
 }
 
 .km-nav-link .mantine-NavLink-description {
-  line-height: 1.4;
+  line-height: 1.25;
   text-wrap: pretty;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.km-nav-link .mantine-NavLink-label {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.km-nav-link .mantine-NavLink-description {
+  font-size: 0.73rem;
+}
+
+.km-nav-link .mantine-NavLink-section {
+  min-width: 14px;
 }
 
 .km-panel {
-  background: linear-gradient(180deg, var(--km-panel-strong), var(--km-panel));
+  background: var(--km-surface-texture), linear-gradient(180deg, var(--km-panel-strong), var(--km-panel));
   border: 1px solid var(--km-line);
   box-shadow: var(--km-shadow);
   backdrop-filter: blur(10px);
+  border-radius: 16px;
   overflow: hidden;
 }
 
 .hero-panel {
-  padding: clamp(20px, 3vw, 30px);
+  position: relative;
+  padding: 16px 18px 18px 22px;
+}
+
+.hero-panel::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--km-warm) 86%, #fff 14%), var(--km-accent));
 }
 
 .hero-panel__header {
-  row-gap: 18px;
+  row-gap: 12px;
 }
 
 .hero-panel__copy {
@@ -129,8 +523,20 @@ a {
   flex: 0 1 auto;
 }
 
+.hero-panel__title {
+  margin: 0;
+  font-size: clamp(1.45rem, 1.7vw, 1.9rem);
+  line-height: 1.14;
+}
+
+.hero-panel__description {
+  font-size: 0.95rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
 .km-eyebrow {
-  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-family: var(--km-font-mono);
   font-size: 0.78rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -142,7 +548,7 @@ a {
 }
 
 .km-section-kicker {
-  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-family: var(--km-font-mono);
   font-size: 0.78rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -151,8 +557,8 @@ a {
 
 .metric-card {
   height: 100%;
-  padding: 20px 22px;
-  min-height: 168px;
+  padding: 15px 16px;
+  min-height: 144px;
 }
 
 .metric-card-button {
@@ -168,22 +574,22 @@ a {
 
 .metric-card-button:hover .metric-card--interactive,
 .metric-card-button:focus-visible .metric-card--interactive {
-  transform: translateY(-2px);
-  border-color: rgba(50, 101, 83, 0.4);
-  box-shadow: 0 18px 36px rgba(68, 47, 20, 0.12);
+  transform: translateY(-1px);
+  border-color: var(--km-interactive-border);
+  box-shadow: var(--km-hover-shadow-lg);
 }
 
 .metric-label {
-  font-family: "JetBrains Mono", "Courier New", monospace;
-  font-size: 0.78rem;
-  letter-spacing: 0.1em;
+  font-family: var(--km-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--km-muted);
 }
 
 .metric-value {
-  font-family: "Cinzel", Georgia, serif;
-  font-size: clamp(1.3rem, 2vw, 1.9rem);
+  font-family: var(--km-font-heading);
+  font-size: clamp(1.12rem, 1.5vw, 1.45rem);
   line-height: 1.12;
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -191,16 +597,16 @@ a {
 }
 
 .metric-value--number {
-  font-size: clamp(1.85rem, 2.8vw, 2.65rem);
+  font-size: clamp(1.45rem, 2vw, 1.85rem);
 }
 
 .metric-value--compact {
-  font-size: clamp(1.16rem, 1.55vw, 1.55rem);
+  font-size: clamp(1.02rem, 1.25vw, 1.28rem);
   line-height: 1.18;
 }
 
 .metric-value--long {
-  font-size: clamp(1rem, 1.15vw, 1.3rem);
+  font-size: clamp(0.95rem, 1.05vw, 1.12rem);
   line-height: 1.22;
 }
 
@@ -218,7 +624,7 @@ a {
 
 .metric-action {
   margin-top: auto;
-  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-family: var(--km-font-mono);
   font-size: 0.74rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -230,7 +636,7 @@ a {
 }
 
 .km-content-panel {
-  padding: 22px 24px;
+  padding: 18px 20px;
 }
 
 .km-panel-link,
@@ -249,9 +655,9 @@ a {
 .km-panel-link:focus-visible .km-run-sheet-card--interactive,
 .km-card-button:hover .km-pressure-card--interactive,
 .km-card-button:focus-visible .km-pressure-card--interactive {
-  transform: translateY(-2px);
-  border-color: rgba(50, 101, 83, 0.4);
-  box-shadow: 0 18px 36px rgba(68, 47, 20, 0.12);
+  transform: translateY(-1px);
+  border-color: var(--km-interactive-border);
+  box-shadow: var(--km-hover-shadow-lg);
 }
 
 .km-bullet-row {
@@ -267,7 +673,7 @@ a {
   margin-top: 0.38rem;
   border-radius: 999px;
   background: linear-gradient(135deg, var(--km-accent), var(--km-warm));
-  box-shadow: 0 0 0 4px rgba(50, 101, 83, 0.08);
+  box-shadow: 0 0 0 4px var(--km-accent-veil);
 }
 
 .km-action-row {
@@ -276,7 +682,7 @@ a {
   align-items: start;
   gap: 12px;
   padding: 14px 0;
-  border-top: 1px solid rgba(188, 162, 120, 0.22);
+  border-top: 1px solid var(--km-divider);
   text-align: left;
   transition: color 120ms ease;
 }
@@ -304,7 +710,7 @@ a {
 }
 
 .km-action-row__link {
-  font-family: "JetBrains Mono", "Courier New", monospace;
+  font-family: var(--km-font-mono);
   font-size: 0.74rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -315,9 +721,9 @@ a {
 .km-pressure-card,
 .session-card {
   padding: 16px 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(188, 162, 120, 0.32);
-  background: rgba(255, 251, 244, 0.9);
+  border-radius: 12px;
+  border: 1px solid var(--km-card-border);
+  background: linear-gradient(180deg, var(--km-card-bg-strong), var(--km-card-bg-soft));
 }
 
 .km-radix-tabs {
@@ -328,23 +734,25 @@ a {
 .km-radix-list {
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 7px;
-  border-radius: 999px;
-  background: rgba(255, 250, 241, 0.78);
-  border: 1px solid rgba(188, 162, 120, 0.34);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  gap: 4px;
+  padding: 4px 4px 0;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(180deg, var(--km-tabs-bg), color-mix(in srgb, var(--km-tabs-bg) 72%, var(--km-card-bg-soft)));
+  border: 1px solid var(--km-tabs-border);
+  border-bottom-color: transparent;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--km-tabs-border) 54%, transparent);
 }
 
 .km-radix-trigger {
   appearance: none;
-  border: 0;
+  border: 1px solid transparent;
+  border-bottom: 0;
   background: transparent;
-  border-radius: 999px;
-  padding: 10px 16px;
-  font-family: "JetBrains Mono", "Courier New", monospace;
-  font-size: 0.75rem;
-  letter-spacing: 0.1em;
+  border-radius: 9px 9px 0 0;
+  padding: 8px 12px 10px;
+  font-family: var(--km-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--km-muted);
   cursor: pointer;
@@ -352,9 +760,10 @@ a {
 }
 
 .km-radix-trigger[data-state="active"] {
-  background: linear-gradient(135deg, rgba(50, 101, 83, 0.16), rgba(197, 146, 35, 0.18));
-  color: var(--km-ink);
-  transform: translateY(-1px);
+  background: linear-gradient(180deg, var(--km-card-bg-strong), var(--km-card-bg));
+  border-color: var(--km-tabs-border);
+  color: var(--km-tab-active-ink);
+  transform: none;
 }
 
 .km-radix-content {
@@ -412,9 +821,9 @@ a {
 
 .km-record-card {
   padding: 16px 18px;
-  border-radius: 18px;
-  border: 1px solid rgba(188, 162, 120, 0.32);
-  background: rgba(255, 251, 244, 0.9);
+  border-radius: 12px;
+  border: 1px solid var(--km-card-border);
+  background: linear-gradient(180deg, var(--km-card-bg-strong), var(--km-card-bg-soft));
 }
 
 .km-record-card .mantine-Text-root {
@@ -484,6 +893,9 @@ a {
   background:
     radial-gradient(circle at 18% 16%, rgba(197, 146, 35, 0.12), transparent 28%),
     linear-gradient(180deg, rgba(252, 248, 239, 0.96), rgba(244, 236, 221, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 14px 32px rgba(26, 20, 12, 0.12);
   cursor: grab;
   touch-action: none;
   overscroll-behavior: contain;
@@ -507,10 +919,19 @@ a {
   -webkit-user-select: none;
 }
 
+.km-hexmap-board-bg {
+  fill: #f7f1e5;
+}
+
+.km-hexmap-board-image,
+.km-hexmap-board-image-wash {
+  pointer-events: none;
+}
+
 .km-hexmap-cell {
   fill-opacity: var(--hex-fill-opacity, 0.32);
-  stroke: rgba(77, 58, 29, var(--hex-stroke-opacity, 0.54));
-  stroke-width: 2.1;
+  stroke: rgba(96, 74, 42, var(--hex-stroke-opacity, 0.68));
+  stroke-width: 2.3;
   transition: fill-opacity 140ms ease, stroke 140ms ease, transform 140ms ease;
 }
 
@@ -521,7 +942,7 @@ a {
 .km-hexmap-cell-group:hover .km-hexmap-cell,
 .km-hexmap-cell.is-selected {
   fill-opacity: 0.58;
-  stroke: rgba(36, 28, 20, 0.94);
+  stroke: rgba(49, 38, 24, 0.96);
 }
 
 .km-hexmap-cell.is-drop-target {
@@ -571,11 +992,16 @@ a {
 .km-hexmap-label,
 .km-hexmap-sub-label {
   font-family: "JetBrains Mono", "Courier New", monospace;
+  paint-order: stroke fill;
+  stroke: rgba(255, 249, 240, 0.94);
+  stroke-linejoin: round;
 }
 
 .km-hexmap-label {
   font-size: 16px;
   letter-spacing: 0.05em;
+  font-weight: 600;
+  stroke-width: 2px;
 }
 
 .km-hexmap-label.is-selected {
@@ -585,7 +1011,8 @@ a {
 
 .km-hexmap-sub-label {
   font-size: 11px;
-  opacity: 0.9;
+  opacity: 0.96;
+  stroke-width: 1.6px;
 }
 
 .km-hexmap-party-marker {
@@ -599,6 +1026,9 @@ a {
   font-size: 14px;
   font-weight: 700;
   fill: #fffdf8;
+  paint-order: stroke fill;
+  stroke: rgba(20, 26, 24, 0.34);
+  stroke-width: 0.9px;
 }
 
 .km-hexmap-force-marker {
@@ -622,7 +1052,7 @@ a {
 
 .km-hexmap-trail-line {
   fill: none;
-  stroke: rgba(50, 101, 83, 0.54);
+  stroke: rgba(66, 116, 101, 0.62);
   stroke-width: 5;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -1463,6 +1893,773 @@ a {
 
 .km-export-filename {
   overflow-wrap: anywhere;
+}
+
+.km-theme-switcher {
+  gap: 12px;
+}
+
+.km-theme-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.km-theme-chip {
+  appearance: none;
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--km-card-border);
+  background: linear-gradient(180deg, var(--km-card-bg-strong), var(--km-card-bg-soft));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.km-theme-chip:hover,
+.km-theme-chip.is-active {
+  transform: translateY(-1px);
+  border-color: var(--km-interactive-border);
+  box-shadow: var(--km-hover-shadow);
+}
+
+.km-theme-chip__swatch {
+  position: relative;
+  display: block;
+  height: 52px;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 255, 255, 0.34), transparent 28%),
+    radial-gradient(circle at 84% 20%, var(--km-theme-preview-accent), transparent 26%),
+    linear-gradient(135deg, var(--km-theme-preview-top), var(--km-theme-preview-bottom));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -18px 32px rgba(0, 0, 0, 0.08);
+}
+
+.km-theme-chip__swatch::before,
+.km-theme-chip__swatch::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  border-radius: 999px;
+}
+
+.km-theme-chip__swatch::before {
+  top: 12px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.km-theme-chip__swatch::after {
+  bottom: 11px;
+  height: 12px;
+  width: 42%;
+  right: auto;
+  background: linear-gradient(135deg, var(--km-theme-preview-accent), var(--km-theme-preview-warm));
+}
+
+.km-theme-chip__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.km-theme-chip__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.km-theme-chip__title {
+  font-family: var(--km-font-heading);
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.km-theme-chip__state {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--km-nav-active-bg);
+  font-family: var(--km-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--km-ink);
+}
+
+.km-theme-chip__description {
+  color: var(--km-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.km-shell .mantine-Button-root,
+.km-shell .mantine-ActionIcon-root {
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.km-shell .mantine-Button-root:hover,
+.km-shell .mantine-ActionIcon-root:hover {
+  transform: translateY(-1px);
+}
+
+.km-shell .mantine-Button-root[data-variant="default"],
+.km-shell .mantine-ActionIcon-root[data-variant="default"] {
+  background: var(--km-button-default-bg);
+  border-color: var(--km-button-default-border);
+  box-shadow: var(--km-button-soft-shadow);
+}
+
+.km-shell .mantine-Button-root[data-variant="filled"] {
+  box-shadow: var(--km-button-strong-shadow);
+}
+
+.km-shell :is(
+  .km-pressure-card,
+  .session-card,
+  .km-capture-preview,
+  .km-capture-entry,
+  .km-record-card,
+  .km-kingdom-calendar-cell,
+  .km-guide-anchor,
+  .km-hexmap-icon-chip,
+  .km-hexmap-legend-row,
+  .km-companion-roster-item,
+  .km-npc-roster-item,
+  .km-quest-roster-item,
+  .km-location-roster-item,
+  .km-event-list-item,
+  .km-event-generator-row,
+  .km-rules-result-item,
+  .km-rules-store-card,
+  .km-source-result-card,
+  .km-source-card,
+  .km-vault-note-card,
+  .km-export-card,
+  .km-export-bridge-card,
+  .km-export-workflow-card
+) {
+  border-color: var(--km-card-border);
+  background: var(--km-card-bg);
+}
+
+.km-shell :is(
+  .km-hexmap-stage-shell,
+  .km-companion-hero,
+  .km-npc-hero,
+  .km-quest-hero,
+  .km-location-hero,
+  .km-event-hero,
+  .km-rules-search-panel,
+  .km-rules-selected-card,
+  .km-source-control-panel,
+  .km-source-brief-panel,
+  .km-source-detail-panel,
+  .km-vault-sync-panel,
+  .km-vault-context-panel,
+  .km-vault-write-panel,
+  .km-export-foundry-panel,
+  .km-export-bridge-panel
+) {
+  border-color: var(--km-card-border-strong);
+  box-shadow: var(--km-shadow);
+}
+
+.km-shell :is(
+  .km-hexmap-stage-shell,
+  .km-companion-hero,
+  .km-npc-hero,
+  .km-quest-hero,
+  .km-location-hero,
+  .km-event-hero,
+  .km-rules-search-panel,
+  .km-rules-selected-card,
+  .km-source-control-panel,
+  .km-source-brief-panel,
+  .km-source-detail-panel,
+  .km-vault-sync-panel,
+  .km-vault-context-panel,
+  .km-vault-write-panel,
+  .km-export-foundry-panel,
+  .km-export-bridge-panel
+) {
+  background:
+    radial-gradient(circle at 84% 18%, var(--km-accent-veil), transparent 28%),
+    linear-gradient(180deg, var(--km-card-bg-strong), var(--km-card-bg-soft));
+}
+
+.km-shell :is(
+  .km-hexmap-icon-chip,
+  .km-hexmap-legend-row,
+  .km-companion-roster-item,
+  .km-npc-roster-item,
+  .km-quest-roster-item,
+  .km-location-roster-item,
+  .km-event-list-item,
+  .km-event-generator-row,
+  .km-rules-result-item,
+  .km-rules-store-card,
+  .km-source-result-card,
+  .km-source-card,
+  .km-vault-note-card,
+  .km-export-card,
+  .km-export-bridge-card,
+  .km-export-workflow-card
+):hover,
+.km-shell :is(
+  .km-hexmap-icon-chip,
+  .km-hexmap-legend-row,
+  .km-companion-roster-item,
+  .km-npc-roster-item,
+  .km-quest-roster-item,
+  .km-location-roster-item,
+  .km-event-list-item,
+  .km-event-generator-row,
+  .km-rules-result-item,
+  .km-rules-store-card,
+  .km-source-result-card,
+  .km-source-card,
+  .km-vault-note-card,
+  .km-export-card,
+  .km-export-bridge-card,
+  .km-export-workflow-card
+).is-active {
+  border-color: var(--km-interactive-border);
+  box-shadow: var(--km-hover-shadow);
+}
+
+.km-shell .km-panel-link:hover .km-run-sheet-card--interactive,
+.km-shell .km-panel-link:focus-visible .km-run-sheet-card--interactive,
+.km-shell .km-card-button:hover .km-pressure-card--interactive,
+.km-shell .km-card-button:focus-visible .km-pressure-card--interactive {
+  border-color: var(--km-interactive-border);
+  box-shadow: var(--km-hover-shadow-lg);
+}
+
+.km-shell .km-companion-chip {
+  background: var(--km-accent-soft);
+  color: var(--km-accent);
+}
+
+.km-shell .km-kingdom-calendar-cell--empty {
+  background: color-mix(in srgb, var(--km-card-bg-faint) 78%, transparent);
+  border-style: dashed;
+}
+
+.km-shell .km-kingdom-calendar-cell--current {
+  border-color: var(--km-interactive-border-strong);
+  box-shadow: inset 0 0 0 1px var(--km-accent-ring);
+}
+
+.km-shell .km-kingdom-calendar-cell--marked {
+  background: linear-gradient(180deg, var(--km-card-bg-strong), color-mix(in srgb, var(--km-card-bg) 78%, var(--km-accent-soft)));
+}
+
+.km-shell .km-hexmap-selection-ring {
+  stroke: var(--km-accent-strong);
+  filter: drop-shadow(0 0 10px var(--km-accent-veil));
+}
+
+.km-shell .km-hexmap-selection-dot {
+  fill: var(--km-accent-strong);
+  filter: drop-shadow(0 0 6px var(--km-accent-soft));
+}
+
+.km-shell .km-hexmap-party-marker {
+  fill: var(--km-accent-strong-soft);
+}
+
+.km-shell .km-hexmap-trail-line {
+  stroke: var(--km-accent-trail);
+}
+
+.km-shell .km-hexmap-trail-dot {
+  fill: var(--km-interactive-border-soft);
+}
+
+.km-shell .km-hexmap-trail-dot.is-current {
+  fill: var(--km-accent-strong-soft);
+}
+
+.km-shell :is(.km-hexmap-icon-chip__glyph, .km-hexmap-legend-swatch) {
+  background: var(--chip-accent, var(--km-accent-wash));
+}
+
+.km-shell .mantine-Input-input,
+.km-shell .mantine-Textarea-input,
+.km-shell .mantine-Select-input,
+.km-shell .mantine-NumberInput-input {
+  background: var(--km-input-bg);
+  border-color: var(--km-input-border);
+  color: var(--km-ink);
+  box-shadow: inset 0 1px 0 var(--km-input-highlight);
+}
+
+.km-shell .mantine-Input-input::placeholder,
+.km-shell .mantine-Textarea-input::placeholder,
+.km-shell .mantine-Select-input::placeholder,
+.km-shell .mantine-NumberInput-input::placeholder {
+  color: color-mix(in srgb, var(--km-muted) 78%, transparent);
+}
+
+.km-shell .mantine-Input-input:focus,
+.km-shell .mantine-Textarea-input:focus,
+.km-shell .mantine-Select-input:focus,
+.km-shell .mantine-NumberInput-input:focus {
+  border-color: var(--km-interactive-border);
+}
+
+.km-shell .mantine-InputWrapper-label,
+.km-shell .mantine-Checkbox-label,
+.km-shell .mantine-Switch-label,
+.km-shell .mantine-InputWrapper-description,
+.km-shell .mantine-InputWrapper-error {
+  color: var(--km-ink);
+}
+
+.km-shell .mantine-Combobox-dropdown,
+.km-shell .mantine-Select-dropdown {
+  background: var(--km-dropdown-bg);
+  border-color: var(--km-card-border-strong);
+  box-shadow: var(--km-shadow);
+}
+
+.km-shell .mantine-Combobox-option,
+.km-shell .mantine-Select-option {
+  color: var(--km-ink);
+}
+
+.km-shell .mantine-Combobox-option:hover,
+.km-shell .mantine-Combobox-option[data-combobox-selected],
+.km-shell .mantine-Select-option:hover,
+.km-shell .mantine-Select-option[data-combobox-selected] {
+  background: var(--km-dropdown-hover);
+}
+
+.km-shell .mantine-Checkbox-input,
+.km-shell .mantine-Switch-track {
+  border-color: var(--km-input-border);
+}
+
+.km-shell .mantine-Badge-root[data-variant="outline"] {
+  border-color: var(--km-card-border-strong);
+}
+
+.km-shell .mantine-Accordion-item {
+  border-color: var(--km-card-border) !important;
+  background: var(--km-surface-texture), linear-gradient(180deg, var(--km-card-bg-strong), var(--km-card-bg-soft)) !important;
+  box-shadow: var(--km-shadow);
+}
+
+.km-shell .mantine-Accordion-control:hover {
+  background: var(--km-nav-hover-bg);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-shell-title,
+:root[data-km-theme="obsidian-vault"] .metric-value,
+:root[data-km-theme="obsidian-vault"] .km-sidebar-title,
+:root[data-km-theme="obsidian-vault"] .km-theme-chip__title,
+:root[data-km-theme="obsidian-vault"] .km-source-card__title,
+:root[data-km-theme="obsidian-vault"] .km-export-card__title,
+:root[data-km-theme="obsidian-vault"] .km-companion-roster-item__title,
+:root[data-km-theme="obsidian-vault"] .km-npc-roster-item__title,
+:root[data-km-theme="obsidian-vault"] .km-quest-roster-item__title,
+:root[data-km-theme="obsidian-vault"] .km-location-roster-item__title,
+:root[data-km-theme="obsidian-vault"] .km-event-list-item__title {
+  letter-spacing: -0.01em;
+  font-weight: 650;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-header {
+  backdrop-filter: blur(10px);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.28);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-main--workspace {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 18%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0, rgba(255, 255, 255, 0.012) 1px, transparent 1px, transparent 48px);
+  background-size: auto, 48px 48px;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-main--workspace .km-main-stack {
+  width: min(100%, 1680px);
+  margin: 0 auto;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-navbar {
+  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.18);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-header-bar__eyebrow {
+  color: color-mix(in srgb, var(--km-muted) 74%, var(--km-accent) 26%);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-header-route-badge {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: var(--km-card-border);
+  color: var(--km-muted);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-header-status {
+  gap: 6px;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-workspace-strip {
+  padding: 11px 14px;
+  border-radius: 12px;
+  border-color: var(--km-card-border);
+  background: linear-gradient(180deg, rgba(35, 40, 49, 0.98), rgba(23, 26, 33, 0.94));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-workspace-strip__label,
+:root[data-km-theme="obsidian-vault"] .km-workspace-strip__divider {
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-workspace-strip__divider {
+  color: color-mix(in srgb, var(--km-muted) 52%, transparent);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-workspace-strip__crumb {
+  font-size: 0.84rem;
+  color: color-mix(in srgb, var(--km-ink) 82%, var(--km-muted) 18%);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-workspace-strip__crumb--active {
+  color: #f1f3fb;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-sidebar-brand {
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-sidebar-brand .km-eyebrow {
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-sidebar-brand .mantine-Text-root:last-child {
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-sidebar-section {
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-nav-link {
+  border-radius: 12px;
+  padding-block: 2px;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-nav-link .mantine-NavLink-label {
+  font-size: 0.86rem;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-nav-link .mantine-NavLink-description {
+  font-size: 0.73rem;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-nav-link .mantine-NavLink-section {
+  min-width: 14px;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-nav-link[data-active="true"] {
+  border-color: var(--km-interactive-border-soft);
+  box-shadow: inset 3px 0 0 var(--km-accent);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-radix-list {
+  gap: 4px;
+  padding: 4px 4px 0;
+  border-radius: 12px 12px 0 0;
+  background: linear-gradient(180deg, rgba(16, 18, 24, 0.88), rgba(21, 24, 31, 0.92));
+  border-bottom-color: transparent;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.02);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-radix-trigger {
+  padding: 8px 12px 10px;
+  border-radius: 9px 9px 0 0;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  color: color-mix(in srgb, var(--km-muted) 82%, #fff 18%);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-radix-trigger[data-state="active"] {
+  background: linear-gradient(180deg, rgba(36, 41, 51, 0.98), rgba(26, 30, 38, 0.98));
+  border-color: var(--km-card-border);
+  box-shadow: none;
+  color: #f1f3fb;
+  transform: none;
+}
+
+:root[data-km-theme="obsidian-vault"] .hero-panel {
+  position: relative;
+  padding: 16px 18px 18px 22px;
+  border-radius: 16px;
+}
+
+:root[data-km-theme="obsidian-vault"] .hero-panel::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 14px;
+  bottom: 14px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(208, 168, 106, 0.92), rgba(143, 156, 255, 0.54));
+}
+
+:root[data-km-theme="obsidian-vault"] .hero-panel__header {
+  row-gap: 12px;
+}
+
+:root[data-km-theme="obsidian-vault"] .hero-panel__title {
+  font-size: clamp(1.45rem, 1.7vw, 1.9rem);
+  line-height: 1.14;
+}
+
+:root[data-km-theme="obsidian-vault"] .hero-panel__description {
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-panel {
+  border-radius: 16px;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-content-panel,
+:root[data-km-theme="obsidian-vault"] .metric-card,
+:root[data-km-theme="obsidian-vault"] .km-record-card,
+:root[data-km-theme="obsidian-vault"] .km-pressure-card,
+:root[data-km-theme="obsidian-vault"] .session-card,
+:root[data-km-theme="obsidian-vault"] .km-capture-preview,
+:root[data-km-theme="obsidian-vault"] .km-capture-entry {
+  border-color: rgba(114, 123, 142, 0.24);
+  background: linear-gradient(180deg, rgba(34, 38, 47, 0.94), rgba(24, 27, 34, 0.98));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-content-panel {
+  padding: 18px 20px;
+  border-radius: 16px;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-record-card,
+:root[data-km-theme="obsidian-vault"] .km-pressure-card,
+:root[data-km-theme="obsidian-vault"] .session-card,
+:root[data-km-theme="obsidian-vault"] .km-capture-preview,
+:root[data-km-theme="obsidian-vault"] .km-capture-entry {
+  border-radius: 12px;
+}
+
+:root[data-km-theme="obsidian-vault"] .metric-card {
+  min-height: 138px;
+  padding: 15px 16px;
+  border-radius: 12px;
+}
+
+:root[data-km-theme="obsidian-vault"] .metric-label {
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+}
+
+:root[data-km-theme="obsidian-vault"] .metric-value {
+  font-size: clamp(1.12rem, 1.5vw, 1.45rem);
+}
+
+:root[data-km-theme="obsidian-vault"] .metric-value--number {
+  font-size: clamp(1.45rem, 2vw, 1.85rem);
+}
+
+:root[data-km-theme="obsidian-vault"] .metric-helper {
+  -webkit-line-clamp: 4;
+}
+
+:root[data-km-theme="obsidian-vault"] .metric-card-button:hover .metric-card--interactive,
+:root[data-km-theme="obsidian-vault"] .metric-card-button:focus-visible .metric-card--interactive,
+:root[data-km-theme="obsidian-vault"] .km-panel-link:hover .km-run-sheet-card--interactive,
+:root[data-km-theme="obsidian-vault"] .km-panel-link:focus-visible .km-run-sheet-card--interactive,
+:root[data-km-theme="obsidian-vault"] .km-card-button:hover .km-pressure-card--interactive,
+:root[data-km-theme="obsidian-vault"] .km-card-button:focus-visible .km-pressure-card--interactive {
+  transform: translateY(-1px);
+  border-color: var(--km-interactive-border);
+  box-shadow: 0 16px 28px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-shell .mantine-Button-root {
+  border-radius: 10px;
+  letter-spacing: 0.01em;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-shell .mantine-Button-root[data-variant="default"] {
+  background: linear-gradient(180deg, rgba(42, 46, 56, 0.98), rgba(31, 35, 43, 0.94));
+  border-color: var(--km-card-border);
+  color: var(--km-ink);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-shell .mantine-Button-root[data-variant="filled"] {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--km-accent) 94%, #fff 6%), var(--km-accent));
+}
+
+:root[data-km-theme="obsidian-vault"] .km-shell .mantine-Button-root[data-variant="subtle"] {
+  color: color-mix(in srgb, var(--km-ink) 90%, var(--km-accent) 10%);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-shell .mantine-Button-root[data-variant="light"] {
+  background: color-mix(in srgb, var(--km-accent-soft) 76%, transparent);
+  color: var(--km-ink);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-hexmap-stage-shell {
+  background:
+    radial-gradient(circle at 18% 16%, rgba(208, 168, 106, 0.06), transparent 28%),
+    radial-gradient(circle at 82% 24%, rgba(143, 156, 255, 0.08), transparent 30%),
+    linear-gradient(180deg, rgba(28, 32, 40, 0.98), rgba(20, 23, 30, 0.96));
+}
+
+:root[data-km-theme="obsidian-vault"] .km-hexmap-cell {
+  stroke: rgba(96, 74, 42, var(--hex-stroke-opacity, 0.68));
+}
+
+:root[data-km-theme="obsidian-vault"] .km-hexmap-cell-group:hover .km-hexmap-cell,
+:root[data-km-theme="obsidian-vault"] .km-hexmap-cell.is-selected {
+  stroke: rgba(49, 38, 24, 0.96);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-hexmap-label,
+:root[data-km-theme="obsidian-vault"] .km-hexmap-sub-label {
+  fill: #41321f;
+  stroke: rgba(255, 249, 240, 0.94);
+}
+
+:root[data-km-theme="obsidian-vault"] .km-hexmap-label.is-selected {
+  fill: #1d5444;
+}
+
+:root[data-km-theme="obsidian-vault"] .km-hexmap-party-label {
+  fill: #fffdf8;
+  stroke: rgba(20, 26, 24, 0.34);
+}
+
+.km-shell .km-hexmap-stage-shell.is-light-board {
+  border-color: rgba(188, 162, 120, 0.36);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(197, 146, 35, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(252, 248, 239, 0.96), rgba(244, 236, 221, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 14px 32px rgba(26, 20, 12, 0.12);
+}
+
+.km-hexmap-stage-shell.is-light-board .km-hexmap-board-bg {
+  fill: #f7f1e5;
+}
+
+.km-hexmap-stage-shell.is-light-board .km-hexmap-board-image-wash {
+  fill: transparent;
+}
+
+.km-hexmap-stage-shell.is-light-board .km-hexmap-cell {
+  stroke: rgba(96, 74, 42, var(--hex-stroke-opacity, 0.68));
+  stroke-width: 2.3;
+}
+
+.km-hexmap-stage-shell.is-light-board .km-hexmap-cell-group:hover .km-hexmap-cell,
+.km-hexmap-stage-shell.is-light-board .km-hexmap-cell.is-selected {
+  stroke: rgba(49, 38, 24, 0.96);
+}
+
+.km-hexmap-stage-shell.is-light-board .km-hexmap-label,
+.km-hexmap-stage-shell.is-light-board .km-hexmap-sub-label {
+  fill: #241c14;
+  stroke: rgba(255, 249, 240, 0.94);
+}
+
+.km-hexmap-stage-shell.is-light-board .km-hexmap-label.is-selected {
+  fill: #1d5444;
+}
+
+.km-hexmap-stage-shell.is-light-board .km-hexmap-party-label {
+  fill: #fffdf8;
+  stroke: rgba(20, 26, 24, 0.34);
+}
+
+.km-shell .km-hexmap-stage-shell.is-dark-board {
+  border-color: rgba(98, 112, 136, 0.34);
+  background:
+    radial-gradient(circle at 18% 16%, rgba(208, 168, 106, 0.05), transparent 28%),
+    radial-gradient(circle at 82% 22%, rgba(143, 156, 255, 0.08), transparent 30%),
+    linear-gradient(180deg, rgba(21, 24, 31, 0.98), rgba(15, 18, 25, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 38px rgba(0, 0, 0, 0.28);
+}
+
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-board-bg {
+  fill: #151a21;
+}
+
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-board-image-wash {
+  fill: rgba(9, 13, 20, 0.48);
+}
+
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-cell {
+  stroke: rgba(166, 178, 198, var(--hex-stroke-opacity, 0.74));
+  stroke-width: 2.2;
+}
+
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-cell-group:hover .km-hexmap-cell,
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-cell.is-selected {
+  stroke: rgba(241, 245, 255, 0.94);
+}
+
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-label,
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-sub-label {
+  fill: #e6edf9;
+  stroke: rgba(11, 15, 22, 0.86);
+}
+
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-label.is-selected {
+  fill: #f7fbff;
+}
+
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-party-label {
+  fill: #f7fbff;
+  stroke: rgba(11, 15, 22, 0.48);
+}
+
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-trail-line {
+  stroke: rgba(143, 156, 255, 0.46);
+}
+
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-trail-dot {
+  fill: rgba(143, 156, 255, 0.52);
+  stroke: rgba(11, 15, 22, 0.82);
+}
+
+.km-hexmap-stage-shell.is-dark-board .km-hexmap-trail-dot.is-current {
+  fill: rgba(185, 196, 255, 0.96);
 }
 
 @media (max-width: 768px) {

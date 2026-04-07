@@ -53,6 +53,7 @@ function createSettingsDraft(hexMap) {
     rows: String(hexMap?.rows ?? 10),
     hexSize: String(hexMap?.hexSize ?? 54),
     showLabels: hexMap?.showLabels !== false,
+    darkBoard: hexMap?.darkBoard !== false,
     backgroundOpacity: Number(hexMap?.backgroundOpacity ?? 0.78),
     backgroundScale: Number(hexMap?.backgroundScale ?? 1),
     backgroundOffsetX: String(hexMap?.backgroundOffsetX ?? 0),
@@ -208,6 +209,7 @@ export default function HexMapPage() {
     model.hexMap.rows,
     model.hexMap.hexSize,
     model.hexMap.showLabels,
+    model.hexMap.darkBoard,
     model.hexMap.backgroundOpacity,
     model.hexMap.backgroundScale,
     model.hexMap.backgroundOffsetX,
@@ -279,6 +281,7 @@ export default function HexMapPage() {
   const backgroundPlacement = model.hexMap.backgroundUrl ? getHexMapBackgroundPlacement(model.hexMap) : null;
   const markerIconOptions = getMarkerIconOptionsForType(markerDraft.type);
   const activeMarkerDefinition = getHexMarkerIconDefinition(markerDraft.icon, markerDraft.type);
+  const darkBoard = model.hexMap.darkBoard !== false;
 
   const getHexFromClientPoint = (clientX, clientY) => {
     if (!stageShellRef.current) return "";
@@ -736,7 +739,7 @@ export default function HexMapPage() {
 
               <div
                 ref={stageShellRef}
-                className={`km-hexmap-stage-shell ${markerPlacementMode || isDraggingMarkerPalette ? "is-placement-mode" : ""}`}
+                className={`km-hexmap-stage-shell ${darkBoard ? "is-dark-board" : "is-light-board"} ${model.hexMap.backgroundUrl ? "has-background-image" : ""} ${markerPlacementMode || isDraggingMarkerPalette ? "is-placement-mode" : ""}`}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={finishPointerSession}
@@ -756,17 +759,21 @@ export default function HexMapPage() {
                   role="img"
                   aria-label="Interactive Kingmaker hex map"
                 >
-                  <rect x="0" y="0" width={viewBox.boardWidth} height={viewBox.boardHeight} fill="#f7f1e5" />
+                  <rect x="0" y="0" width={viewBox.boardWidth} height={viewBox.boardHeight} className="km-hexmap-board-bg" />
                   {model.hexMap.backgroundUrl && backgroundPlacement ? (
-                    <image
-                      href={model.hexMap.backgroundUrl}
-                      x={backgroundPlacement.x}
-                      y={backgroundPlacement.y}
-                      width={backgroundPlacement.width}
-                      height={backgroundPlacement.height}
-                      preserveAspectRatio="none"
-                      opacity={model.hexMap.backgroundOpacity}
-                    />
+                    <>
+                      <image
+                        href={model.hexMap.backgroundUrl}
+                        x={backgroundPlacement.x}
+                        y={backgroundPlacement.y}
+                        width={backgroundPlacement.width}
+                        height={backgroundPlacement.height}
+                        preserveAspectRatio="none"
+                        opacity={model.hexMap.backgroundOpacity}
+                        className="km-hexmap-board-image"
+                      />
+                      {darkBoard ? <rect x="0" y="0" width={viewBox.boardWidth} height={viewBox.boardHeight} className="km-hexmap-board-image-wash" /> : null}
+                    </>
                   ) : null}
 
                   {model.party.trail?.length > 0 ? (
@@ -827,7 +834,7 @@ export default function HexMapPage() {
                           <polygon
                             className={`km-hexmap-cell ${isSelected ? "is-selected" : ""} ${isDropTarget ? "is-drop-target" : ""}`}
                             points={buildHexPolygonPoints(center.cx, center.cy, model.metrics.size)}
-                            fill={getHexStatusColor(region?.status || "")}
+                            fill={getHexStatusColor(region?.status || "", darkBoard)}
                             style={{
                               "--hex-fill-opacity": model.hexMap.gridFillOpacity,
                               "--hex-stroke-opacity": model.hexMap.gridLineOpacity,
@@ -1002,6 +1009,13 @@ export default function HexMapPage() {
                           checked={settingsDraft.showLabels}
                           onChange={(event) => setSettingsDraft((current) => ({ ...current, showLabels: event.currentTarget.checked }))}
                           label="Show hex labels on the board"
+                        />
+
+                        <Switch
+                          checked={settingsDraft.darkBoard}
+                          onChange={(event) => setSettingsDraft((current) => ({ ...current, darkBoard: event.currentTarget.checked }))}
+                          label="Use dark board mode"
+                          description="Swap the board to a darker explorer-table treatment."
                         />
 
                         <Grid gutter="lg">
