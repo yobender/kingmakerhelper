@@ -1,4 +1,5 @@
-import { Badge, Burger, Group, Stack, Text, Title } from "@mantine/core";
+import { ActionIcon, Burger, Group, Stack, Text, Title } from "@mantine/core";
+import { IconCommand, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand } from "@tabler/icons-react";
 
 function formatSavedAt(value) {
   const time = Date.parse(value || "");
@@ -19,6 +20,9 @@ export default function ShellHeader({
   lastSavedAt,
   persistenceError,
   isDesktop,
+  onOpenPalette,
+  onToggleSidebar,
+  desktopSidebarCollapsed,
 }) {
   return (
     <Group justify="space-between" align="center" h="100%" px="lg" gap="lg" wrap="wrap" className="km-header-bar">
@@ -30,23 +34,31 @@ export default function ShellHeader({
             <Title order={3} className="km-shell-title">
               {campaignName}
             </Title>
-            <Badge color="gray" variant="outline" className="km-header-route-badge">
+            <Text className="km-header-route-badge">
               {pageTitle}
-            </Badge>
+            </Text>
           </Group>
         </Stack>
       </Group>
       <Group gap="sm" align="center" wrap="wrap" justify="flex-end" className="km-header-status">
-        <Badge color="moss" variant="light">
-          {currentDateLabel}
-        </Badge>
-        <Badge color={persistenceError ? "red" : "gray"} variant="outline">
-          {persistenceError ? "Save issue" : `Saved ${formatSavedAt(lastSavedAt)}`}
-        </Badge>
+        <ActionIcon variant="subtle" radius="md" className="km-header-action" onClick={onOpenPalette} aria-label="Open command palette">
+          <IconCommand size={16} stroke={1.9} />
+        </ActionIcon>
+        <ActionIcon
+          variant="subtle"
+          radius="md"
+          className="km-header-action km-header-action--desktop"
+          onClick={onToggleSidebar}
+          aria-label={desktopSidebarCollapsed ? "Expand navigation" : "Collapse navigation"}
+        >
+          {desktopSidebarCollapsed ? <IconLayoutSidebarLeftExpand size={16} stroke={1.9} /> : <IconLayoutSidebarLeftCollapse size={16} stroke={1.9} />}
+        </ActionIcon>
+        <Text className="km-header-meta km-header-meta--date">{currentDateLabel}</Text>
+        <Text className={`km-header-meta${persistenceError ? " is-error" : ""}`}>{persistenceError ? "Save issue" : `Saved ${formatSavedAt(lastSavedAt)}`}</Text>
         {isDesktop ? (
-          <Badge color="brass" variant="outline">
+          <Text className="km-header-meta km-header-meta--desktop">
             Desktop
-          </Badge>
+          </Text>
         ) : null}
       </Group>
     </Group>

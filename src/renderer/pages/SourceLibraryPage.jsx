@@ -3,7 +3,7 @@ import { Badge, Button, Grid, Group, Paper, Progress, Select, Stack, Text, TextI
 import { notifications } from "@mantine/notifications";
 import * as Tabs from "@radix-ui/react-tabs";
 import { IconBook2, IconBooks, IconRefresh, IconSearch } from "@tabler/icons-react";
-import MetricCard from "../components/MetricCard";
+import CompactMetaStrip from "../components/CompactMetaStrip";
 import PageHeader from "../components/PageHeader";
 import { useCampaign } from "../context/CampaignContext";
 import { buildSourceLibraryModel } from "../lib/sourceLibrary";
@@ -37,6 +37,50 @@ function formatDateTime(value) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatRetrievalStatus(status) {
+  if (!status) return "RAG status has not been loaded yet.";
+  const indexed = intValue(status.indexedFiles, 0);
+  const chunks = intValue(status.retrievalChunks, 0);
+  const embedded = intValue(status.embeddedChunks, 0);
+  const coverage = intValue(status.semanticCoverage, chunks ? Math.round((embedded / chunks) * 100) : 0);
+  return `${indexed} PDFs / ${chunks} chunks / ${embedded} embedded (${coverage}%) / ${stringValue(status.retrievalMode || "hybrid")} retrieval`;
+}
+
+function formatCompactNumber(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return "0";
+  return num.toLocaleString();
+}
+
+function RagFileCoverage({ status }) {
+  const files = Array.isArray(status?.files) ? status.files : [];
+  if (!files.length) return null;
+  return (
+    <div className="km-rag-file-coverage">
+      {files.slice(0, 8).map((file) => {
+        const chunks = intValue(file?.retrievalChunks, 0);
+        const embedded = intValue(file?.embeddedChunks, 0);
+        const coverage = chunks ? Math.round((embedded / chunks) * 100) : 0;
+        return (
+          <div key={`${stringValue(file?.path)}-${stringValue(file?.fileName)}`} className="km-rag-file-row">
+            <div>
+              <Text fw={700} size="sm">
+                {stringValue(file?.fileName) || "Indexed PDF"}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {`${formatCompactNumber(file?.pageCount)} pages / ${formatCompactNumber(file?.charCount)} chars / ${formatCompactNumber(chunks)} chunks`}
+              </Text>
+            </div>
+            <Badge color={coverage >= 95 ? "moss" : coverage ? "brass" : "gray"} variant="light">
+              {`${formatCompactNumber(embedded)} embedded`}
+            </Badge>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function buildPdfSummaryMapFromIndex(summary, existingSummaries = {}) {
@@ -75,7 +119,9 @@ function SearchResultCard({ result, onOpenPage, onFocusFile }) {
           <div className="km-source-result-card__copy">
             <Text fw={700}>{stringValue(result?.fileName) || "Indexed PDF"}</Text>
             <Text size="sm" c="dimmed">
-              {`Page ${intValue(result?.page, 1)} / ${stringValue(result?.searchMode || "lexical")} / score ${stringValue(result?.score || 0)}`}
+              {`Page ${intValue(result?.page, 1)} / ${stringValue(result?.searchMode || "lexical")} / ${
+                result?.reranked ? "reranked" : "ranked"
+              } / score ${stringValue(result?.score || 0)}`}
             </Text>
           </div>
           <Badge color="moss" variant="light">
@@ -126,6 +172,11 @@ export default function SourceLibraryPage() {
   const [searchLimit, setSearchLimit] = useState("20");
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchResults, setSearchResults] = useState([]);
+  const [searchRetrieval, setSearchRetrieval] = useState(null);
+  const [ragStatus, setRagStatus] = useState(null);
+  const [semanticBusy, setSemanticBusy] = useState(false);
+  const [semanticMessage, setSemanticMessage] = useState("");
+  const [semanticProgress, setSemanticProgress] = useState({ current: 0, total: 1, label: "" });
   const [selectedSourceId, setSelectedSourceId] = useState(() => model.sources[0]?.id || "");
   const [selectedSummaryFile, setSelectedSummaryFile] = useState(() => stringValue(campaign.meta?.pdfIndexedFiles?.[0]));
   const [summaryBusy, setSummaryBusy] = useState(false);
@@ -186,6 +237,10 @@ export default function SourceLibraryPage() {
         if (indexSummary) {
           syncLibraryMeta(indexSummary, nextFolder);
         }
+        if (desktopApi?.getRagStatus) {
+          const status = await desktopApi.getRagStatus(campaign.meta?.aiConfig || {});
+          if (active) setRagStatus(status || null);
+        }
       } catch (error) {
         if (!active) return;
         setLibraryMessage(stringValue(error?.message || error) || "Could not load desktop PDF index state.");
@@ -214,6 +269,21 @@ export default function SourceLibraryPage() {
       }
     });
   }, [desktopApi, selectedSummaryFile]);
+
+  useEffect(() => {
+    if (!desktopApi?.onSemanticIndexProgress) return undefined;
+    return desktopApi.onSemanticIndexProgress((payload) => {
+      const current = Math.max(0, intValue(payload?.current, 0));
+      const total = Math.max(1, intValue(payload?.total, 1));
+      const label = stringValue(payload?.message);
+      setSemanticProgress({ current, total, label });
+      if (label) setSemanticMessage(label);
+      const stage = stringValue(payload?.stage);
+      if (stage === "done" || stage === "error") {
+        setSemanticBusy(false);
+      }
+    });
+  }, [desktopApi]);
 
   const handleChooseFolder = async () => {
     if (!desktopApi?.pickPdfFolder) return;
@@ -254,6 +324,13 @@ export default function SourceLibraryPage() {
     try {
       const summary = await desktopApi.indexPdfFolder(folderPath);
       syncLibraryMeta(summary, folderPath);
+      if (desktopApi?.getRagStatus) {
+        try {
+          setRagStatus(await desktopApi.getRagStatus(campaign.meta?.aiConfig || {}));
+        } catch {
+          setRagStatus(null);
+        }
+      }
       setLibraryMessage(
         summary?.failed
           ? `Indexed ${intValue(summary?.count, 0)} PDFs. ${intValue(summary?.failed, 0)} file(s) could not be parsed.`
@@ -277,6 +354,37 @@ export default function SourceLibraryPage() {
     }
   };
 
+  const handleBuildSemanticIndex = async () => {
+    if (!desktopApi?.buildSemanticIndex) return;
+    const total = Math.max(1, intValue(ragStatus?.retrievalChunks, 1));
+    const current = Math.max(0, intValue(ragStatus?.embeddedChunks, 0));
+    setSemanticBusy(true);
+    setSemanticMessage("Starting full-library semantic embedding...");
+    setSemanticProgress({ current, total, label: "Starting full-library semantic embedding..." });
+    try {
+      const status = await desktopApi.buildSemanticIndex(campaign.meta?.aiConfig || {});
+      setRagStatus(status || null);
+      const embedded = intValue(status?.embeddedChunks, 0);
+      const chunks = intValue(status?.retrievalChunks, 0);
+      setSemanticMessage(`Semantic index ready: ${embedded} of ${chunks} chunks embedded.`);
+      notifications.show({
+        color: "moss",
+        title: "Semantic index ready",
+        message: `${embedded} of ${chunks} PDF chunks are embedded for RAG search.`,
+      });
+    } catch (error) {
+      const message = stringValue(error?.message || error) || "Could not build the semantic index.";
+      setSemanticMessage(message);
+      notifications.show({
+        color: "red",
+        title: "Semantic index failed",
+        message,
+      });
+    } finally {
+      setSemanticBusy(false);
+    }
+  };
+
   const handleSearch = async () => {
     if (!desktopApi?.searchPdf) return;
     const cleanQuery = stringValue(searchQuery);
@@ -296,8 +404,21 @@ export default function SourceLibraryPage() {
         config: campaign.meta?.aiConfig || {},
       });
       const rows = Array.isArray(result?.results) ? result.results : [];
+      const retrieval = result?.retrieval || null;
       setSearchResults(rows);
-      setLibraryMessage(rows.length ? `Found ${rows.length} source result(s) for "${cleanQuery}".` : `No source result matched "${cleanQuery}".`);
+      setSearchRetrieval(retrieval);
+      if (desktopApi?.getRagStatus) {
+        try {
+          setRagStatus(await desktopApi.getRagStatus(campaign.meta?.aiConfig || {}));
+        } catch {
+          setRagStatus(null);
+        }
+      }
+      setLibraryMessage(
+        rows.length
+          ? `Found ${rows.length} source result(s) for "${cleanQuery}". ${stringValue(retrieval?.note)}`
+          : `No source result matched "${cleanQuery}". ${stringValue(retrieval?.note)}`
+      );
     } catch (error) {
       const message = stringValue(error?.message || error) || "Could not search the indexed PDFs.";
       setLibraryMessage(message);
@@ -402,13 +523,7 @@ export default function SourceLibraryPage() {
         )}
       />
 
-      <Grid gutter="lg">
-        {model.summaryCards.map((card) => (
-          <Grid.Col key={card.label} span={{ base: 12, md: 6, xl: 3 }}>
-            <MetricCard label={card.label} value={card.value} helper={card.helper} valueTone={card.valueTone} />
-          </Grid.Col>
-        ))}
-      </Grid>
+      <CompactMetaStrip items={model.summaryCards} />
 
       <Tabs.Root value={activeTab} onValueChange={setActiveTab} className="km-radix-tabs">
         <Tabs.List className="km-radix-list" aria-label="Source Library views">
@@ -426,7 +541,7 @@ export default function SourceLibraryPage() {
         <Tabs.Content value="search" className="km-radix-content">
           <Grid gutter="lg">
             <Grid.Col span={{ base: 12, xl: 5 }}>
-              <Paper className="km-panel km-content-panel km-source-control-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat km-source-control-panel km-panel--flat">
                 <Stack gap="md">
                   <Group justify="space-between" align="flex-start">
                     <div>
@@ -463,12 +578,81 @@ export default function SourceLibraryPage() {
                       <Text size="sm" c="dimmed">{libraryMessage || "Index the folder once, then search and summarize books on demand."}</Text>
                     </Stack>
                   </Paper>
+
+                  <Paper className="km-record-card">
+                    <Stack gap="xs">
+                      <Group justify="space-between" align="flex-start">
+                        <Text fw={700}>RAG pipeline</Text>
+                        <Badge
+                          color={
+                            ragStatus?.retrievalChunks && ragStatus?.embeddedChunks >= ragStatus?.retrievalChunks
+                              ? "moss"
+                              : ragStatus?.embeddedChunks
+                                ? "brass"
+                                : "gray"
+                          }
+                          variant="light"
+                        >
+                          {ragStatus?.retrievalChunks && ragStatus?.embeddedChunks >= ragStatus?.retrievalChunks
+                            ? "Semantic ready"
+                            : ragStatus?.embeddedChunks
+                              ? "Partial semantic"
+                              : "Lazy embeddings"}
+                        </Badge>
+                      </Group>
+                      <Text size="sm" c="dimmed">{formatRetrievalStatus(ragStatus)}</Text>
+                      <Text size="sm" c="dimmed">
+                        {stringValue(ragStatus?.note) || "PDF search will use keyword fallback until embeddings are available."}
+                      </Text>
+                      <RagFileCoverage status={ragStatus} />
+                      {semanticBusy || semanticMessage ? (
+                        <Stack gap={6}>
+                          <Progress
+                            value={
+                              Math.max(1, intValue(semanticProgress.total, 1))
+                                ? Math.min(100, Math.round((intValue(semanticProgress.current, 0) / Math.max(1, intValue(semanticProgress.total, 1))) * 100))
+                                : 0
+                            }
+                            color="moss"
+                            radius="xl"
+                          />
+                          <Text size="xs" c="dimmed">
+                            {semanticMessage || semanticProgress.label}
+                          </Text>
+                        </Stack>
+                      ) : null}
+                      <Group gap="sm" className="km-toolbar-wrap">
+                        <Button
+                          variant="default"
+                          onClick={async () => {
+                            if (!desktopApi?.getRagStatus) return;
+                            setRagStatus(await desktopApi.getRagStatus(campaign.meta?.aiConfig || {}));
+                          }}
+                          disabled={!desktopApi?.getRagStatus || semanticBusy}
+                        >
+                          Refresh RAG Status
+                        </Button>
+                        <Button
+                          color="moss"
+                          onClick={handleBuildSemanticIndex}
+                          loading={semanticBusy}
+                          disabled={
+                            !desktopApi?.buildSemanticIndex ||
+                            !intValue(ragStatus?.retrievalChunks, 0) ||
+                            intValue(ragStatus?.embeddedChunks, 0) >= intValue(ragStatus?.retrievalChunks, 0)
+                          }
+                        >
+                          Build Semantic Index
+                        </Button>
+                      </Group>
+                    </Stack>
+                  </Paper>
                 </Stack>
               </Paper>
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, xl: 7 }}>
-              <Paper className="km-panel km-content-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat">
                 <Stack gap="md">
                   <Group justify="space-between" align="flex-start">
                     <div>
@@ -506,8 +690,29 @@ export default function SourceLibraryPage() {
                   </Group>
 
                   <Text c="dimmed">
-                    Search results come from the desktop PDF index and jump straight to the matched page so the Source Library stays useful in prep and at the table.
+                    Search results come from the desktop PDF index. Current RAG defaults: {stringValue(campaign.meta?.aiConfig?.retrievalMode || "hybrid")} retrieval, {campaign.meta?.aiConfig?.rerankEnabled === false ? "reranking off" : "local reranking on"}.
                   </Text>
+
+                  {searchRetrieval ? (
+                    <Paper className="km-record-card">
+                      <Group justify="space-between" align="flex-start" wrap="nowrap">
+                        <div>
+                          <Text fw={700}>Last retrieval pass</Text>
+                          <Text size="sm" c="dimmed">
+                            {`${stringValue(searchRetrieval.mode || "unknown")} / ${
+                              stringValue(searchRetrieval.embeddingModel) || "keyword"
+                            } / ${stringValue(searchRetrieval.rerankStrategy || "off")}`}
+                          </Text>
+                        </div>
+                        <Badge color="moss" variant="light">
+                          {intValue(searchRetrieval.semanticCandidates, 0)} semantic
+                        </Badge>
+                      </Group>
+                      <Text size="sm" c="dimmed" mt="xs">
+                        {stringValue(searchRetrieval.note) || "No retrieval note returned."}
+                      </Text>
+                    </Paper>
+                  ) : null}
 
                   <div className="km-source-results-list">
                     {searchResults.length ? (
@@ -542,7 +747,7 @@ export default function SourceLibraryPage() {
         <Tabs.Content value="registry" className="km-radix-content">
           <Grid gutter="lg">
             <Grid.Col span={{ base: 12, xl: 5 }}>
-              <Paper className="km-panel km-content-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat">
                 <Stack gap="md">
                   <div>
                     <Text className="km-section-kicker">Canonical Shelf</Text>
@@ -566,7 +771,7 @@ export default function SourceLibraryPage() {
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, xl: 7 }}>
-              <Paper className="km-panel km-content-panel km-source-detail-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat km-source-detail-panel km-panel--flat">
                 <Stack gap="md">
                   <Group justify="space-between" align="flex-start">
                     <div>
@@ -643,7 +848,7 @@ export default function SourceLibraryPage() {
         <Tabs.Content value="briefings" className="km-radix-content">
           <Grid gutter="lg">
             <Grid.Col span={{ base: 12, xl: 5 }}>
-              <Paper className="km-panel km-content-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat">
                 <Stack gap="md">
                   <Group justify="space-between" align="flex-start">
                     <div>
@@ -690,7 +895,7 @@ export default function SourceLibraryPage() {
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, xl: 7 }}>
-              <Paper className="km-panel km-content-panel km-source-brief-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat km-source-brief-panel km-panel--flat">
                 <Stack gap="md">
                   <Group justify="space-between" align="flex-start">
                     <div>

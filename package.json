@@ -9,6 +9,7 @@
     "dev": "node ./scripts/start-dev.cjs",
     "dev:renderer": "vite",
     "build:renderer": "vite build",
+    "test": "node --test tests/*.test.cjs",
     "start": "npm run build:renderer && node ./scripts/start-electron.cjs",
     "dist": "npm run build:renderer && electron-builder --win portable",
     "refresh:library": "python ./scripts/extract-kingmaker-source-manifest.py"
@@ -36,21 +37,21 @@
     "@fontsource/cinzel": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/source-serif-4": "^5.2.9",
-    "@mantine/core": "^9.0.0",
-    "@mantine/hooks": "^9.0.0",
-    "@mantine/notifications": "^9.0.0",
+    "@mantine/core": "^9.1.0",
+    "@mantine/hooks": "^9.1.0",
+    "@mantine/notifications": "^9.1.0",
     "@radix-ui/react-tabs": "^1.1.13",
     "@tabler/icons-react": "^3.41.1",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^4.10.38",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-router-dom": "^7.13.2"
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "react-router-dom": "^7.14.2"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.1",
     "electron": "^35.2.0",
     "electron-builder": "^24.13.3",
-    "vite": "^8.0.3"
+    "vite": "^8.0.10"
   }
 }

@@ -171,7 +171,7 @@ export default function ExportsLinksPage() {
                   </Group>
 
                   <Text c="dimmed">
-                    These exports are meant for import into Foundry as actors and journal-like reference content. They are not a live sync layer.
+                    These exports are meant for import into Foundry as actors and journal-like live campaign content. Kingmaker reference records are excluded until activated.
                   </Text>
 
                   <div className="km-export-card-list">

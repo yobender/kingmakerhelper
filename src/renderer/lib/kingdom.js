@@ -9,6 +9,7 @@ import {
   sameGolarionMonth,
   toGolarionOrdinal,
 } from "./golarion";
+import { isLiveCampaignRecord } from "./kingmakerFlow";
 
 const ACTIVE_KINGDOM_EVENT_STATUSES = new Set(["seeded", "active", "escalated", "cooldown"]);
 const SETTLEMENT_ACTIONS = Object.freeze({
@@ -206,6 +207,7 @@ export function buildKingdomModel(campaign) {
   const activeKingdomEvents = [...(campaign?.events || [])]
     .filter(
       (eventItem) =>
+        isLiveCampaignRecord(eventItem) &&
         stringValue(eventItem?.category).toLowerCase() === "kingdom" &&
         ACTIVE_KINGDOM_EVENT_STATUSES.has(stringValue(eventItem?.status).toLowerCase())
     )
@@ -218,7 +220,7 @@ export function buildKingdomModel(campaign) {
     });
   const recentEventHistory = [...(kingdom.eventHistory || [])].sort((left, right) => String(right?.at || "").localeCompare(String(left?.at || ""))).slice(0, 8);
   const companionRoleWatch = [...(campaign?.companions || [])]
-    .filter((companion) => stringValue(companion?.kingdomRole))
+    .filter((companion) => isLiveCampaignRecord(companion) && stringValue(companion?.kingdomRole))
     .sort((left, right) => Math.trunc(numberValue(right?.influence, 0)) - Math.trunc(numberValue(left?.influence, 0)))
     .slice(0, 8);
   const recentTurns = [...(kingdom.turns || [])].sort((left, right) => sortByDateDescending(left, right, "date")).slice(0, 8);

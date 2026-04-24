@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Badge, Button, Grid, Group, NumberInput, Paper, Select, Stack, Text, TextInput, Textarea, Title } from "@mantine/core";
+import { Badge, Button, Grid, Group, NumberInput, Paper, Select, Stack, Text, TextInput, Textarea, Title, UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import * as Tabs from "@radix-ui/react-tabs";
-import { IconBook2, IconCrown, IconDice5, IconMap2, IconTrash } from "@tabler/icons-react";
+import { IconDice5, IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import MetricCard from "../components/MetricCard";
-import PageHeader from "../components/PageHeader";
 import { useCampaign } from "../context/CampaignContext";
 import {
   EVENT_ADVANCE_OPTIONS,
@@ -13,6 +11,7 @@ import {
   EVENT_IMPACT_SCOPE_OPTIONS,
   EVENT_STATUS_OPTIONS,
 } from "../lib/campaignState";
+import { isLiveCampaignRecord } from "../lib/kingmakerFlow";
 import {
   buildEventImpactSnapshot,
   buildEventsModel,
@@ -22,7 +21,6 @@ import {
   getEventTurnsToConsequence,
 } from "../lib/events";
 import { buildGeneratedEventDraft, getEventTable, resolveEventTableEntry, rollEventTable } from "../lib/eventTables";
-import { getLegacyWorkspaceUrl } from "../lib/desktop";
 
 const NEW_EVENT_ID = "__new__";
 
@@ -178,7 +176,7 @@ export default function EventsPage() {
   const { campaign, actions } = useCampaign();
   const model = buildEventsModel(campaign);
   const detailPanelRef = useRef(null);
-  const [selectedId, setSelectedId] = useState(() => model.events[0]?.id || NEW_EVENT_ID);
+  const [selectedId, setSelectedId] = useState(() => model.activeEvents[0]?.id || model.focusReferenceEvents[0]?.id || model.events[0]?.id || NEW_EVENT_ID);
   const [detailTab, setDetailTab] = useState("overview");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -191,8 +189,8 @@ export default function EventsPage() {
   useEffect(() => {
     if (selectedId === NEW_EVENT_ID) return;
     if (selectedEvent) return;
-    setSelectedId(model.events[0]?.id || NEW_EVENT_ID);
-  }, [selectedId, selectedEvent, model.events]);
+    setSelectedId(model.activeEvents[0]?.id || model.focusReferenceEvents[0]?.id || model.events[0]?.id || NEW_EVENT_ID);
+  }, [selectedId, selectedEvent, model.activeEvents, model.focusReferenceEvents, model.events]);
 
   useEffect(() => {
     if (selectedId === NEW_EVENT_ID) return;
@@ -206,7 +204,8 @@ export default function EventsPage() {
     .filter((entry) => stringValue(entry?.eventId) === stringValue(selectedEvent?.id))
     .sort((left, right) => String(right?.at || "").localeCompare(String(left?.at || "")))
     .slice(0, 8);
-  const filteredEvents = model.events.filter((entry) => {
+  const visibleEventPool = stringValue(searchValue) ? model.events : [...model.activeEvents, ...model.focusReferenceEvents];
+  const filteredEvents = visibleEventPool.filter((entry) => {
     if (statusFilter !== "all" && stringValue(entry?.status) !== statusFilter) return false;
     if (categoryFilter !== "all" && stringValue(entry?.category) !== categoryFilter) return false;
     const haystack = [
@@ -253,6 +252,64 @@ export default function EventsPage() {
     preview: resolveEventTableEntry(entry, campaign, generator),
   }));
   const generatorPreview = rollResult?.preview || null;
+  const leadFront = model.activeEvents[0] || selectedEvent || model.events[0] || null;
+  const kingdomFront = model.kingdomEvents[0] || null;
+  const partyFront = model.partyEvents[0] || null;
+  const liveClockRows = (model.imminentEvents.length ? model.imminentEvents : model.activeEvents).slice(0, 4);
+  const eventMetaRows = model.summaryCards.map((card) => ({
+    ...card,
+    action:
+      card.label === "Kingdom Pressure"
+        ? () => {
+            setCategoryFilter("kingdom");
+            setStatusFilter("all");
+          }
+        : card.label === "Party Pressure"
+          ? () => {
+              setCategoryFilter("all");
+              setStatusFilter("active");
+            }
+          : card.label === "Due Soon"
+            ? () => {
+                setCategoryFilter("all");
+                setStatusFilter("all");
+                setSelectedId(model.imminentEvents[0]?.id || model.events[0]?.id || NEW_EVENT_ID);
+              }
+            : () => {
+                setCategoryFilter("all");
+                setStatusFilter("all");
+              },
+  }));
+  const pressureNoteRows = [
+    {
+      label: "Lead Front",
+      title: leadFront?.title || "No active front selected",
+      text: stringValue(leadFront?.trigger || leadFront?.consequenceSummary || leadFront?.notes) || "Create or select an event to define the pressure currently driving the table.",
+      actionLabel: "Open Front",
+      onClick: () => {
+        setSelectedId(leadFront?.id || NEW_EVENT_ID);
+        setDetailTab("overview");
+        focusDetailPanel();
+      },
+    },
+    {
+      label: "Kingdom Fallout",
+      title: kingdomFront?.title || "No kingdom pressure live",
+      text: stringValue(kingdomFront?.consequenceSummary || kingdomFront?.fallout || kingdomFront?.trigger) || "Kingdom-facing trouble will appear here when it can change unrest, resources, ruin, or claimed hexes.",
+      actionLabel: "Open Kingdom",
+      onClick: () => navigate("/world/kingdom"),
+    },
+    {
+      label: "Party Trouble",
+      title: partyFront?.title || "No party-facing pressure live",
+      text: stringValue(partyFront?.trigger || partyFront?.notes || partyFront?.consequenceSummary) || "Travel, quest, companion, and story trouble will appear here when the party needs to feel the next beat.",
+      actionLabel: "Open Board",
+      onClick: () => {
+        setSelectedId(partyFront?.id || model.events[0]?.id || NEW_EVENT_ID);
+        focusDetailPanel();
+      },
+    },
+  ];
 
   const updateDraft = (field, value) => {
     setDraft((current) => ({
@@ -306,6 +363,18 @@ export default function EventsPage() {
       color: "moss",
       title: "Event removed",
       message: `${selectedEvent.title} was removed from the event board.`,
+    });
+  };
+
+  const handleActivate = () => {
+    if (!selectedEvent) return;
+    const saved = actions.activateEvent(selectedEvent.id);
+    if (!saved) return;
+    setDraft(createEventDraft(saved));
+    notifications.show({
+      color: "moss",
+      title: "Event activated",
+      message: `${saved.title} is now live campaign pressure.`,
     });
   };
 
@@ -438,43 +507,163 @@ export default function EventsPage() {
   };
 
   return (
-    <Stack gap="xl">
-      <PageHeader
-        eyebrow="World"
-        title="Events"
-        description="Run Kingmaker as a field of active fronts. Track what advances each turn, what hits the party on the road, and what lands on the kingdom sheet when pressure goes unanswered."
-        actions={(
-          <>
-            <Button variant="default" leftSection={<IconCrown size={16} />} onClick={() => navigate("/world/kingdom")}>
-              Open Kingdom
-            </Button>
-            <Button variant="default" leftSection={<IconMap2 size={16} />} onClick={() => navigate("/world/hex-map")}>
-              Open Hex Map
-            </Button>
-            <Button component="a" href={getLegacyWorkspaceUrl("pdf")} leftSection={<IconBook2 size={16} />} color="moss">
+    <Stack gap="xl" className="km-events-page">
+      <div className="km-event-editor-header">
+        <div className="km-event-editor-header__copy">
+          <Text className="km-eyebrow">Pressure Note</Text>
+          <Title order={2} className="km-event-editor-header__title">
+            Events
+          </Title>
+          <Text c="dimmed" className="km-event-editor-header__description">
+            One workspace for live fronts, countdown clocks, party trouble, and kingdom consequences.
+          </Text>
+          <Group gap="lg" wrap="wrap" className="km-event-editor-header__links">
+            <UnstyledButton className="km-command-editor-link" onClick={() => navigate("/world/kingdom")}>
+              Kingdom
+            </UnstyledButton>
+            <UnstyledButton className="km-command-editor-link" onClick={() => navigate("/world/hex-map")}>
+              Hex Map
+            </UnstyledButton>
+            <UnstyledButton className="km-command-editor-link" onClick={() => navigate("/reference/source-library")}>
               Source Library
-            </Button>
-          </>
-        )}
-      />
+            </UnstyledButton>
+          </Group>
+        </div>
+      </div>
 
-      <Grid gutter="lg">
-        {model.summaryCards.map((card) => (
-          <Grid.Col key={card.label} span={{ base: 12, sm: 6, xl: 3 }}>
-            <MetricCard {...card} />
-          </Grid.Col>
-        ))}
-      </Grid>
+      <div className="km-event-editor-layout">
+        <main className="km-event-editor-note">
+          <div className="km-event-editor-meta">
+            {eventMetaRows.map((card) => (
+              <UnstyledButton key={card.label} className="km-event-editor-meta__row" onClick={card.action}>
+                <Text className="km-section-kicker">{card.label}</Text>
+                <Text className="km-event-editor-meta__value">{card.value}</Text>
+                <Text size="sm" c="dimmed" className="km-event-editor-meta__helper">
+                  {card.helper}
+                </Text>
+              </UnstyledButton>
+            ))}
+          </div>
+
+          <section className="km-event-editor-section km-event-editor-section--intro">
+            <Text className="km-section-kicker">Pressure Read</Text>
+            <div className="km-event-editor-outline">
+              {pressureNoteRows.map((row) => (
+                <UnstyledButton key={row.label} className="km-event-editor-outline__row" onClick={row.onClick}>
+                  <div className="km-event-editor-outline__head">
+                    <Text className="km-event-editor-outline__label">{row.label}</Text>
+                    <Text className="km-command-editor-link km-command-editor-link--small">{row.actionLabel}</Text>
+                  </div>
+                  <Text className="km-event-editor-outline__text">{row.title}</Text>
+                  <Text size="sm" c="dimmed" className="km-event-editor-outline__helper">
+                    {row.text}
+                  </Text>
+                </UnstyledButton>
+              ))}
+            </div>
+          </section>
+
+          <section className="km-event-editor-section">
+            <Text className="km-section-kicker">Quick Tools</Text>
+            <Group gap="lg" wrap="wrap">
+              <UnstyledButton className="km-command-editor-link" onClick={handleQuickRollEvent}>
+                Draw Library Event
+              </UnstyledButton>
+              <UnstyledButton className="km-command-editor-link" onClick={handleNewEvent}>
+                New Event
+              </UnstyledButton>
+              <UnstyledButton className="km-command-editor-link" onClick={() => setDetailTab("generator")}>
+                Table Roll
+              </UnstyledButton>
+              <UnstyledButton className="km-command-editor-link" onClick={() => navigate("/world/kingdom")}>
+                Open Kingdom
+              </UnstyledButton>
+            </Group>
+          </section>
+        </main>
+
+        <aside className="km-event-editor-dock">
+          <div className="km-event-editor-dock__section">
+            <Group justify="space-between" align="center">
+              <Text className="km-section-kicker">Live Clocks</Text>
+              <Text className="km-workspace-strip__hint">{liveClockRows.length} shown</Text>
+            </Group>
+            {liveClockRows.length ? (
+              liveClockRows.map((entry) => (
+                <UnstyledButton
+                  key={entry.id}
+                  className="km-event-editor-dock__row"
+                  onClick={() => {
+                    setSelectedId(entry.id);
+                    setDetailTab("clock");
+                    focusDetailPanel();
+                  }}
+                >
+                  <span className="km-bullet-dot km-event-editor-dock__dot" />
+                  <div className="km-event-editor-dock__copy">
+                    <Text className="km-event-editor-dock__text">{entry.title}</Text>
+                    <Text size="sm" c="dimmed">
+                      {buildEventReferenceLine(entry)}
+                    </Text>
+                    <Text className="km-action-row__link">Open Clock</Text>
+                  </div>
+                </UnstyledButton>
+              ))
+            ) : (
+              <Text c="dimmed">No live event clocks are tracked yet.</Text>
+            )}
+          </div>
+
+          <div className="km-event-editor-dock__section">
+            <Text className="km-section-kicker">Random Pressure</Text>
+            <UnstyledButton className="km-event-editor-dock__row" onClick={handleQuickRollEvent}>
+              <span className="km-bullet-dot km-event-editor-dock__dot" />
+              <div className="km-event-editor-dock__copy">
+                <Text className="km-event-editor-dock__text">Draw from the Kingmaker event library</Text>
+                <Text size="sm" c="dimmed">
+                  {quickRollPoolLabel}
+                </Text>
+                <Text className="km-action-row__link">Draw Library Event</Text>
+              </div>
+            </UnstyledButton>
+            <UnstyledButton className="km-event-editor-dock__row" onClick={() => setDetailTab("generator")}>
+              <span className="km-bullet-dot km-event-editor-dock__dot" />
+              <div className="km-event-editor-dock__copy">
+                <Text className="km-event-editor-dock__text">Use the compact table roller</Text>
+                <Text size="sm" c="dimmed">
+                  Current table d{generatorTable.length}
+                </Text>
+                <Text className="km-action-row__link">Open Table Roll</Text>
+              </div>
+            </UnstyledButton>
+          </div>
+
+          <div className="km-event-editor-dock__section">
+            <Text className="km-section-kicker">Linked Work</Text>
+            <div className="km-event-editor-dock__links">
+              <UnstyledButton className="km-command-editor-link km-command-editor-link--small" onClick={() => navigate("/world/quests")}>
+                Open Quests
+              </UnstyledButton>
+              <UnstyledButton className="km-command-editor-link km-command-editor-link--small" onClick={() => navigate("/world/companions")}>
+                Open Companions
+              </UnstyledButton>
+              <UnstyledButton className="km-command-editor-link km-command-editor-link--small" onClick={() => navigate("/world/locations")}>
+                Open Locations
+              </UnstyledButton>
+            </div>
+          </div>
+        </aside>
+      </div>
 
       <Grid gutter="lg" align="start">
         <Grid.Col span={{ base: 12, lg: 4 }}>
           <Stack gap="lg">
-            <Paper className="km-panel km-event-roster-panel">
+            <Paper className="km-panel km-event-roster-panel km-panel--flat">
               <Stack gap="md">
                 <Group justify="space-between" align="flex-start">
                   <Stack gap={2}>
                     <Text className="km-section-kicker">Front Board</Text>
-                    <Text c="dimmed">Party trouble, travel trouble, companion beats, and kingdom fallout in one board.</Text>
+                    <Text c="dimmed">{model.storyPhase.shortLabel} focus. Search to reach the full Kingmaker event library.</Text>
                   </Stack>
                   <Group gap="xs">
                     <Button size="compact-md" variant="default" leftSection={<IconDice5 size={16} />} onClick={handleQuickRollEvent}>
@@ -487,6 +676,7 @@ export default function EventsPage() {
                 </Group>
                 <Group gap="xs" wrap="wrap">
                   <Badge variant="outline">Library records {libraryEvents.length}</Badge>
+                  <Badge variant="outline">Focus references {model.focusReferenceEvents.length}</Badge>
                   <Badge variant="outline">Current draw pool {quickRollPool.length}</Badge>
                   <Text size="sm" c="dimmed">Top button draws from the seeded event library. The `Table Roll` tab uses smaller per-category prompt tables.</Text>
                 </Group>
@@ -515,35 +705,11 @@ export default function EventsPage() {
               </Stack>
             </Paper>
 
-            <Paper className="km-panel km-content-panel">
-              <Stack gap="md">
-                <Group justify="space-between" align="center">
-                  <Text className="km-section-kicker">Due Soon</Text>
-                  <Badge variant="outline">{model.imminentEvents.length}</Badge>
-                </Group>
-                {model.imminentEvents.length ? (
-                  model.imminentEvents.map((entry) => (
-                    <HistoryCard
-                      key={entry.id}
-                      entry={{
-                        eventTitle: entry.title,
-                        type: buildEventReferenceLine(entry),
-                        summary: stringValue(entry.trigger || entry.consequenceSummary || entry.notes),
-                        at: entry.hex,
-                      }}
-                    />
-                  ))
-                ) : (
-                  <Text c="dimmed">No event is about to hit right now.</Text>
-                )}
-              </Stack>
-            </Paper>
-
           </Stack>
         </Grid.Col>
 
         <Grid.Col span={{ base: 12, lg: 8 }}>
-          <Paper ref={detailPanelRef} className="km-panel km-event-detail-panel">
+          <Paper ref={detailPanelRef} className="km-panel km-event-detail-panel km-panel--flat">
             <Stack gap="lg">
               <div className="km-event-hero">
                 <Group justify="space-between" align="flex-start" gap="lg" wrap="wrap">
@@ -553,6 +719,7 @@ export default function EventsPage() {
                     <Group gap="xs" wrap="wrap">
                       <Badge color="moss" variant="light">{stringValue(draft.category) || "story"}</Badge>
                       <Badge variant="outline">{stringValue(draft.status) || "seeded"}</Badge>
+                      {selectedEvent && !isLiveCampaignRecord(selectedEvent) ? <Badge color="yellow" variant="light">Reference</Badge> : null}
                       <Badge variant="outline">Urgency {intValue(draft.urgency, 3)}</Badge>
                       <Badge variant="outline">Clock {formatEventClockSummary(draft)}</Badge>
                       {stringValue(draft.hex) ? <Badge variant="outline">{draft.hex}</Badge> : null}
@@ -562,6 +729,9 @@ export default function EventsPage() {
                     </Text>
                   </Stack>
                   <Group gap="sm" wrap="wrap">
+                    {selectedEvent && !isLiveCampaignRecord(selectedEvent) ? (
+                      <Button color="sun" onClick={handleActivate}>Activate Event</Button>
+                    ) : null}
                     <Button variant="default" onClick={handleReset} disabled={!draftDirty}>Reset</Button>
                     <Button color="moss" onClick={handleSave}>{selectedId === NEW_EVENT_ID ? "Add Event" : "Save Event"}</Button>
                     {selectedEvent ? (

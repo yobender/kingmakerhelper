@@ -19,6 +19,7 @@ import {
   formatLocationValue,
 } from "../lib/locations";
 import { getLegacyWorkspaceUrl } from "../lib/desktop";
+import { isLiveCampaignRecord } from "../lib/kingmakerFlow";
 
 const NEW_LOCATION_ID = "__new__";
 
@@ -90,6 +91,7 @@ function isLocationDraftDirty(draft, baseline) {
 }
 
 function LocationRosterItem({ location, active, onSelect }) {
+  const isReference = !isLiveCampaignRecord(location);
   return (
     <button type="button" className={`km-location-roster-item${active ? " is-active" : ""}`} onClick={onSelect}>
       <span className="km-location-roster-item__head">
@@ -100,6 +102,7 @@ function LocationRosterItem({ location, active, onSelect }) {
         <span className="km-companion-chip">{formatLocationValue(location?.type) || "Landmark"}</span>
         {stringValue(location?.hex) ? <span className="km-companion-chip">{stringValue(location.hex)}</span> : null}
         {stringValue(location?.controllingFaction) ? <span className="km-companion-chip">{stringValue(location.controllingFaction)}</span> : null}
+        {isReference ? <span className="km-companion-chip">Reference</span> : null}
       </span>
       <span className="km-location-roster-item__summary">
         {stringValue(location?.whatChanged || location?.risks || location?.opportunities || location?.notes)}
@@ -131,7 +134,7 @@ export default function LocationsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [searchValue, setSearchValue] = useState("");
-  const selectedLocation = model.locations.find((entry) => entry.id === selectedId) || null;
+  const selectedLocation = (model.allLocations || model.locations).find((entry) => entry.id === selectedId) || null;
   const [draft, setDraft] = useState(() => createLocationDraft(selectedLocation));
 
   useEffect(() => {
@@ -157,7 +160,8 @@ export default function LocationsPage() {
   const linkedMarkers = collectLocationMarkers(campaign, draft);
   const linkedRegion = collectLocationRegion(campaign, draft);
 
-  const filteredLocations = model.locations.filter((entry) => {
+  const visibleLocationPool = stringValue(searchValue) ? model.allLocations || model.locations : model.locations;
+  const filteredLocations = visibleLocationPool.filter((entry) => {
     if (statusFilter !== "all" && stringValue(entry?.status) !== statusFilter) return false;
     if (typeFilter !== "all" && stringValue(entry?.type) !== typeFilter) return false;
     const haystack = [
@@ -226,6 +230,18 @@ export default function LocationsPage() {
     });
   };
 
+  const handleActivate = () => {
+    if (!selectedLocation) return;
+    const saved = actions.activateLocation(selectedLocation.id);
+    if (!saved) return;
+    setDraft(createLocationDraft(saved));
+    notifications.show({
+      color: "moss",
+      title: "Location activated",
+      message: `${saved.name} is now live campaign context.`,
+    });
+  };
+
   const handleNewLocation = () => {
     setSelectedId(NEW_LOCATION_ID);
     setDraft(createLocationDraft(null));
@@ -269,7 +285,7 @@ export default function LocationsPage() {
                 <Group justify="space-between" align="flex-start">
                   <Stack gap={2}>
                     <Text className="km-section-kicker">Atlas Roster</Text>
-                    <Text c="dimmed">Settlements, landmarks, lairs, ruins, and route-critical sites.</Text>
+                    <Text c="dimmed">{model.storyPhase.shortLabel} focus. Search to reach the full Kingmaker location library.</Text>
                   </Stack>
                   <Button size="compact-md" color="moss" onClick={handleNewLocation}>
                     New Location
@@ -314,6 +330,7 @@ export default function LocationsPage() {
                     <Group gap="xs" wrap="wrap">
                       <Badge color="moss" variant="light">{formatLocationValue(draft.type) || "Landmark"}</Badge>
                       <Badge variant="outline">{formatLocationValue(draft.status) || "Active"}</Badge>
+                      {selectedLocation && !isLiveCampaignRecord(selectedLocation) ? <Badge color="yellow" variant="light">Reference</Badge> : null}
                       {stringValue(draft.hex) ? <Badge variant="outline">{draft.hex}</Badge> : null}
                       {stringValue(draft.controllingFaction) ? <Badge variant="outline">{draft.controllingFaction}</Badge> : null}
                     </Group>
@@ -322,6 +339,9 @@ export default function LocationsPage() {
                     </Text>
                   </Stack>
                   <Group gap="sm" wrap="wrap">
+                    {selectedLocation && !isLiveCampaignRecord(selectedLocation) ? (
+                      <Button color="sun" onClick={handleActivate}>Activate Location</Button>
+                    ) : null}
                     <Button variant="default" onClick={handleReset} disabled={!draftDirty}>Reset</Button>
                     <Button color="moss" onClick={handleSave}>{selectedId === NEW_LOCATION_ID ? "Add Location" : "Save Location"}</Button>
                     {selectedLocation ? (

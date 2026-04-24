@@ -20,6 +20,7 @@ import {
   formatNpcDisposition,
   formatNpcStatus,
 } from "../lib/npcs";
+import { isLiveCampaignRecord } from "../lib/kingmakerFlow";
 import { getLegacyWorkspaceUrl } from "../lib/desktop";
 
 const NEW_NPC_ID = "__new__";
@@ -112,6 +113,7 @@ function isNpcDraftDirty(draft, baseline) {
 }
 
 function NpcRosterItem({ npc, active, onSelect }) {
+  const isReference = !isLiveCampaignRecord(npc);
   return (
     <button type="button" className={`km-npc-roster-item${active ? " is-active" : ""}`} onClick={onSelect}>
       <span className="km-npc-roster-item__head">
@@ -122,6 +124,7 @@ function NpcRosterItem({ npc, active, onSelect }) {
         {stringValue(npc?.role) ? <span className="km-companion-chip">{stringValue(npc.role)}</span> : null}
         {stringValue(npc?.faction) ? <span className="km-companion-chip">{stringValue(npc.faction)}</span> : null}
         {stringValue(npc?.hex) ? <span className="km-companion-chip">{stringValue(npc.hex)}</span> : null}
+        {isReference ? <span className="km-companion-chip">Reference</span> : null}
         <span className="km-companion-chip">Lvl {intValue(npc?.creatureLevel, 0)}</span>
       </span>
       <span className="km-npc-roster-item__summary">
@@ -154,7 +157,7 @@ export default function NpcsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [factionFilter, setFactionFilter] = useState("all");
   const [searchValue, setSearchValue] = useState("");
-  const selectedNpc = model.npcs.find((entry) => entry.id === selectedId) || null;
+  const selectedNpc = (model.allNpcs || model.npcs).find((entry) => entry.id === selectedId) || null;
   const [draft, setDraft] = useState(() => createNpcDraft(selectedNpc));
 
   useEffect(() => {
@@ -175,7 +178,8 @@ export default function NpcsPage() {
   const linkedQuestRecords = collectLinkedNpcQuests(campaign, draft);
   const linkedEventRecords = collectLinkedNpcEvents(campaign, draft);
   const currentLocationRecords = collectNpcLocations(campaign, draft);
-  const filteredNpcs = model.npcs.filter((entry) => {
+  const visibleNpcPool = stringValue(searchValue) ? model.allNpcs || model.npcs : model.npcs;
+  const filteredNpcs = visibleNpcPool.filter((entry) => {
     if (statusFilter !== "all" && stringValue(entry?.status) !== statusFilter) return false;
     if (factionFilter !== "all" && stringValue(entry?.faction) !== factionFilter) return false;
     const haystack = [
@@ -244,6 +248,18 @@ export default function NpcsPage() {
     });
   };
 
+  const handleActivate = () => {
+    if (!selectedNpc) return;
+    const saved = actions.activateNpc(selectedNpc.id);
+    if (!saved) return;
+    setDraft(createNpcDraft(saved));
+    notifications.show({
+      color: "moss",
+      title: "NPC activated",
+      message: `${saved.name} is now live campaign context.`,
+    });
+  };
+
   const handleNewNpc = () => {
     setSelectedId(NEW_NPC_ID);
     setDraft(createNpcDraft(null));
@@ -287,7 +303,7 @@ export default function NpcsPage() {
                 <Group justify="space-between" align="flex-start">
                   <Stack gap={2}>
                     <Text className="km-section-kicker">Actor Roster</Text>
-                    <Text c="dimmed">The people who tilt travel, quests, and kingdom legitimacy.</Text>
+                    <Text c="dimmed">{model.storyPhase.shortLabel} focus. Search to reach the full Kingmaker NPC library.</Text>
                   </Stack>
                   <Button size="compact-md" color="moss" onClick={handleNewNpc}>
                     New NPC
@@ -339,6 +355,7 @@ export default function NpcsPage() {
                       {stringValue(draft.role) ? <Badge color="moss" variant="light">{draft.role}</Badge> : null}
                       {stringValue(draft.faction) ? <Badge variant="outline">{draft.faction}</Badge> : null}
                       <Badge variant="outline">{formatNpcStatus(draft.status) || "neutral"}</Badge>
+                      {selectedNpc && !isLiveCampaignRecord(selectedNpc) ? <Badge color="yellow" variant="light">Reference</Badge> : null}
                       <Badge variant="outline">{formatNpcDisposition(draft.disposition) || "indifferent"}</Badge>
                       <Badge variant="outline">Lvl {intValue(draft.creatureLevel, 0)}</Badge>
                       {stringValue(draft.hex) ? <Badge variant="outline">{draft.hex}</Badge> : null}
@@ -348,6 +365,9 @@ export default function NpcsPage() {
                     </Text>
                   </Stack>
                   <Group gap="sm" wrap="wrap">
+                    {selectedNpc && !isLiveCampaignRecord(selectedNpc) ? (
+                      <Button color="sun" onClick={handleActivate}>Activate NPC</Button>
+                    ) : null}
                     <Button variant="default" onClick={handleReset} disabled={!draftDirty}>Reset</Button>
                     <Button color="moss" onClick={handleSave}>{selectedId === NEW_NPC_ID ? "Add NPC" : "Save NPC"}</Button>
                     {selectedNpc ? (

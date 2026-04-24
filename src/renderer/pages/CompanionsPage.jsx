@@ -21,6 +21,7 @@ import {
   getCompanionInfluenceBand,
 } from "../lib/companions";
 import { getLegacyWorkspaceUrl } from "../lib/desktop";
+import { isLiveCampaignRecord } from "../lib/kingmakerFlow";
 
 const NEW_COMPANION_ID = "__new__";
 
@@ -140,6 +141,7 @@ function buildSelectData(options, currentValue, emptyLabel) {
 
 function CompanionRosterItem({ companion, active, onSelect }) {
   const influenceBand = getCompanionInfluenceBand(companion?.influence);
+  const isReference = !isLiveCampaignRecord(companion);
 
   return (
     <button type="button" className={`km-companion-roster-item${active ? " is-active" : ""}`} onClick={onSelect}>
@@ -150,6 +152,7 @@ function CompanionRosterItem({ companion, active, onSelect }) {
       <span className="km-companion-roster-item__chips">
         <span className="km-companion-chip">Influence {influenceValue(companion?.influence)}</span>
         {stringValue(companion?.currentHex) ? <span className="km-companion-chip">{stringValue(companion?.currentHex)}</span> : null}
+        {isReference ? <span className="km-companion-chip">Reference</span> : null}
       </span>
       <span className="km-companion-roster-item__summary">
         {stringValue(companion?.nextScene || companion?.personalQuest || companion?.notes || influenceBand.detail)}
@@ -180,7 +183,7 @@ export default function CompanionsPage() {
   const [detailTab, setDetailTab] = useState("overview");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchValue, setSearchValue] = useState("");
-  const selectedCompanion = model.companions.find((entry) => entry.id === selectedId) || null;
+  const selectedCompanion = (model.allCompanions || model.companions).find((entry) => entry.id === selectedId) || null;
   const [draft, setDraft] = useState(() => createCompanionDraft(selectedCompanion, model.partyHex));
 
   useEffect(() => {
@@ -196,7 +199,8 @@ export default function CompanionsPage() {
   const baselineDraft = createCompanionDraft(selectedCompanion, model.partyHex);
   const draftDirty = isCompanionDraftDirty(draft, baselineDraft);
   const influenceBand = getCompanionInfluenceBand(draft.influence);
-  const filteredCompanions = model.companions.filter((entry) => {
+  const visibleCompanionPool = stringValue(searchValue) ? model.allCompanions || model.companions : model.companions;
+  const filteredCompanions = visibleCompanionPool.filter((entry) => {
     const statusMatches = statusFilter === "all" || stringValue(entry?.status) === statusFilter;
     if (!statusMatches) return false;
     const haystack = [
@@ -263,6 +267,18 @@ export default function CompanionsPage() {
     });
   };
 
+  const handleActivate = () => {
+    if (!selectedCompanion) return;
+    const saved = actions.activateCompanion(selectedCompanion.id);
+    if (!saved) return;
+    setDraft(createCompanionDraft(saved, model.partyHex));
+    notifications.show({
+      color: "moss",
+      title: "Companion activated",
+      message: `${saved.name} is now live campaign context.`,
+    });
+  };
+
   const handleNewCompanion = () => {
     setSelectedId(NEW_COMPANION_ID);
     setDetailTab("overview");
@@ -323,7 +339,7 @@ export default function CompanionsPage() {
                 <Group justify="space-between" align="flex-start">
                   <Stack gap={2}>
                     <Text className="km-section-kicker">Companion Roster</Text>
-                    <Text c="dimmed">Recruitable allies, active travelers, and kingdom-facing companions.</Text>
+                    <Text c="dimmed">{model.storyPhase.shortLabel} focus. Search to reach the full companion reference list.</Text>
                   </Stack>
                   <Button size="compact-md" color="moss" onClick={handleNewCompanion}>
                     New Companion
@@ -401,6 +417,7 @@ export default function CompanionsPage() {
                     <Title order={2}>{stringValue(draft.name) || "New Companion Record"}</Title>
                     <Group gap="xs" wrap="wrap">
                       <Badge color="moss" variant="light">{stringValue(draft.status).replace(/-/g, " ") || "prospective"}</Badge>
+                      {selectedCompanion && !isLiveCampaignRecord(selectedCompanion) ? <Badge color="yellow" variant="light">Reference</Badge> : null}
                       <Badge variant="outline">Influence {influenceValue(draft.influence)}</Badge>
                       <Badge variant="outline">{influenceBand.label}</Badge>
                       {stringValue(draft.currentHex) ? <Badge variant="outline">{draft.currentHex}</Badge> : null}
@@ -411,6 +428,9 @@ export default function CompanionsPage() {
                   </Stack>
 
                   <Group gap="sm" wrap="wrap">
+                    {selectedCompanion && !isLiveCampaignRecord(selectedCompanion) ? (
+                      <Button color="sun" onClick={handleActivate}>Activate Companion</Button>
+                    ) : null}
                     <Button variant="default" onClick={handleReset} disabled={!draftDirty}>
                       Reset
                     </Button>

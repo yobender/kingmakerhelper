@@ -15,6 +15,7 @@ import {
   collectLinkedQuestNpcs,
   collectQuestLocations,
 } from "../lib/quests";
+import { isLiveCampaignRecord } from "../lib/kingmakerFlow";
 import { getLegacyWorkspaceUrl } from "../lib/desktop";
 
 const NEW_QUEST_ID = "__new__";
@@ -123,7 +124,7 @@ export default function QuestsPage() {
   const navigate = useNavigate();
   const { campaign, actions } = useCampaign();
   const model = buildQuestsModel(campaign);
-  const [selectedId, setSelectedId] = useState(() => model.quests[0]?.id || NEW_QUEST_ID);
+  const [selectedId, setSelectedId] = useState(() => model.availableQuests[0]?.id || model.quests[0]?.id || NEW_QUEST_ID);
   const [detailTab, setDetailTab] = useState("overview");
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
@@ -134,8 +135,8 @@ export default function QuestsPage() {
   useEffect(() => {
     if (selectedId === NEW_QUEST_ID) return;
     if (selectedQuest) return;
-    setSelectedId(model.quests[0]?.id || NEW_QUEST_ID);
-  }, [selectedId, selectedQuest, model.quests]);
+    setSelectedId(model.availableQuests[0]?.id || model.quests[0]?.id || NEW_QUEST_ID);
+  }, [selectedId, selectedQuest, model.availableQuests, model.quests]);
 
   useEffect(() => {
     if (selectedId === NEW_QUEST_ID) return;
@@ -152,7 +153,8 @@ export default function QuestsPage() {
   const linkedNpcRecords = collectLinkedQuestNpcs(campaign, draft);
   const linkedLocationRecords = collectQuestLocations(campaign, draft);
 
-  const filteredQuests = model.quests.filter((entry) => {
+  const visibleQuestPool = stringValue(searchValue) ? model.quests : model.availableQuests;
+  const filteredQuests = visibleQuestPool.filter((entry) => {
     if (statusFilter !== "all" && stringValue(entry?.status) !== statusFilter) return false;
     if (priorityFilter !== "all" && stringValue(entry?.priority) !== priorityFilter) return false;
     const haystack = [
@@ -222,6 +224,18 @@ export default function QuestsPage() {
     });
   };
 
+  const handleActivate = () => {
+    if (!selectedQuest) return;
+    const saved = actions.activateQuest(selectedQuest.id);
+    if (!saved) return;
+    setDraft(createQuestDraft(saved));
+    notifications.show({
+      color: "moss",
+      title: "Quest activated",
+      message: `${saved.title} is now live campaign state.`,
+    });
+  };
+
   const handleNewQuest = () => {
     setSelectedId(NEW_QUEST_ID);
     setDraft(createQuestDraft(null));
@@ -265,7 +279,7 @@ export default function QuestsPage() {
                 <Group justify="space-between" align="flex-start">
                   <Stack gap={2}>
                     <Text className="km-section-kicker">Quest Board</Text>
-                    <Text c="dimmed">The frontier mission stack, with chapter and map context.</Text>
+                    <Text c="dimmed">{model.storyPhase.shortLabel} focus. Search to reach the full Kingmaker library.</Text>
                   </Stack>
                   <Button size="compact-md" color="moss" onClick={handleNewQuest}>
                     New Quest
@@ -310,6 +324,7 @@ export default function QuestsPage() {
                     <Group gap="xs" wrap="wrap">
                       <Badge color="moss" variant="light">{stringValue(draft.priority) || "Soon"}</Badge>
                       <Badge variant="outline">{stringValue(draft.status) || "open"}</Badge>
+                      {selectedQuest && !isLiveCampaignRecord(selectedQuest) ? <Badge color="yellow" variant="light">Reference</Badge> : null}
                       {stringValue(draft.chapter) ? <Badge variant="outline">{stringValue(draft.chapter)}</Badge> : null}
                       {stringValue(draft.hex) ? <Badge variant="outline">{stringValue(draft.hex)}</Badge> : null}
                     </Group>
@@ -318,6 +333,9 @@ export default function QuestsPage() {
                     </Text>
                   </Stack>
                   <Group gap="sm" wrap="wrap">
+                    {selectedQuest && !isLiveCampaignRecord(selectedQuest) ? (
+                      <Button color="sun" onClick={handleActivate}>Activate Quest</Button>
+                    ) : null}
                     <Button variant="default" onClick={handleReset} disabled={!draftDirty}>Reset</Button>
                     <Button color="moss" onClick={handleSave}>{selectedId === NEW_QUEST_ID ? "Add Quest" : "Save Quest"}</Button>
                     {selectedQuest ? (

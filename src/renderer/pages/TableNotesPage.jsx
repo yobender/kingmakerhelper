@@ -4,7 +4,7 @@ import { notifications } from "@mantine/notifications";
 import * as Tabs from "@radix-ui/react-tabs";
 import { IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import MetricCard from "../components/MetricCard";
+import CompactMetaStrip from "../components/CompactMetaStrip";
 import PageHeader from "../components/PageHeader";
 import { useCampaign } from "../context/CampaignContext";
 import { CAPTURE_KIND_OPTIONS } from "../lib/campaignState";
@@ -93,6 +93,7 @@ export default function TableNotesPage() {
       value: targetSession?.title || "No Session",
       helper: targetSession ? getSessionDateLabel(targetSession) : "Adventure Log needs a session before notes can be promoted.",
       valueTone: "compact",
+      onClick: () => navigate("/campaign/adventure-log"),
     },
     {
       label: "Latest Capture",
@@ -196,13 +197,7 @@ export default function TableNotesPage() {
         }
       />
 
-      <Grid gutter="lg">
-        {summaryCards.map((card) => (
-          <Grid.Col key={card.label} span={{ base: 12, md: 6, xl: 3 }}>
-            <MetricCard label={card.label} value={card.value} helper={card.helper} valueTone={card.valueTone} />
-          </Grid.Col>
-        ))}
-      </Grid>
+      <CompactMetaStrip items={summaryCards} className="km-campaign-desk-strip" />
 
       <Tabs.Root defaultValue="capture" className="km-radix-tabs">
         <Tabs.List className="km-radix-list" aria-label="Table Notes views">
@@ -220,7 +215,7 @@ export default function TableNotesPage() {
         <Tabs.Content value="capture" className="km-radix-content">
           <Grid gutter="lg">
             <Grid.Col span={{ base: 12, xl: 7 }}>
-              <Paper className="km-panel km-content-panel">
+              <Paper className="km-panel km-content-panel km-table-capture-card">
                 <Stack gap="md">
                   <Group justify="space-between" align="flex-start">
                     <div>
@@ -282,7 +277,7 @@ export default function TableNotesPage() {
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, xl: 5 }}>
-              <Paper className="km-panel km-content-panel">
+              <Paper className="km-panel km-content-panel km-table-promote-card">
                 <Stack gap="md">
                   <Group justify="space-between" align="flex-start">
                     <div>

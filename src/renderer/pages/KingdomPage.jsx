@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import { Accordion, ActionIcon, Badge, Button, Grid, Group, Paper, Select, Stack, Text, TextInput, Textarea, Title } from "@mantine/core";
+import { Accordion, ActionIcon, Badge, Button, Grid, Group, Paper, Select, Stack, Text, TextInput, Textarea, Title, UnstyledButton } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import * as Tabs from "@radix-ui/react-tabs";
 import { IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
-import MetricCard from "../components/MetricCard";
-import PageHeader from "../components/PageHeader";
 import { useCampaign } from "../context/CampaignContext";
 import { diffGolarionDates, formatGolarionDate } from "../lib/golarion";
 import {
@@ -296,39 +294,210 @@ export default function KingdomPage() {
     if (targetMainTab === "reference" && targetSubTab) setReferenceTab(targetSubTab);
   };
 
+  const latestTurn = model.recentTurns[0] || null;
+  const cadenceNotes = [
+    `${model.monthContext.monthLabel} has ${model.monthContext.daysRemaining} days left after today.`,
+    `${model.sessionsThisMonth.length} sessions and ${model.kingdomTurnsThisMonth.length} kingdom turns are logged this month.`,
+    model.activeKingdomEvents[0]
+      ? `${model.activeKingdomEvents[0].title} is the hottest kingdom clock at ${Math.trunc(Number(model.activeKingdomEvents[0]?.clock || 0))}/${Math.max(1, Math.trunc(Number(model.activeKingdomEvents[0]?.clockMax || 1)))}.`
+      : "No kingdom-only pressure clock is active right now.",
+  ];
+  const dockProjectRows = model.watchlist.slice(0, 4);
+  const dockClockRows = model.activeKingdomEvents.slice(0, 4);
+  const dockSeatRows = model.leadershipSummary.slice(0, 4);
+
   return (
     <Stack gap="xl">
-      <PageHeader
-        eyebrow="World"
-        title="Kingdom"
-        description="Run the kingdom from one place: sheet state, calendar cadence, leadership coverage, settlements, regions, and monthly turn fallout."
-        actions={
-          <>
-            <Button variant="default" onClick={() => navigate("/world/hex-map")}>
-              Open Hex Map
-            </Button>
-            <Button variant="default" onClick={() => navigate("/world/events")}>
-              Open Events
-            </Button>
-          </>
-        }
-      />
+      <div className="km-kingdom-editor-header">
+        <div className="km-kingdom-editor-header__copy">
+          <Text className="km-eyebrow">Kingdom Note</Text>
+          <Title order={2} className="km-kingdom-editor-header__title">
+            Kingdom
+          </Title>
+          <Text c="dimmed" className="km-kingdom-editor-header__description">
+            One workspace for kingdom cadence, leadership coverage, monthly turn pressure, and the sheet state that has to survive handoff after play.
+          </Text>
+          <Group gap="lg" wrap="wrap" className="km-kingdom-editor-header__links">
+            <UnstyledButton className="km-command-editor-link" onClick={() => navigate("/world/hex-map")}>
+              Hex Map
+            </UnstyledButton>
+            <UnstyledButton className="km-command-editor-link" onClick={() => navigate("/world/events")}>
+              Events
+            </UnstyledButton>
+            <UnstyledButton className="km-command-editor-link" onClick={() => navigate("/campaign/adventure-log")}>
+              Adventure Log
+            </UnstyledButton>
+          </Group>
+        </div>
+      </div>
 
-      <Grid gutter="lg">
-        {model.summaryCards.map((card) => (
-          <Grid.Col key={card.label} span={{ base: 12, md: 6, xl: 3 }}>
-            <MetricCard
-              label={card.label}
-              value={card.value}
-              helper={card.helper}
-              valueTone={card.valueTone}
-              chip={card.chip}
-              actionLabel={card.actionLabel}
-              onClick={() => openKingdomWorkspace(card.path, card.subtab)}
-            />
-          </Grid.Col>
-        ))}
-      </Grid>
+      <div className="km-kingdom-editor-layout">
+        <main className="km-kingdom-editor-note">
+          <div className="km-kingdom-editor-meta">
+            {model.summaryCards.map((card) => (
+              <UnstyledButton
+                key={card.label}
+                className="km-kingdom-editor-meta__row"
+                onClick={() => openKingdomWorkspace(card.path, card.subtab)}
+              >
+                <Text className="km-section-kicker">{card.label}</Text>
+                <Text className="km-kingdom-editor-meta__value">{card.value}</Text>
+                <Text size="sm" c="dimmed" className="km-kingdom-editor-meta__helper">
+                  {[card.chip, card.helper].filter(Boolean).join(" / ")}
+                </Text>
+              </UnstyledButton>
+            ))}
+          </div>
+
+          <section className="km-kingdom-editor-section km-kingdom-editor-section--intro">
+            <Text className="km-section-kicker">This Month</Text>
+            <div className="km-kingdom-editor-list">
+              {cadenceNotes.map((item) => (
+                <div key={item} className="km-bullet-row">
+                  <span className="km-bullet-dot" />
+                  <Text>{item}</Text>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="km-kingdom-editor-section">
+            <Text className="km-section-kicker">Kingdom Focus</Text>
+            <div className="km-kingdom-editor-list">
+              {model.overviewBullets.map((item) => (
+                <div key={item} className="km-bullet-row">
+                  <span className="km-bullet-dot" />
+                  <Text>{item}</Text>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="km-kingdom-editor-section">
+            <Group justify="space-between" align="flex-start" wrap="wrap">
+              <div>
+                <Text className="km-section-kicker">Latest Turn</Text>
+                <Title order={3} className="km-kingdom-editor-section__title">
+                  {latestTurn?.title || model.kingdom.currentTurnLabel || "Turn 1"}
+                </Title>
+              </div>
+              <Badge color="moss" variant="light">
+                {formatGolarionDate(latestTurn?.date || model.kingdom.currentDate)}
+              </Badge>
+            </Group>
+            {model.latestTurnSummary.length ? (
+              <div className="km-kingdom-editor-outline">
+                {model.latestTurnSummary.map((item) => (
+                  <div key={item} className="km-kingdom-editor-outline__row">
+                    <Text className="km-kingdom-editor-outline__text">{item}</Text>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Text c="dimmed" className="km-kingdom-editor-section__support">
+                No detailed turn summary is logged yet. Use the Turn Workflow lane to record kingdom fallout, costs, and event consequences.
+              </Text>
+            )}
+          </section>
+
+          <section className="km-kingdom-editor-section">
+            <Text className="km-section-kicker">Quick Open</Text>
+            <Group gap="lg" wrap="wrap">
+              <UnstyledButton className="km-command-editor-link" onClick={() => openKingdomWorkspace("sheet", "overview")}>
+                Sheet Overview
+              </UnstyledButton>
+              <UnstyledButton className="km-command-editor-link" onClick={() => openKingdomWorkspace("calendar", "month")}>
+                Calendar
+              </UnstyledButton>
+              <UnstyledButton className="km-command-editor-link" onClick={() => openKingdomWorkspace("turns", "run")}>
+                Turn Workflow
+              </UnstyledButton>
+              <UnstyledButton className="km-command-editor-link" onClick={() => openKingdomWorkspace("reference", "rules")}>
+                Rules Stack
+              </UnstyledButton>
+            </Group>
+          </section>
+        </main>
+
+        <aside className="km-kingdom-editor-dock">
+          <div className="km-kingdom-editor-dock__section">
+            <Group justify="space-between" align="center">
+              <Text className="km-section-kicker">Due This Month</Text>
+              <Text className="km-workspace-strip__hint">{dockProjectRows.length || 0} items</Text>
+            </Group>
+            {dockProjectRows.length ? (
+              dockProjectRows.map((item) => (
+                <UnstyledButton
+                  key={item}
+                  className="km-kingdom-editor-dock__row"
+                  onClick={() => openKingdomWorkspace("sheet", "overview")}
+                >
+                  <span className="km-bullet-dot km-kingdom-editor-dock__dot" />
+                  <div className="km-kingdom-editor-dock__copy">
+                    <Text className="km-kingdom-editor-dock__text">{item}</Text>
+                    <Text className="km-action-row__link">Open Sheet</Text>
+                  </div>
+                </UnstyledButton>
+              ))
+            ) : (
+              <Text c="dimmed">No pending projects are tracked yet.</Text>
+            )}
+          </div>
+
+          <div className="km-kingdom-editor-dock__section">
+            <Text className="km-section-kicker">Active Kingdom Clocks</Text>
+            {dockClockRows.length ? (
+              dockClockRows.map((eventItem) => (
+                <UnstyledButton
+                  key={eventItem.id}
+                  className="km-kingdom-editor-dock__row"
+                  onClick={() => navigate("/world/events")}
+                >
+                  <span className="km-bullet-dot km-kingdom-editor-dock__dot" />
+                  <div className="km-kingdom-editor-dock__copy">
+                    <Text className="km-kingdom-editor-dock__text">{eventItem.title}</Text>
+                    <Text size="sm" c="dimmed">
+                      {`${Math.trunc(Number(eventItem.clock || 0))}/${Math.max(1, Math.trunc(Number(eventItem.clockMax || 1)))}`}
+                      {eventItem.trigger ? ` / ${eventItem.trigger}` : ""}
+                    </Text>
+                    <Text className="km-action-row__link">Open Events</Text>
+                  </div>
+                </UnstyledButton>
+              ))
+            ) : (
+              <Text c="dimmed">No active kingdom-only event clocks are tracked.</Text>
+            )}
+          </div>
+
+          <div className="km-kingdom-editor-dock__section">
+            <Text className="km-section-kicker">Seat Watch</Text>
+            {dockSeatRows.length ? (
+              dockSeatRows.map((entry) => (
+                <UnstyledButton
+                  key={entry.role}
+                  className="km-kingdom-editor-dock__row"
+                  onClick={() => openKingdomWorkspace("sheet", "leadership")}
+                >
+                  <span className="km-bullet-dot km-kingdom-editor-dock__dot" />
+                  <div className="km-kingdom-editor-dock__copy">
+                    <Text className="km-kingdom-editor-dock__text">
+                      {entry.role}: {entry.assignedLeader?.name || "Open seat"}
+                    </Text>
+                    <Text size="sm" c="dimmed">
+                      {entry.assignedLeader
+                        ? `${entry.assignedLeader.type || "NPC"} / bonus ${entry.assignedLeader.leadershipBonus ?? 0}`
+                        : "Needs coverage in Leadership."}
+                    </Text>
+                    <Text className="km-action-row__link">Open Leadership</Text>
+                  </div>
+                </UnstyledButton>
+              ))
+            ) : (
+              <Text c="dimmed">No leadership roles are loaded for the current profile.</Text>
+            )}
+          </div>
+        </aside>
+      </div>
 
       <Tabs.Root value={mainTab} onValueChange={setMainTab} className="km-radix-tabs">
         <Tabs.List className="km-radix-list" aria-label="Kingdom views">

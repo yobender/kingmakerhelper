@@ -1,3 +1,5 @@
+import { getActiveStoryPhase, isLiveCampaignRecord, recordMatchesActiveStoryPhase, shouldSurfaceRecordForFocus } from "./kingmakerFlow";
+
 function stringValue(value) {
   return value == null ? "" : String(value).trim();
 }
@@ -201,6 +203,7 @@ function categoryRank(eventItem) {
 }
 
 export function buildEventsModel(campaign) {
+  const storyPhase = getActiveStoryPhase(campaign);
   const events = [...(campaign?.events || [])].sort((left, right) => {
     const statusDelta = priorityRank(left) - priorityRank(right);
     if (statusDelta !== 0) return statusDelta;
@@ -215,8 +218,9 @@ export function buildEventsModel(campaign) {
 
   const activeEvents = events.filter((entry) => {
     const status = stringValue(entry?.status).toLowerCase();
-    return status === "seeded" || status === "active" || status === "escalated" || status === "cooldown";
+    return isLiveCampaignRecord(entry) && (status === "seeded" || status === "active" || status === "escalated" || status === "cooldown");
   });
+  const focusReferenceEvents = events.filter((entry) => !isLiveCampaignRecord(entry) && recordMatchesActiveStoryPhase(entry, campaign));
   const kingdomEvents = activeEvents.filter(
     (entry) => stringValue(entry?.category).toLowerCase() === "kingdom" || shouldApplyEventImpact(entry, campaign?.kingdom?.regions || [])
   );
@@ -227,11 +231,12 @@ export function buildEventsModel(campaign) {
   });
   const categories = [...new Set(events.map((entry) => stringValue(entry?.category)).filter(Boolean))].sort((left, right) => left.localeCompare(right));
   const folderOptions = [...new Set(events.map((entry) => stringValue(entry?.folder)).filter(Boolean))].sort((left, right) => left.localeCompare(right));
-  const questOptions = [...(campaign?.quests || [])]
+  const focusedRecords = (records = []) => records.filter((entry) => shouldSurfaceRecordForFocus(entry, campaign));
+  const questOptions = focusedRecords(campaign?.quests)
     .map((entry) => stringValue(entry?.title))
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right));
-  const companionOptions = [...(campaign?.companions || [])]
+  const companionOptions = focusedRecords(campaign?.companions)
     .map((entry) => stringValue(entry?.name))
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right));
@@ -241,7 +246,9 @@ export function buildEventsModel(campaign) {
 
   return {
     events,
+    storyPhase,
     activeEvents,
+    focusReferenceEvents,
     kingdomEvents,
     partyEvents,
     imminentEvents,
@@ -254,7 +261,9 @@ export function buildEventsModel(campaign) {
       {
         label: "Active Fronts",
         value: `${activeEvents.length}`,
-        helper: activeEvents[0] ? `${activeEvents[0].title} / ${buildEventReferenceLine(activeEvents[0])}` : "No active event fronts are recorded.",
+        helper: activeEvents[0]
+          ? `${activeEvents[0].title} / ${buildEventReferenceLine(activeEvents[0])}`
+          : `No active event fronts are recorded. ${focusReferenceEvents.length} ${storyPhase.shortLabel} reference event(s) are available.`,
         valueTone: "number",
       },
       {

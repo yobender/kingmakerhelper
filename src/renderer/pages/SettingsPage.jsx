@@ -27,6 +27,17 @@ const TIMEOUT_OPTIONS = ["120", "240", "480", "900"].map((value) => ({
   label: `${value}s`,
 }));
 
+const RETRIEVAL_MODE_OPTIONS = [
+  { value: "hybrid", label: "Hybrid: keyword + semantic" },
+  { value: "semantic", label: "Semantic only" },
+  { value: "keyword", label: "Keyword only" },
+];
+
+const RETRIEVAL_LIMIT_OPTIONS = ["2", "3", "4", "6", "8", "10", "12"].map((value) => ({
+  value,
+  label: `${value} chunks`,
+}));
+
 function formatSavedAt(value) {
   const time = Date.parse(value || "");
   if (Number.isNaN(time)) return "Not saved yet";
@@ -38,6 +49,22 @@ function formatSavedAt(value) {
 
 function formatConfigMessage(value) {
   return String(value || "").trim() || "No local AI status yet.";
+}
+
+function formatRagStatus(status) {
+  if (!status) return "RAG status not loaded yet.";
+  const indexed = Number(status.indexedFiles || 0);
+  const chunks = Number(status.retrievalChunks || 0);
+  const embedded = Number(status.embeddedChunks || 0);
+  const models = Array.isArray(status.activeEmbeddingModels)
+    ? status.activeEmbeddingModels.map((entry) => `${entry.model} (${entry.filesUsingModel})`).join(", ")
+    : "";
+  return [
+    `${indexed} indexed PDF${indexed === 1 ? "" : "s"}`,
+    `${chunks} retrieval chunks`,
+    `${embedded} embedded chunks`,
+    models ? `models: ${models}` : "embeddings: created lazily on first search",
+  ].join(" / ");
 }
 
 function SettingsShortcutCard({ title, description, badge, buttonLabel, onClick, icon: Icon }) {
@@ -71,7 +98,7 @@ function SettingsShortcutCard({ title, description, badge, buttonLabel, onClick,
   );
 }
 
-export default function SettingsPage({ onExport, onImport, onReset }) {
+export default function SettingsPage({ onExport, onImport, onReset, initialTab = "workspace" }) {
   const navigate = useNavigate();
   const { activeTheme } = useUiTheme();
   const { campaign, desktopApi, lastSavedAt, persistenceError, actions } = useCampaign();
@@ -80,10 +107,37 @@ export default function SettingsPage({ onExport, onImport, onReset }) {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiStatus, setAiStatus] = useState("");
   const [availableModels, setAvailableModels] = useState([]);
+  const [ragBusy, setRagBusy] = useState(false);
+  const [ragStatus, setRagStatus] = useState(null);
+  const [ragTestQuery, setRagTestQuery] = useState("Stag Lord bandit pressure at Oleg's Trading Post");
+  const [ragTestMessage, setRagTestMessage] = useState("");
 
   useEffect(() => {
     setCampaignNameDraft(campaign.meta?.campaignName || "Kingmaker");
   }, [campaign.meta?.campaignName]);
+
+  useEffect(() => {
+    if (!desktopApi?.getRagStatus) return;
+    let active = true;
+    desktopApi
+      .getRagStatus(aiConfig)
+      .then((status) => {
+        if (active) setRagStatus(status || null);
+      })
+      .catch(() => {
+        if (active) setRagStatus(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    desktopApi,
+    aiConfig.endpoint,
+    aiConfig.embeddingModel,
+    aiConfig.retrievalMode,
+    aiConfig.retrievalLimit,
+    aiConfig.rerankEnabled,
+  ]);
 
   const aiReady = Boolean(desktopApi?.generateLocalAiText);
   const cleanCampaignName = campaignNameDraft.trim();
@@ -136,6 +190,80 @@ export default function SettingsPage({ onExport, onImport, onReset }) {
 
   const handleConfigChange = (field, value) => {
     actions.updateAiConfig({ [field]: value });
+  };
+
+  const handleLoadRagStatus = async () => {
+    if (!desktopApi?.getRagStatus) {
+      setRagTestMessage("RAG status requires the desktop app build.");
+      return null;
+    }
+
+    setRagBusy(true);
+    try {
+      const status = await desktopApi.getRagStatus(aiConfig);
+      setRagStatus(status || null);
+      setRagTestMessage(status?.note || "RAG status loaded.");
+      return status || null;
+    } catch (error) {
+      const message = String(error?.message || error || "Could not load RAG status.");
+      setRagTestMessage(message);
+      notifications.show({
+        color: "ember",
+        title: "RAG status failed",
+        message,
+      });
+      return null;
+    } finally {
+      setRagBusy(false);
+    }
+  };
+
+  const handleTestRagSearch = async () => {
+    if (!desktopApi?.searchPdf) {
+      notifications.show({
+        color: "ember",
+        title: "RAG search unavailable",
+        message: "PDF RAG search requires the desktop app build.",
+      });
+      return;
+    }
+    const query = ragTestQuery.trim();
+    if (!query) {
+      notifications.show({
+        color: "ember",
+        title: "RAG query required",
+        message: "Enter a test question or phrase before running RAG.",
+      });
+      return;
+    }
+
+    setRagBusy(true);
+    setRagTestMessage("Running local PDF RAG search...");
+    try {
+      const result = await desktopApi.searchPdf({
+        query,
+        limit: aiConfig.retrievalLimit || DEFAULT_AI_CONFIG.retrievalLimit,
+        config: aiConfig,
+      });
+      const rows = Array.isArray(result?.results) ? result.results : [];
+      const retrieval = result?.retrieval || {};
+      setRagTestMessage(
+        `${rows.length} result${rows.length === 1 ? "" : "s"} / ${retrieval.mode || "unknown"} / ${
+          retrieval.embeddingModel || "keyword"
+        } / rerank ${retrieval.rerankStrategy || "off"}. ${retrieval.note || ""}`.trim()
+      );
+      await handleLoadRagStatus();
+    } catch (error) {
+      const message = String(error?.message || error || "RAG search failed.");
+      setRagTestMessage(message);
+      notifications.show({
+        color: "ember",
+        title: "RAG test failed",
+        message,
+      });
+    } finally {
+      setRagBusy(false);
+    }
   };
 
   const handleTestAi = async () => {
@@ -218,7 +346,7 @@ export default function SettingsPage({ onExport, onImport, onReset }) {
         ))}
       </Grid>
 
-      <Tabs.Root defaultValue="workspace" className="km-radix-tabs">
+      <Tabs.Root defaultValue={initialTab} className="km-radix-tabs">
         <Tabs.List className="km-radix-list" aria-label="Settings views">
           <Tabs.Trigger value="workspace" className="km-radix-trigger">
             Workspace
@@ -465,6 +593,85 @@ export default function SettingsPage({ onExport, onImport, onReset }) {
                       />
                     </Grid.Col>
                   </Grid>
+
+                  <Paper className="km-record-card km-rag-settings-card">
+                    <Stack gap="md">
+                      <Group justify="space-between" align="flex-start" wrap="nowrap">
+                        <div>
+                          <Text className="km-section-kicker">RAG Grounding</Text>
+                          <Title order={4}>PDF Retrieval Defaults</Title>
+                        </div>
+                        <Badge color={aiConfig.rerankEnabled === false ? "gray" : "moss"} variant="light">
+                          {aiConfig.rerankEnabled === false ? "Rerank off" : "Local rerank"}
+                        </Badge>
+                      </Group>
+
+                      <Text size="sm" c="dimmed">
+                        The app searches indexed PDFs first, then sends only the best chunks to Ollama. Cross-encoder reranking is a good future upgrade, but this build uses a local hybrid reranker so it stays fully offline and dependency-light.
+                      </Text>
+
+                      <Grid gutter="md">
+                        <Grid.Col span={{ base: 12, md: 4 }}>
+                          <Select
+                            label="Retrieval mode"
+                            value={aiConfig.retrievalMode || DEFAULT_AI_CONFIG.retrievalMode}
+                            onChange={(value) => handleConfigChange("retrievalMode", value || DEFAULT_AI_CONFIG.retrievalMode)}
+                            data={RETRIEVAL_MODE_OPTIONS}
+                          />
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 12, md: 4 }}>
+                          <Select
+                            label="AI context chunks"
+                            value={String(aiConfig.retrievalLimit || DEFAULT_AI_CONFIG.retrievalLimit)}
+                            onChange={(value) => handleConfigChange("retrievalLimit", Number(value || DEFAULT_AI_CONFIG.retrievalLimit))}
+                            data={RETRIEVAL_LIMIT_OPTIONS}
+                          />
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 12, md: 4 }}>
+                          <TextInput
+                            label="Embedding model"
+                            value={aiConfig.embeddingModel || ""}
+                            onChange={(event) => handleConfigChange("embeddingModel", event.currentTarget.value)}
+                            placeholder="Auto: nomic-embed-text"
+                          />
+                        </Grid.Col>
+                      </Grid>
+
+                      <Checkbox
+                        checked={aiConfig.rerankEnabled !== false}
+                        onChange={(event) => handleConfigChange("rerankEnabled", event.currentTarget.checked)}
+                        label="Rerank retrieved chunks before sending them to the model"
+                      />
+
+                      <Grid gutter="md">
+                        <Grid.Col span={{ base: 12, md: 8 }}>
+                          <TextInput
+                            label="RAG test query"
+                            value={ragTestQuery}
+                            onChange={(event) => setRagTestQuery(event.currentTarget.value)}
+                            placeholder="Ask about a Kingmaker location, event, NPC, or rule"
+                          />
+                        </Grid.Col>
+                        <Grid.Col span={{ base: 12, md: 4 }}>
+                          <Group gap="sm" align="flex-end" h="100%" className="km-toolbar-wrap">
+                            <Button variant="default" onClick={handleLoadRagStatus} loading={ragBusy} disabled={!desktopApi?.getRagStatus}>
+                              RAG Status
+                            </Button>
+                            <Button color="moss" onClick={handleTestRagSearch} loading={ragBusy} disabled={!desktopApi?.searchPdf}>
+                              Test RAG
+                            </Button>
+                          </Group>
+                        </Grid.Col>
+                      </Grid>
+
+                      <Text size="sm" c="dimmed">
+                        {formatRagStatus(ragStatus)}
+                      </Text>
+                      <Text size="sm" c="dimmed">
+                        {ragTestMessage || "Use Test RAG after indexing PDFs to confirm Ollama embeddings and retrieval are working."}
+                      </Text>
+                    </Stack>
+                  </Paper>
 
                   <Group gap="sm" className="km-toolbar-wrap">
                     <Button color="moss" onClick={handleTestAi} disabled={aiBusy}>

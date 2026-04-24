@@ -1,412 +1,336 @@
-# DM Helper Project Handoff
+# Kingmaker Companion Project Handoff
 
-This file is the development handoff for the current `DM Helper` desktop app.
+Last updated: 2026-04-24
 
-Use it on another PC to understand:
-
-- what the app already does
-- how the AI stack currently works
-- what was intentionally deferred
-- what to build next
+This repo is the current Kingmaker GM helper app. The app is an Electron + React desktop workspace for running Pathfinder 2e Kingmaker with local campaign state, local source indexing, and a campaign-aware AI assistant.
 
 ## Repo
 
-- GitHub: `https://github.com/yobender/DM-Helper`
-- Local app folder on this PC: `d:\LoreBound\kingmaker-gm-studio`
+- Local folder on this machine: `D:\LoreBound\kingmaker-gm-studio`
+- Git branch used today: `main`
+- Primary remote: `origin https://github.com/yobender/kingmakerhelper.git`
+- Secondary remote still configured: `dm-helper https://github.com/yobender/DM-Helper.git`
 
-## Product Direction
+## Current Product Direction
 
-`DM Helper` is the main hub.
+The app should help a DM run Kingmaker chapter-by-chapter without flooding every page or AI answer with the whole AP.
 
-The AI is not meant to be a separate product. The built-in AI subsystem is `Loremaster`, and the intended architecture is:
+Core rules:
 
-- local for storage
-- local for retrieval
-- local for memory
-- local for workflow
-- model only for reasoning/synthesis
+- The DM activates the current AP chapter/phase.
+- Reference material stays advisory until activated by the DM.
+- Live campaign records are the source of truth.
+- The AI should answer campaign/rules/prep questions from the current chapter context, not invent broad campaign state.
+- Opening narration, Jamandi feast setup, and Oleg startup context should only appear when explicitly requested.
 
-That design choice is deliberate. It keeps the app grounded in actual campaign data instead of letting the model invent continuity.
+## Major Work Completed In This Pass
 
-## Current App State
+### 1. AI Routing And Prompt Assembly
 
-The app is an Electron desktop app with these major areas:
+The backend AI flow was refactored around explicit intent routing and smaller prompt payloads.
 
-- `Dashboard`
-- `Session Runner`
-- `Live Capture HUD`
-- `Writing Helper`
-- `Kingdom`
-- `Hex Map`
-- `NPCs`
-- `Quests`
-- `Locations`
-- `PF2e Rules`
-- `PDF Intel`
-- `Obsidian Vault`
-- `Foundry Export`
+Implemented routing functions include:
 
-## AI Architecture Already Implemented
+- `detectIntent(userMessage, selectedPageMode, scopeTag)`
+- `selectAnswerMode(intent, selectedPageMode)`
+- `selectContextBuckets(intent, selectedPageMode, scopeTag)`
+- `buildSystemPrompt(answerMode)`
+- `buildContextBlock(contextBuckets)`
+- `buildAiUserPrompt(userMessage, routeResult, contextBlock)`
 
-### 1. Task Router
+Intent precedence now prioritizes:
 
-Loremaster now classifies requests into explicit task types instead of relying only on weak tab heuristics.
+1. `player_build`
+2. `rules_question`
+3. `gm_prep`
+4. `world_lore`
+5. `campaign_recall`
+6. `create_or_update_content`
+7. `session_start_or_opening`
+8. `general_chat`
 
-Examples:
+Important AI behavior:
 
-- `rules_question`
-- `campaign_lookup`
-- `session_summary`
-- `note_update`
-- `kingdom_helper`
-- `map_helper`
-- `pdf_lookup`
-- `vault_workflow`
-- `writing_cleanup`
+- Ask mode defaults to normal advice.
+- Prep mode defaults to GM prep.
+- Recall mode defaults to campaign/session recall.
+- Create mode is the only page mode that defaults to create/update behavior.
+- Explicit create language can still route to create mode.
+- Player build questions override Kingmaker/opening language.
+- Opening notes are excluded unless the user explicitly asks for opening narration, first session, Jamandi feast intro, Oleg arrival, or read-aloud text.
+- Debug route preview returns intent, answer mode, included buckets, excluded buckets, and reasons.
 
-This is the start of the orchestrator layer from the design spec.
+### 2. Local AP Source Manifest
 
-### 2. Memory Digests
+The app now refreshes a source-safe AP manifest from local owned PDFs.
 
-The app builds compact local AI memory digests from campaign state.
+Command:
 
-Current digests:
+```powershell
+npm run refresh:library
+```
 
-- `campaignSummary`
-- `recentSessionSummary`
-- `activeQuestsSummary`
-- `activeEntitiesSummary`
-- `rulingsDigest`
-- `canonSummary`
+Current local PDF shelf:
 
-These are intentionally small. They are meant to be stable context, not giant raw dumps.
+```text
+C:\Users\Chris Bender\Downloads\PathfinderKingmakerAdventurePathPDF-SingleFile
+```
 
-### 3. Unified Retrieval
+The manifest is stored in:
 
-Loremaster now retrieves from multiple local sources in one pass.
+```text
+kingmaker-source-manifest.json
+```
 
-Current retrieval sources:
+The manifest contains source metadata, chapter titles, section titles, page starts, source hashes, source roles, and audience categories. It does not copy AP body text into the repo.
 
-- sessions
-- quests
-- NPCs
-- locations
-- kingdom state
-- hex map state
-- live-captured rules/retcons
-- saved PDF summaries
-- Obsidian vault notes
-- Archives of Nethys rule matches
-- persistent rules/canon store
+### 3. Kingmaker AP Flow Alignment
 
-The app also shows a `Retrieved Context` preview so you can inspect what it fed to the model.
+`src/renderer/lib/kingmakerFlow.js` was rebuilt around the actual PF2e Kingmaker AP chapter outline:
 
-### 4. PF2e Rules Layer
+- Chapter 1: A Call for Heroes
+- Chapter 2: Into the Wild
+- Chapter 3: Stolen Lands
+- Kingdom Founding app phase
+- Chapter 4: Rivers Run Red
+- Chapter 5: Cult of the Bloom
+- Chapter 6: The Varnhold Vanishing
+- Chapter 7: Blood for Blood
+- Chapter 8: War of the River Kings
+- Chapter 9: They Lurk Below
+- Chapter 10: Sound of a Thousand Screams
+- Chapter 11: Curse of the Lantern King
 
-There is now a `PF2e Rules` tab.
+Each phase now has:
 
-It supports:
+- label
+- short label
+- source page start
+- summary
+- DM brief
+- run beats
+- keep-handy tags
+- focus terms for filtering reference records
+- legacy IDs where older saved campaign state used outdated phase IDs
 
-- official Pathfinder 2e rules lookup through Archives of Nethys
-- exact-title-biased rules search
-- local rules/rulings digest comparison
-- `Official vs Local` split view
-- send-query-to-Loremaster flow
+### 4. Reference Library Realignment
 
-Important boundary:
+`src/renderer/lib/kingmakerCanonLibrary.js` was updated so embedded reference cards no longer use the older six-chapter structure.
 
-- we are using targeted live lookup and local cache
-- we are **not** mirroring the whole AoN site into the app
+Key corrections:
 
-### 5. Local Rules / Canon Learning Layer
+- Oleg, Stag Lord, Thorn River, and bandit stronghold material moved to Chapter 3: Stolen Lands.
+- Old Sycamore, Sootscale, wilderness discoveries, and hexcrawl material moved to Chapter 2: Into the Wild.
+- Troll Trouble moved to Chapter 4: Rivers Run Red.
+- Cult of the Bloom received chapter-level quest/location anchors.
+- Varnhold/Vordakai material moved to Chapter 6.
+- Drelev/Armag material moved to Chapter 7.
+- Pitax material moved to Chapter 8.
+- They Lurk Below received chapter-level quest/location anchors.
+- Nyrissa/House/Thousandbreaths material moved to Chapter 10.
+- Lantern King material moved to Chapter 11.
 
-This is the newest AI-learning layer.
+### 5. Starter State Cleanup
 
-It is not model fine-tuning.
+`src/renderer/lib/campaignState.js` was changed so the old baked-in `Session 00 - Jamandi's Charter` no longer appears as a real logged session by default.
 
-It is local memory improvement through accepted knowledge.
+Reference records are now marked with:
 
-Current capabilities:
+- `recordSource: "kingmaker-reference"`
+- `confirmed: false`
 
-- save official rule snippets as `Official Note`
-- save Loremaster output as `Accepted Ruling`
-- save Loremaster output as `Canon Memory`
-- create manual local entries directly in the rules tab
-- retrieve those entries later in future AI answers
+This matters because the app can now distinguish:
 
-This is the correct version of “AI learning” for this app.
+- reference/canon shelf material
+- activated table truth
+- actual user-created campaign state
 
-## What “Learning” Means In This App
+The old starter session signatures are filtered on load so legacy starter data does not keep leaking into recall/AI.
 
-The app does **not** retrain model weights on use.
+### 6. Run Kingmaker Workspace
 
-Instead, it improves through:
+The Run Kingmaker page is now meant to be the DM's chapter control room.
 
-- better local storage
-- better local retrieval
-- better memory digests
-- accepted rulings
-- accepted canon facts
+Current behavior:
 
-That is aligned with the original hybrid-assistant plan.
+- The DM can select the active AP chapter from visible chapter cards.
+- Selecting a chapter updates `meta.storyFocus.activePhaseId`.
+- The page shows a chapter brief for the active chapter.
+- The page shows DM run beats for that chapter.
+- The page shows keep-handy tags for the chapter.
+- The page shows local PDF source anchors from the source manifest.
+- The page shows live campaign records.
+- The page shows focused reference records that match the active chapter.
+- Activating reference records promotes them into confirmed table state.
 
-## Obsidian Integration
+Latest fix:
 
-Current Obsidian support:
+- Chapter cards previously changed focus quietly, which looked like nothing happened.
+- They now show a selected state, display a footer action, scroll to the chapter brief, and show a notification when clicked.
 
-- choose a vault folder
-- sync DM Helper notes into markdown
-- let Loremaster read compact vault context
-- write current AI output back into the vault
+### 7. UI Redesign Direction
 
-This is currently strongest as:
+The app moved toward a more Kingmaker-specific visual language:
 
-- export/sync
-- read context for AI
-- write AI notes to markdown
+- darker frontier-green base
+- brass/gold accents
+- rounded/bubbly panels
+- bigger chapter/home presentation
+- consolidated top navigation categories
+- less tab overload
+- more distinct page identity
 
-It is **not** yet a full two-way editor.
+Important UI goal going forward:
 
-## PDF Integration
+- Each major page should feel like a different DM tool, not a clone of the same dashboard.
+- The home page and Run Kingmaker page should feel like the core command table.
+- Internal pages should be more focused and less crowded.
 
-Current PDF support:
+### 8. Text And Responsive Fixes
 
-- index local PDFs
-- search snippets
-- save per-file summaries
-- use indexed PDF context in AI prompts
-- use PDF summaries as persistent memory
+A global text-resilience pass was added in `src/renderer/styles.css`.
 
-This is useful for:
+Goals:
 
-- campaign modules
-- GM books you legally possess locally
-- lore recap
-- subsystem reminders
+- reduce clipping at different window sizes
+- allow long AP titles and record titles to wrap safely
+- make buttons, badges, cards, tables, and panels less likely to overflow
 
-## Kingdom + Hex Map
+Known caveat:
 
-Current kingdom state:
+- Some dense content pages still need page-by-page cleanup, especially where old layouts use many cards at once.
 
-- tracked kingdom sheet
-- creation planner
-- charter/government/heartland reference
-- derived modifiers and summaries
+## Files Most Relevant To Recent Work
 
-Current hex map state:
+- `main.js`
+- `preload.js`
+- `src/shared/aiRouting.cjs`
+- `tests/aiRouting.test.cjs`
+- `src/renderer/pages/AIChatPage.jsx`
+- `src/renderer/pages/RunKingmakerPage.jsx`
+- `src/renderer/lib/runKingmaker.js`
+- `src/renderer/lib/kingmakerFlow.js`
+- `src/renderer/lib/kingmakerCanonLibrary.js`
+- `src/renderer/lib/kingmakerEventLibrary.js`
+- `src/renderer/lib/campaignState.js`
+- `src/renderer/lib/knowledgeGraph.js`
+- `src/renderer/lib/routes.js`
+- `src/renderer/styles.css`
+- `kingmaker-source-manifest.json`
 
-- dedicated `Hex Map` tab
-- pan with mouse drag
-- zoom with mouse wheel
-- map background support
-- party marker
-- party trail
-- allied/enemy/caravan force markers
-- hex records and marker notes
+## Build And Verification Commands
 
-This is still early, but it is already usable as a campaign map layer.
+Use these after pulling on another machine:
 
-## Local Models
+```powershell
+npm install
+npm run build:renderer
+npm test
+node --check main.js
+```
 
-The app is currently built around local-first AI.
+To refresh the source manifest after connecting local PDFs:
 
-Important model direction:
+```powershell
+npm run refresh:library
+```
 
-- PF2e-focused local wrappers exist in `ollama-models`
-- `lorebound-pf2e:latest` is the deeper PF2e 20b path
-- smaller/faster models are available for lighter work
+To run the desktop app:
 
-The app already supports model selection and local Ollama configuration.
+```powershell
+npm run start
+```
 
-## What Was Deliberately Deferred
+To rebuild an unpacked Windows app:
 
-These are not mistakes. They were intentionally postponed:
+```powershell
+npx electron-builder --win dir --config.directories.output=dist-ui-refresh
+```
 
-- cloud API provider wiring
-- full rules mirror
-- true two-way Obsidian editing
-- full autonomous note rewrites
-- agent swarm behavior
-- Foundry automation
-- giant graph-memory system
-- model fine-tuning
+## Current Verification Status
 
-## Why Cloud/API Was Deferred
+As of this handoff:
 
-The user asked for:
+- `npm run build:renderer` passes.
+- `npm test` passes.
+- `node --check main.js` passes.
+- `node --check src\renderer\lib\runKingmaker.js` passes.
+- `node --check src\renderer\lib\kingmakerFlow.js` passes.
 
-- local AI
-- optional smarter online AI
+Note:
 
-That is a good direction, but it should come **after** the local memory layer.
+- `node --check` does not work directly on `.jsx` files in this repo because Node does not understand the `.jsx` extension without the build tool. Use `npm run build:renderer` for JSX validation.
 
-Reason:
+## How To Continue At Home
 
-- if cloud comes too early, it becomes the source of truth
-- that breaks the architecture we actually want
+1. Pull the latest branch:
 
-Correct order:
+```powershell
+git pull origin main
+```
 
-1. local memory and local canon
-2. strong retrieval
-3. provider abstraction
-4. optional cloud reasoning
+2. Install dependencies if needed:
 
-## Recommended Next Steps
+```powershell
+npm install
+```
 
-This is the next practical sequence.
+3. Run verification:
 
-### 1. Provider Abstraction
-
-Add AI provider mode:
-
-- `Local`
-- `Auto`
-- `Cloud`
-
-Design rule:
-
-- local retrieval remains the source of truth
-- cloud only receives compact context packages
-
-### 2. Cloud/API Settings
-
-Add optional settings for a smarter online model.
-
-Support should be generic enough for an OpenAI-compatible endpoint.
-
-At minimum:
-
-- provider mode
-- base URL
-- API key
-- model name
-- timeout
-- per-task routing policy
-
-### 3. Per-Task Provider Routing
-
-Good default approach:
-
-- local for small prep and fast workflows
-- cloud for heavy synthesis only
-
-Examples of cloud-suitable tasks:
-
-- long session consolidation
-- difficult rules synthesis
-- cross-source summary drafting
-- large note cleanup
-
-### 4. Reviewable Note Updates
-
-The AI should draft updates, not silently overwrite state.
-
-Add:
-
-- preview diff / preview block
-- `Apply`
-- `Reject`
-- `Save as Canon`
-- `Save as Ruling`
-
-### 5. Stronger PF2e Rules UX
-
-Still needed:
-
-- rule-type filters
-- better exact-match handling
-- easier save-to-store flows
-- clearer official vs local precedence
-
-### 6. Kingdom Events
-
-After the AI/provider layer is stable:
-
-- build a kingdom event system
-- attach events to turns
-- optionally tie events to map hexes
-
-## Practical “What To Do On The Other PC”
-
-### Code + Models
-
-1. Clone or pull the repo:
-
-   - `git clone https://github.com/yobender/DM-Helper.git`
-
-2. Install dependencies:
-
-   - `npm install`
-
-3. Build PF2e model wrappers:
-
-   - `powershell -ExecutionPolicy Bypass -File .\scripts\setup-ollama-models.ps1`
+```powershell
+npm run build:renderer
+npm test
+node --check main.js
+```
 
 4. Run the app:
 
-   - `npm run start`
+```powershell
+npm run start
+```
 
-5. Or build the portable exe:
+5. Reconnect local-only resources if needed:
 
-   - `npm run dist`
+- PDF folder
+- Ollama endpoint/model
+- Obsidian vault
+- exported campaign state JSON
 
-### Campaign Data
+## Important Local Data Boundary
 
-To move actual campaign state:
+The repo stores source-safe metadata and app code.
 
-1. Export campaign JSON from inside the app on the source PC
-2. Import campaign JSON on the other PC
-3. Reconnect:
-   - PDF folder
-   - Obsidian vault
-   - Ollama models
+The repo should not store:
 
-### Optional Cache Copy
+- AP body text copied from PDFs
+- private campaign saves unless intentionally exported
+- local app cache
+- generated unpacked app folders
+- `dist-*` build artifacts
 
-If you want the same PDF summary cache:
+The current `.gitignore` ignores `dist-hotfix*` but not all `dist-*` folders. For this push, generated `dist-*` folders were intentionally left untracked.
 
-- copy the Electron app data cache for `dm-helper`
+## Known Follow-Ups
 
-## Files To Read First On Another PC
+Recommended next work:
 
-Read these in order:
-
-1. `PROJECT-HANDOFF.md`
-2. `AI_ASSISTANT_ROADMAP.md`
-3. `README.md`
-4. `SETUP-OTHER-PC.md`
-
-## Development Notes
-
-- The repo may contain a committed `dist` portable build. Rebuild it when app logic changes materially.
-- The current worktree before this handoff included ongoing app changes in:
-  - `app.js`
-  - `main.js`
-  - `preload.js`
-  - `styles.css`
-  - `kingdom-rules-data.json`
-  - `scripts/launch-dm-helper.cmd`
-  - `dist/DM Helper 0.1.0.exe`
-- The newest AI-learning work was primarily in:
-  - `app.js`
-  - `main.js`
+- Verify the Run Kingmaker chapter-card interaction in the actual Electron window after pulling.
+- Add an obvious "Active Chapter" sticky mini-header so the selected chapter is visible even lower on the page.
+- Add direct "Open PDF folder/source" behavior if we want source anchors to do more than open Source Library.
+- Continue page-by-page UI cleanup for Campaign Desk, World Atlas, Kingdom Table, Council, and Tools.
+- Make every clickable card use consistent hover/focus/pressed states.
+- Add tests for story phase filtering so old chapter labels cannot regress.
+- Add chapter-specific source cards for companion-guide material where relevant.
+- Add an import/setup wizard for users to point the app at their local Kingmaker PDFs.
 
 ## Short Summary
 
-Current status:
+The app is now much closer to a true Kingmaker DM runner:
 
-- DM Helper is already a local-first hybrid campaign assistant
-- task routing exists
-- memory digests exist
-- unified retrieval exists
-- PF2e rules tab exists
-- Obsidian context exists
-- PDF memory exists
-- local rules/canon learning now exists
-
-The next real layer is:
-
-- provider abstraction for `local + optional cloud`
-
-That is the correct continuation point.
+- source manifest is local and chapter-aware
+- story focus is chapter-aware
+- reference records are separated from live campaign truth
+- AI routing is narrower and safer
+- Run Kingmaker is now the chapter control workspace
+- the old baked Session 00 problem is filtered out
+- UI direction is more Kingmaker-specific and less generic dashboard

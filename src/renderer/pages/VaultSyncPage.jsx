@@ -534,7 +534,7 @@ export default function VaultSyncPage() {
                   </Group>
 
                   <Text c="dimmed">
-                    Sync writes a campaign home note plus structured markdown for sessions, NPCs, companions, quests, events, locations, kingdom state, hex map state, and table notes.
+                    Sync writes a campaign home note plus structured markdown for confirmed sessions, NPCs, companions, quests, events, locations, kingdom state, hex map state, and table notes. Kingmaker reference records stay out of the vault until activated.
                   </Text>
 
                   <div className="km-vault-guide-list">

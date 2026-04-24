@@ -20,6 +20,7 @@ import {
   IconTrees,
   IconWheat,
 } from "@tabler/icons-react";
+import { isLiveCampaignRecord, shouldSurfaceRecordForFocus } from "./kingmakerFlow";
 export const HEX_MAP_MARKER_TYPES = ["Encounter", "Building", "Event", "Settlement", "Resource", "Danger", "Note"];
 export const HEX_MAP_FORCE_TYPES = ["Allied Force", "Enemy Force", "Caravan"];
 export const HEX_MAP_STATUS_OPTIONS = ["Unclaimed", "Reconnoitered", "Claimed", "Work Site", "Settlement", "Contested"];
@@ -507,10 +508,13 @@ export function buildHexMapModel(campaign, requestedHex = "") {
   const selectedRegion = regionMap.get(selectedHex) || null;
   const selectedMarkers = markersByHex.get(selectedHex) || [];
   const selectedForces = forcesByHex.get(selectedHex) || [];
-  const linkedLocations = (campaign?.locations || []).filter((entry) => normalizeHexCoordinate(entry?.hex) === selectedHex);
-  const linkedQuests = (campaign?.quests || []).filter((entry) => normalizeHexCoordinate(entry?.hex) === selectedHex);
-  const linkedEvents = (campaign?.events || []).filter((entry) => normalizeHexCoordinate(entry?.hex) === selectedHex);
-  const linkedCompanions = (campaign?.companions || []).filter((entry) => normalizeHexCoordinate(entry?.currentHex) === selectedHex);
+  const linkedLocations = (campaign?.locations || []).filter((entry) => shouldSurfaceRecordForFocus(entry, campaign) && normalizeHexCoordinate(entry?.hex) === selectedHex);
+  const linkedQuests = (campaign?.quests || []).filter((entry) => shouldSurfaceRecordForFocus(entry, campaign) && normalizeHexCoordinate(entry?.hex) === selectedHex);
+  const linkedEvents = (campaign?.events || []).filter((entry) => shouldSurfaceRecordForFocus(entry, campaign) && normalizeHexCoordinate(entry?.hex) === selectedHex);
+  const linkedCompanions = (campaign?.companions || []).filter(
+    (entry) => shouldSurfaceRecordForFocus(entry, campaign) && normalizeHexCoordinate(entry?.currentHex) === selectedHex
+  );
+  const liveLinkedEvents = linkedEvents.filter(isLiveCampaignRecord);
   const partyTrail = Array.isArray(hexMap?.party?.trail)
     ? hexMap.party.trail.filter((entry) => normalizeHexCoordinate(entry?.hex))
     : [];
@@ -559,9 +563,9 @@ export function buildHexMapModel(campaign, requestedHex = "") {
         valueTone: "compact",
       },
       {
-        label: "Open Travel Pressure",
-        value: `${linkedEvents.length}`,
-        helper: linkedEvents[0]?.title || "No events linked to the selected hex.",
+        label: "Live Travel Pressure",
+        value: `${liveLinkedEvents.length}`,
+        helper: liveLinkedEvents[0]?.title || "No live events linked to the selected hex.",
         valueTone: "number",
       },
     ],

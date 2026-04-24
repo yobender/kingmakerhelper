@@ -1,3 +1,5 @@
+import { getActiveStoryPhase, isLiveCampaignRecord, recordMatchesActiveStoryPhase, shouldSurfaceRecordForFocus } from "./kingmakerFlow";
+
 const ACTIVE_LOCATION_STATUSES = new Set(["active", "secured", "threatened", "unstable", "rumor"]);
 
 export const LOCATION_SOURCE_ANCHORS = Object.freeze([
@@ -69,6 +71,7 @@ export function formatLocationValue(value) {
 }
 
 export function buildLocationsModel(campaign) {
+  const storyPhase = getActiveStoryPhase(campaign);
   const locations = [...(campaign?.locations || [])].sort((left, right) => {
     const statusDelta = statusRank(left) - statusRank(right);
     if (statusDelta !== 0) return statusDelta;
@@ -77,38 +80,46 @@ export function buildLocationsModel(campaign) {
     return stringValue(left?.name).localeCompare(stringValue(right?.name));
   });
 
-  const activeLocations = locations.filter((entry) => ACTIVE_LOCATION_STATUSES.has(stringValue(entry?.status).toLowerCase()));
-  const threatenedLocations = locations.filter(
+  const activeLocations = locations.filter((entry) => isLiveCampaignRecord(entry) && ACTIVE_LOCATION_STATUSES.has(stringValue(entry?.status).toLowerCase()));
+  const focusReferenceLocations = locations.filter((entry) => !isLiveCampaignRecord(entry) && recordMatchesActiveStoryPhase(entry, campaign));
+  const visibleLocations = [...activeLocations, ...focusReferenceLocations].filter(
+    (entry, index, list) => list.findIndex((candidate) => stringValue(candidate?.id) === stringValue(entry?.id)) === index
+  );
+  const focusedRecords = (records = []) => records.filter((entry) => shouldSurfaceRecordForFocus(entry, campaign));
+  const threatenedLocations = activeLocations.filter(
     (entry) =>
       stringValue(entry?.status).toLowerCase() === "threatened"
       || stringValue(entry?.status).toLowerCase() === "unstable"
       || Boolean(stringValue(entry?.risks))
       || Boolean(stringValue(entry?.linkedEvent))
   );
-  const mapBoundLocations = locations.filter((entry) => Boolean(stringValue(entry?.hex)));
-  const hubLocations = locations.filter((entry) => stringValue(entry?.type).toLowerCase() === "settlement" || stringValue(entry?.type).toLowerCase() === "camp");
-  const factionOptions = [...new Set(locations.map((entry) => stringValue(entry?.controllingFaction)).filter(Boolean))]
+  const mapBoundLocations = activeLocations.filter((entry) => Boolean(stringValue(entry?.hex)));
+  const hubLocations = activeLocations.filter((entry) => stringValue(entry?.type).toLowerCase() === "settlement" || stringValue(entry?.type).toLowerCase() === "camp");
+  const factionOptions = [...new Set(visibleLocations.map((entry) => stringValue(entry?.controllingFaction)).filter(Boolean))]
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ value, label: value }));
-  const questOptions = [...(campaign?.quests || [])]
+  const questOptions = focusedRecords(campaign?.quests)
     .map((entry) => stringValue(entry?.title))
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ value, label: value }));
-  const eventOptions = [...(campaign?.events || [])]
+  const eventOptions = focusedRecords(campaign?.events)
     .map((entry) => stringValue(entry?.title))
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ value, label: value }));
-  const npcOptions = [...(campaign?.npcs || [])]
+  const npcOptions = focusedRecords(campaign?.npcs)
     .map((entry) => stringValue(entry?.name))
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ value, label: value }));
 
   return {
-    locations,
+    locations: visibleLocations,
+    allLocations: locations,
+    storyPhase,
     activeLocations,
+    focusReferenceLocations,
     threatenedLocations,
     mapBoundLocations,
     hubLocations,
@@ -117,17 +128,19 @@ export function buildLocationsModel(campaign) {
     eventOptions,
     npcOptions,
     sourceAnchors: [...LOCATION_SOURCE_ANCHORS],
-    quests: [...(campaign?.quests || [])],
-    events: [...(campaign?.events || [])],
-    npcs: [...(campaign?.npcs || [])],
-    companions: [...(campaign?.companions || [])],
+    quests: focusedRecords(campaign?.quests),
+    events: focusedRecords(campaign?.events),
+    npcs: focusedRecords(campaign?.npcs),
+    companions: focusedRecords(campaign?.companions),
     markers: [...(campaign?.hexMap?.markers || [])],
     regions: [...(campaign?.kingdom?.regions || [])],
     summaryCards: [
       {
         label: "Tracked Locations",
-        value: `${locations.length}`,
-        helper: activeLocations[0] ? `${activeLocations[0].name} / ${buildLocationSummary(activeLocations[0])}` : "No active location records are being tracked yet.",
+        value: `${activeLocations.length}`,
+        helper: activeLocations[0]
+          ? `${activeLocations[0].name} / ${buildLocationSummary(activeLocations[0])}`
+          : `No live location records yet. ${focusReferenceLocations.length} ${storyPhase.shortLabel} reference location(s) are available.`,
         valueTone: "number",
       },
       {
@@ -158,10 +171,11 @@ export function collectLocationQuests(campaign, locationDraft) {
   const linkedQuest = stringValue(locationDraft?.linkedQuest);
   return [...(campaign?.quests || [])].filter(
     (entry) =>
-      stringValue(entry?.title) === linkedQuest
-      || matchesName(entry?.giver, locationDraft?.linkedNpc)
-      || (hex && stringValue(entry?.hex).toUpperCase() === hex)
-      || stringValue(entry?.objective).toLowerCase().includes(locationName.toLowerCase())
+      shouldSurfaceRecordForFocus(entry, campaign) &&
+      (stringValue(entry?.title) === linkedQuest
+        || matchesName(entry?.giver, locationDraft?.linkedNpc)
+        || (hex && stringValue(entry?.hex).toUpperCase() === hex)
+        || stringValue(entry?.objective).toLowerCase().includes(locationName.toLowerCase()))
   );
 }
 
@@ -171,10 +185,11 @@ export function collectLocationEvents(campaign, locationDraft) {
   const locationName = stringValue(locationDraft?.name).toLowerCase();
   return [...(campaign?.events || [])].filter(
     (entry) =>
-      stringValue(entry?.title) === linkedEvent
-      || (hex && stringValue(entry?.hex).toUpperCase() === hex)
-      || stringValue(entry?.trigger).toLowerCase().includes(locationName)
-      || stringValue(entry?.fallout).toLowerCase().includes(locationName)
+      shouldSurfaceRecordForFocus(entry, campaign) &&
+      (stringValue(entry?.title) === linkedEvent
+        || (hex && stringValue(entry?.hex).toUpperCase() === hex)
+        || stringValue(entry?.trigger).toLowerCase().includes(locationName)
+        || stringValue(entry?.fallout).toLowerCase().includes(locationName))
   );
 }
 
@@ -184,15 +199,16 @@ export function collectLocationNpcs(campaign, locationDraft) {
   const locationName = stringValue(locationDraft?.name);
   return [...(campaign?.npcs || [])].filter(
     (entry) =>
-      matchesName(entry?.name, linkedNpc)
-      || matchesName(entry?.location, locationName)
-      || (hex && stringValue(entry?.hex).toUpperCase() === hex)
+      shouldSurfaceRecordForFocus(entry, campaign) &&
+      (matchesName(entry?.name, linkedNpc)
+        || matchesName(entry?.location, locationName)
+        || (hex && stringValue(entry?.hex).toUpperCase() === hex))
   );
 }
 
 export function collectLocationCompanions(campaign, locationDraft) {
   const hex = stringValue(locationDraft?.hex).toUpperCase();
-  return [...(campaign?.companions || [])].filter((entry) => hex && stringValue(entry?.currentHex).toUpperCase() === hex);
+  return [...(campaign?.companions || [])].filter((entry) => shouldSurfaceRecordForFocus(entry, campaign) && hex && stringValue(entry?.currentHex).toUpperCase() === hex);
 }
 
 export function collectLocationMarkers(campaign, locationDraft) {

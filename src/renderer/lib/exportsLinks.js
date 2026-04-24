@@ -1,4 +1,5 @@
 import { formatGolarionDate } from "./golarion";
+import { isLiveCampaignRecord } from "./kingmakerFlow";
 
 function stringValue(value) {
   return value == null ? "" : String(value).trim();
@@ -8,6 +9,18 @@ function clipText(value, limit = 180) {
   const clean = stringValue(value).replace(/\s+/g, " ");
   if (clean.length <= limit) return clean;
   return `${clean.slice(0, Math.max(0, limit - 3)).trim()}...`;
+}
+
+function liveRecords(records = []) {
+  return (Array.isArray(records) ? records : []).filter(isLiveCampaignRecord);
+}
+
+function openLiveQuests(campaign) {
+  return liveRecords(campaign?.quests).filter((entry) => !["completed", "failed"].includes(stringValue(entry?.status).toLowerCase()));
+}
+
+function activeLiveEvents(campaign) {
+  return liveRecords(campaign?.events).filter((entry) => ["active", "escalated", "seeded", "cooldown"].includes(stringValue(entry?.status).toLowerCase()));
 }
 
 function foundryId() {
@@ -245,11 +258,11 @@ function toHexMapJournal(hexMap) {
 }
 
 function buildFoundryExports(campaign) {
-  const npcs = Array.isArray(campaign?.npcs) ? campaign.npcs : [];
-  const quests = Array.isArray(campaign?.quests) ? campaign.quests : [];
-  const locations = Array.isArray(campaign?.locations) ? campaign.locations : [];
-  const companions = Array.isArray(campaign?.companions) ? campaign.companions : [];
-  const events = Array.isArray(campaign?.events) ? campaign.events : [];
+  const npcs = liveRecords(campaign?.npcs);
+  const quests = openLiveQuests(campaign);
+  const locations = liveRecords(campaign?.locations);
+  const companions = liveRecords(campaign?.companions);
+  const events = activeLiveEvents(campaign);
   const kingdom = campaign?.kingdom || {};
   const hexMap = campaign?.hexMap || {};
 
@@ -321,7 +334,7 @@ function buildFoundryExports(campaign) {
     "full-pack": {
       id: "full-pack",
       label: "Full Foundry Pack",
-      description: "One combined JSON export for actors plus all journal-style Kingmaker reference data.",
+      description: "One combined JSON export for confirmed live campaign actors plus journal-style table state.",
       count:
         npcActors.length +
         questJournals.length +
@@ -353,9 +366,10 @@ function buildBridgePack(campaign) {
       currentDateLabel: formatGolarionDate(campaign?.kingdom?.currentDate),
     },
     latestSession: campaign?.sessions?.[0] || null,
-    openQuests: (Array.isArray(campaign?.quests) ? campaign.quests : []).filter((entry) => !["completed", "failed"].includes(stringValue(entry?.status).toLowerCase())),
-    activeEvents: (Array.isArray(campaign?.events) ? campaign.events : []).filter((entry) => ["active", "escalated"].includes(stringValue(entry?.status).toLowerCase())),
-    activeCompanions: (Array.isArray(campaign?.companions) ? campaign.companions : []).filter((entry) => !["departed"].includes(stringValue(entry?.status).toLowerCase())),
+    storyFocus: campaign?.meta?.storyFocus || {},
+    openQuests: openLiveQuests(campaign),
+    activeEvents: activeLiveEvents(campaign),
+    activeCompanions: liveRecords(campaign?.companions).filter((entry) => !["departed"].includes(stringValue(entry?.status).toLowerCase())),
     kingdom: campaign?.kingdom || {},
     hexMap: {
       mapName: stringValue(campaign?.hexMap?.mapName),
@@ -371,10 +385,11 @@ function buildLatestSessionHandoff(campaign) {
   return {
     exportedAt: new Date().toISOString(),
     latestSession,
-    openQuests: (Array.isArray(campaign?.quests) ? campaign.quests : []).filter((entry) => !["completed", "failed"].includes(stringValue(entry?.status).toLowerCase())),
-    activeEvents: (Array.isArray(campaign?.events) ? campaign.events : []).filter((entry) => ["active", "escalated"].includes(stringValue(entry?.status).toLowerCase())),
-    highlightedNpcs: Array.isArray(campaign?.npcs) ? campaign.npcs.slice(0, 8) : [],
-    highlightedLocations: Array.isArray(campaign?.locations) ? campaign.locations.slice(0, 8) : [],
+    storyFocus: campaign?.meta?.storyFocus || {},
+    openQuests: openLiveQuests(campaign),
+    activeEvents: activeLiveEvents(campaign),
+    highlightedNpcs: liveRecords(campaign?.npcs).slice(0, 8),
+    highlightedLocations: liveRecords(campaign?.locations).slice(0, 8),
     kingdomDate: stringValue(campaign?.kingdom?.currentDate),
     kingdomDateLabel: formatGolarionDate(campaign?.kingdom?.currentDate),
   };
@@ -382,8 +397,8 @@ function buildLatestSessionHandoff(campaign) {
 
 export function buildExportsLinksModel(campaign) {
   const foundryExports = buildFoundryExports(campaign);
-  const activeEvents = (Array.isArray(campaign?.events) ? campaign.events : []).filter((entry) => ["active", "escalated"].includes(stringValue(entry?.status).toLowerCase()));
-  const openQuests = (Array.isArray(campaign?.quests) ? campaign.quests : []).filter((entry) => !["completed", "failed"].includes(stringValue(entry?.status).toLowerCase()));
+  const activeEvents = activeLiveEvents(campaign);
+  const openQuests = openLiveQuests(campaign);
   const latestSession = campaign?.sessions?.[0] || null;
 
   return {
@@ -391,7 +406,7 @@ export function buildExportsLinksModel(campaign) {
       {
         label: "Foundry Scope",
         value: `${Object.keys(foundryExports).length} packs`,
-        helper: `${foundryExports["full-pack"].count} total records ready for Foundry JSON export.`,
+        helper: `${foundryExports["full-pack"].count} confirmed live records ready for Foundry JSON export.`,
         valueTone: "compact",
       },
       {

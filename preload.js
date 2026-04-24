@@ -33,5 +33,19 @@ contextBridge.exposeInMainWorld("kmDesktop", {
     ipcRenderer.invoke("system:open-path-at-page", { targetPath, page }),
   testLocalAi: (config) => ipcRenderer.invoke("ai:test-connection", config),
   listLocalAiModels: (config) => ipcRenderer.invoke("ai:list-models", config),
+  getRagStatus: (config) => ipcRenderer.invoke("ai:get-rag-status", config),
+  buildSemanticIndex: (config) => ipcRenderer.invoke("ai:build-semantic-index", config),
+  onSemanticIndexProgress: (handler) => {
+    if (typeof handler !== "function") return () => {};
+    const listener = (_event, payload) => {
+      try {
+        handler(payload);
+      } catch {
+        // Ignore renderer callback errors to keep IPC stable.
+      }
+    };
+    ipcRenderer.on("ai:semantic-index-progress", listener);
+    return () => ipcRenderer.removeListener("ai:semantic-index-progress", listener);
+  },
   generateLocalAiText: (payload) => ipcRenderer.invoke("ai:generate-text", payload),
 });

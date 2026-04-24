@@ -45,6 +45,7 @@ import {
   shouldApplyEventImpact,
 } from "../lib/events";
 import { getControlDcForLevel, getDefaultKingdomProfileId, getKingdomProfileById, normalizeKingdomHex } from "../lib/kingdom";
+import { normalizeStoryFocus } from "../lib/kingmakerFlow";
 import { deriveRulesMemoryState } from "../lib/rules";
 
 const CampaignContext = createContext(null);
@@ -447,6 +448,25 @@ export function CampaignProvider({ children }) {
     return nextMeta;
   };
 
+  const setStoryFocus = (patch = {}) => {
+    const base = normalizeCampaignState(campaign);
+    const nextFocus = normalizeStoryFocus({
+      ...(base.meta?.storyFocus || {}),
+      ...(patch || {}),
+      updatedAt: new Date().toISOString(),
+    });
+
+    replaceCampaign({
+      ...base,
+      meta: {
+        ...base.meta,
+        storyFocus: nextFocus,
+      },
+    });
+
+    return nextFocus;
+  };
+
   const syncRulesMemory = (base, overrides = {}) => {
     const nextCampaign = normalizeCampaignState(base);
     const nextManualRulings = Object.prototype.hasOwnProperty.call(overrides, "manualRulings")
@@ -529,6 +549,8 @@ export function CampaignProvider({ children }) {
       ...(existing || {}),
       ...(draft || {}),
       id: existing?.id || cleanId || uid(),
+      recordSource: draft.recordSource || existing?.recordSource || "user",
+      confirmed: draft.confirmed == null ? existing?.confirmed ?? true : draft.confirmed === true,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     };
@@ -557,6 +579,31 @@ export function CampaignProvider({ children }) {
     return true;
   };
 
+  const activateCompanion = (companionId, patch = {}) => {
+    const cleanId = stringValue(companionId);
+    if (!cleanId) return null;
+    const base = normalizeCampaignState(campaign);
+    const existing = (base.companions || []).find((entry) => entry.id === cleanId);
+    if (!existing) return null;
+    const now = new Date().toISOString();
+    const nextCompanion = {
+      ...existing,
+      ...patch,
+      status: stringValue(patch.status) || stringValue(existing.status) || "prospective",
+      recordSource: "user",
+      confirmed: true,
+      activatedAt: existing.activatedAt || now,
+      updatedAt: now,
+    };
+    const nextCampaign = normalizeCampaignState({
+      ...base,
+      companions: (base.companions || []).map((entry) => (entry.id === cleanId ? nextCompanion : entry)),
+    });
+    const saved = (nextCampaign.companions || []).find((entry) => entry.id === cleanId) || null;
+    replaceCampaign(nextCampaign);
+    return saved;
+  };
+
   const upsertNpc = (draft = {}, npcId) => {
     const base = normalizeCampaignState(campaign);
     const cleanId = stringValue(npcId || draft?.id);
@@ -566,6 +613,8 @@ export function CampaignProvider({ children }) {
       ...(existing || {}),
       ...(draft || {}),
       id: existing?.id || cleanId || uid(),
+      recordSource: draft.recordSource || existing?.recordSource || "user",
+      confirmed: draft.confirmed == null ? existing?.confirmed ?? true : draft.confirmed === true,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     };
@@ -594,6 +643,31 @@ export function CampaignProvider({ children }) {
     return true;
   };
 
+  const activateNpc = (npcId, patch = {}) => {
+    const cleanId = stringValue(npcId);
+    if (!cleanId) return null;
+    const base = normalizeCampaignState(campaign);
+    const existing = (base.npcs || []).find((entry) => entry.id === cleanId);
+    if (!existing) return null;
+    const now = new Date().toISOString();
+    const nextNpc = {
+      ...existing,
+      ...patch,
+      status: stringValue(patch.status) || stringValue(existing.status) || "neutral",
+      recordSource: "user",
+      confirmed: true,
+      activatedAt: existing.activatedAt || now,
+      updatedAt: now,
+    };
+    const nextCampaign = normalizeCampaignState({
+      ...base,
+      npcs: (base.npcs || []).map((entry) => (entry.id === cleanId ? nextNpc : entry)),
+    });
+    const saved = (nextCampaign.npcs || []).find((entry) => entry.id === cleanId) || null;
+    replaceCampaign(nextCampaign);
+    return saved;
+  };
+
   const upsertQuest = (draft = {}, questId) => {
     const base = normalizeCampaignState(campaign);
     const cleanId = stringValue(questId || draft?.id);
@@ -603,6 +677,8 @@ export function CampaignProvider({ children }) {
       ...(existing || {}),
       ...(draft || {}),
       id: existing?.id || cleanId || uid(),
+      recordSource: draft.recordSource || existing?.recordSource || "user",
+      confirmed: draft.confirmed == null ? existing?.confirmed ?? true : draft.confirmed === true,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     };
@@ -614,6 +690,33 @@ export function CampaignProvider({ children }) {
       quests: nextQuests,
     });
     const saved = (nextCampaign.quests || []).find((entry) => entry.id === record.id) || null;
+    replaceCampaign(nextCampaign);
+    return saved;
+  };
+
+  const activateQuest = (questId, patch = {}) => {
+    const cleanId = stringValue(questId);
+    if (!cleanId) return null;
+    const base = normalizeCampaignState(campaign);
+    const existing = (base.quests || []).find((entry) => entry.id === cleanId);
+    if (!existing) return null;
+    const now = new Date().toISOString();
+    const nextStatus = stringValue(patch.status) || (stringValue(existing.status).toLowerCase() === "in-progress" ? "in-progress" : "open");
+    const nextQuest = {
+      ...existing,
+      ...patch,
+      status: nextStatus,
+      priority: stringValue(patch.priority) || (stringValue(existing.priority).toLowerCase() === "later" ? "Soon" : existing.priority || "Soon"),
+      recordSource: "user",
+      confirmed: true,
+      activatedAt: existing.activatedAt || now,
+      updatedAt: now,
+    };
+    const nextCampaign = normalizeCampaignState({
+      ...base,
+      quests: (base.quests || []).map((entry) => (entry.id === cleanId ? nextQuest : entry)),
+    });
+    const saved = (nextCampaign.quests || []).find((entry) => entry.id === cleanId) || null;
     replaceCampaign(nextCampaign);
     return saved;
   };
@@ -640,6 +743,8 @@ export function CampaignProvider({ children }) {
       ...(existing || {}),
       ...(draft || {}),
       id: existing?.id || cleanId || uid(),
+      recordSource: draft.recordSource || existing?.recordSource || "user",
+      confirmed: draft.confirmed == null ? existing?.confirmed ?? true : draft.confirmed === true,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     };
@@ -666,6 +771,31 @@ export function CampaignProvider({ children }) {
       locations: nextLocations,
     });
     return true;
+  };
+
+  const activateLocation = (locationId, patch = {}) => {
+    const cleanId = stringValue(locationId);
+    if (!cleanId) return null;
+    const base = normalizeCampaignState(campaign);
+    const existing = (base.locations || []).find((entry) => entry.id === cleanId);
+    if (!existing) return null;
+    const now = new Date().toISOString();
+    const nextLocation = {
+      ...existing,
+      ...patch,
+      status: stringValue(patch.status) || stringValue(existing.status) || "active",
+      recordSource: "user",
+      confirmed: true,
+      activatedAt: existing.activatedAt || now,
+      updatedAt: now,
+    };
+    const nextCampaign = normalizeCampaignState({
+      ...base,
+      locations: (base.locations || []).map((entry) => (entry.id === cleanId ? nextLocation : entry)),
+    });
+    const saved = (nextCampaign.locations || []).find((entry) => entry.id === cleanId) || null;
+    replaceCampaign(nextCampaign);
+    return saved;
   };
 
   const appendKingdomEventHistory = (kingdom, draft) => ({
@@ -745,6 +875,8 @@ export function CampaignProvider({ children }) {
       ...(existing || {}),
       ...(draft || {}),
       id: existing?.id || cleanId || uid(),
+      recordSource: draft.recordSource || existing?.recordSource || "user",
+      confirmed: draft.confirmed == null ? existing?.confirmed ?? true : draft.confirmed === true,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
     };
@@ -756,6 +888,33 @@ export function CampaignProvider({ children }) {
       events: nextEvents,
     });
     const saved = (nextCampaign.events || []).find((entry) => entry.id === record.id) || null;
+    replaceCampaign(nextCampaign);
+    return saved;
+  };
+
+  const activateEvent = (eventId, patch = {}) => {
+    const cleanId = stringValue(eventId);
+    if (!cleanId) return null;
+    const base = normalizeCampaignState(campaign);
+    const existing = (base.events || []).find((entry) => entry.id === cleanId);
+    if (!existing) return null;
+    const now = new Date().toISOString();
+    const category = stringValue(patch.category || existing.category).toLowerCase();
+    const nextEvent = {
+      ...existing,
+      ...patch,
+      status: stringValue(patch.status) || "active",
+      advanceOn: stringValue(patch.advanceOn || existing.advanceOn) || (category === "kingdom" ? "turn" : "manual"),
+      recordSource: "user",
+      confirmed: true,
+      activatedAt: existing.activatedAt || now,
+      updatedAt: now,
+    };
+    const nextCampaign = normalizeCampaignState({
+      ...base,
+      events: (base.events || []).map((entry) => (entry.id === cleanId ? nextEvent : entry)),
+    });
+    const saved = (nextCampaign.events || []).find((entry) => entry.id === cleanId) || null;
     replaceCampaign(nextCampaign);
     return saved;
   };
@@ -1766,19 +1925,25 @@ export function CampaignProvider({ children }) {
       appendCaptureToSession,
       applyToLatestSession,
       updateMeta,
+      setStoryFocus,
       updateAiConfig,
       saveRulesMemory,
       upsertRulesStoreEntry,
       removeRulesStoreEntry,
       upsertCompanion,
+      activateCompanion,
       removeCompanion,
       upsertNpc,
+      activateNpc,
       removeNpc,
       upsertQuest,
+      activateQuest,
       removeQuest,
       upsertLocation,
+      activateLocation,
       removeLocation,
       upsertEvent,
+      activateEvent,
       removeEvent,
       adjustEventClock,
       triggerEventConsequence,

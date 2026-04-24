@@ -1,4 +1,4 @@
-export const KINGMAKER_EVENT_LIBRARY_VERSION = "kingmaker-events-v1";
+export const KINGMAKER_EVENT_LIBRARY_VERSION = "kingmaker-events-v3-source-aligned";
 
 export const KINGMAKER_STARTER_EVENT_IDS = Object.freeze(["km-evt-001", "km-evt-002"]);
 
@@ -96,8 +96,8 @@ const STARTER_EVENTS = [
 
 const CHARTER_AND_OPENING_PRESSURE = createGroup(
   {
-    folder: "Library / Charter And Opening Pressure",
-    notes: "Source cue: Adventure Path chapter 1 opening pressure around Restov, Oleg's, and the early charter.",
+    folder: "Library / Charter Oleg And Opening Pressure",
+    notes: "Source cue: Chapter 1 Restov charter pressure, Chapter 2 hexcrawl hooks, and Chapter 3 Oleg/bandit pressure.",
   },
   [
     { id: 3, title: "Black Tears Survivor Knows Too Much", category: "story", urgency: 4, hex: "D4", trigger: "A half-broken merchant from the Black Tears route reaches Oleg's with names, prices, and one accusation that points at organized protection.", fallout: "If ignored, frightened settlers stop talking to the charter and start assuming the bandits own the road.", consequenceSummary: "A living witness can turn rumor into evidence before the next raid lands." },
@@ -228,7 +228,7 @@ const DRELEV_TIGER_LORDS_AND_PITAX = createGroup(
 const RIVER_KINGS_FIRST_WORLD_AND_ENDGAME = createGroup(
   {
     folder: "Library / River Kings First World And Endgame",
-    notes: "Source cue: Sound of a Thousand Screams, First World breaches, Pitax fallout, and Nyrissa-facing late-campaign pressure.",
+    notes: "Source cue: War of the River Kings, They Lurk Below, Sound of a Thousand Screams, and Curse of the Lantern King endgame pressure.",
   },
   [
     { id: 71, title: "Behind Enemy Lines Messenger", category: "story", urgency: 3, hex: "I4", trigger: "A courier reaches the party from hostile ground with information that matters only if acted on quickly.", fallout: "If delayed, the message becomes a sad explanation instead of a meaningful opportunity.", consequenceSummary: "Timing matters more than certainty when the kingdom is already inside the larger war." },

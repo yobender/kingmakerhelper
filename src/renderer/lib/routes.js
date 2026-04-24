@@ -11,6 +11,7 @@ import {
   IconMapPin,
   IconMasksTheater,
   IconNotebook,
+  IconPlayerPlay,
   IconSettings2,
   IconScale,
   IconSparkles,
@@ -21,6 +22,15 @@ export const NAV_GROUPS = [
   {
     label: "Campaign",
     items: [
+      {
+        id: "run",
+        path: "/campaign/run",
+        label: "Run Kingmaker",
+        description: "Current AP phase, active table state, and focused reference queue.",
+        icon: IconPlayerPlay,
+        legacyTab: "dashboard",
+        status: "rebuilt",
+      },
       {
         id: "dashboard",
         path: "/campaign/command-center",
@@ -140,12 +150,30 @@ export const NAV_GROUPS = [
         status: "rebuilt",
       },
       {
+        id: "ai-chat",
+        path: "/reference/ai-chat",
+        label: "Ask AI",
+        description: "Talk to Companion AI with @app, @pdf, @rules, and @vault tags.",
+        icon: IconSparkles,
+        legacyTab: "",
+        status: "rebuilt",
+      },
+      {
         id: "pdf",
         path: "/reference/source-library",
         label: "Source Library",
         description: "PDF search, summaries, and book grounding.",
         icon: IconBooks,
         legacyTab: "pdf",
+        status: "rebuilt",
+      },
+      {
+        id: "ai-rag",
+        path: "/reference/ai-rag",
+        label: "AI / RAG",
+        description: "Ollama connection, embeddings, and PDF grounding.",
+        icon: IconSparkles,
+        legacyTab: "",
         status: "rebuilt",
       },
     ],
@@ -195,6 +223,86 @@ export const ALL_ROUTES = NAV_GROUPS.flatMap((group) =>
     groupLabel: group.label,
   })),
 );
+
+function primaryNavItem(path, overrides = {}) {
+  const route = ALL_ROUTES.find((item) => item.path === path);
+  if (!route) return null;
+  return {
+    ...route,
+    ...overrides,
+    childPaths: Array.from(new Set([path, ...(overrides.childPaths || [])])),
+  };
+}
+
+export const PRIMARY_NAV_GROUPS = [
+  {
+    label: "Command",
+    items: [
+      primaryNavItem("/campaign/run", {
+        sidebarLabel: "Run Kingmaker",
+        sidebarDescription: "AP phase, live state, and session cockpit.",
+        childPaths: ["/campaign/command-center"],
+      }),
+    ].filter(Boolean),
+  },
+  {
+    label: "Workspaces",
+    items: [
+      primaryNavItem("/campaign/adventure-log", {
+        sidebarLabel: "Campaign Desk",
+        sidebarDescription: "Sessions, notes, and scene writing.",
+        childPaths: ["/campaign/table-notes", "/campaign/scene-forge"],
+      }),
+      primaryNavItem("/world/hex-map", {
+        sidebarLabel: "World Atlas",
+        sidebarDescription: "Map, places, NPCs, and quests.",
+        childPaths: ["/world/locations", "/world/npcs", "/world/quests"],
+      }),
+      primaryNavItem("/world/kingdom", {
+        sidebarLabel: "Kingdom Table",
+        sidebarDescription: "Turns, events, and companions.",
+        childPaths: ["/world/events", "/world/companions"],
+      }),
+      primaryNavItem("/reference/ai-chat", {
+        sidebarLabel: "Council",
+        sidebarDescription: "AI, rules, and source library.",
+        childPaths: ["/reference/rules", "/reference/source-library", "/reference/ai-rag"],
+      }),
+    ].filter(Boolean),
+  },
+  {
+    label: "Tools",
+    items: [
+      primaryNavItem("/system/settings", {
+        sidebarLabel: "Tools & Settings",
+        sidebarDescription: "Sync, exports, appearance, and local AI.",
+        childPaths: ["/links/vault-sync", "/links/exports", "/system/ai-rag"],
+      }),
+    ].filter(Boolean),
+  },
+];
+
+export const PRIMARY_NAV_ITEMS = PRIMARY_NAV_GROUPS.flatMap((group) =>
+  group.items.map((item) => ({
+    ...item,
+    primaryGroupLabel: group.label,
+  })),
+);
+
+export function getPrimaryNavItemForPath(pathname) {
+  return (
+    PRIMARY_NAV_ITEMS.find((item) => item.path === pathname || item.childPaths?.includes(pathname)) ||
+    PRIMARY_NAV_ITEMS[0] ||
+    null
+  );
+}
+
+export function getRoutesForPrimaryNavItem(primaryNavItem) {
+  if (!primaryNavItem) return [];
+  return (primaryNavItem.childPaths || [primaryNavItem.path])
+    .map((path) => getRouteByPath(path))
+    .filter(Boolean);
+}
 
 export function getRouteByPath(pathname) {
   return ALL_ROUTES.find((route) => route.path === pathname) || null;

@@ -3,7 +3,7 @@ import { Badge, Button, Checkbox, Grid, Group, Paper, Select, Stack, Text, Texta
 import { notifications } from "@mantine/notifications";
 import * as Tabs from "@radix-ui/react-tabs";
 import { useNavigate } from "react-router-dom";
-import MetricCard from "../components/MetricCard";
+import CompactMetaStrip from "../components/CompactMetaStrip";
 import PageHeader from "../components/PageHeader";
 import { useCampaign } from "../context/CampaignContext";
 import { DEFAULT_AI_CONFIG } from "../lib/campaignState";
@@ -221,9 +221,6 @@ export default function SceneForgePage() {
         description="Turn rough notes into clean Kingmaker prep, recap text, and record-ready output without dropping the active frontier context."
         actions={
           <>
-            <Button variant="default" onClick={() => navigate("/system/settings")}>
-              Open Settings
-            </Button>
             <Button variant="default" onClick={() => navigate("/campaign/table-notes")}>
               Open Table Notes
             </Button>
@@ -234,13 +231,7 @@ export default function SceneForgePage() {
         }
       />
 
-      <Grid gutter="lg">
-        {summaryCards.map((card) => (
-          <Grid.Col key={card.label} span={{ base: 12, md: 6, xl: 3 }}>
-            <MetricCard label={card.label} value={card.value} helper={card.helper} valueTone={card.valueTone} />
-          </Grid.Col>
-        ))}
-      </Grid>
+      <CompactMetaStrip items={summaryCards} />
 
       <Tabs.Root defaultValue="studio" className="km-radix-tabs">
         <Tabs.List className="km-radix-list" aria-label="Scene Forge views">
@@ -253,9 +244,9 @@ export default function SceneForgePage() {
         </Tabs.List>
 
         <Tabs.Content value="studio" className="km-radix-content">
-          <Grid gutter="lg">
+          <Grid gutter="lg" className="km-scene-forge-studio">
             <Grid.Col span={{ base: 12, xl: 6 }}>
-              <Paper className="km-panel km-content-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat km-scene-forge-card">
                 <Stack gap="md">
                   <Group justify="space-between" align="flex-start">
                     <div>
@@ -293,7 +284,7 @@ export default function SceneForgePage() {
                     <Button color="moss" onClick={handleGenerateClean} disabled={!canGenerate}>
                       Generate Clean Text
                     </Button>
-                    <Button variant="default" onClick={handleGenerateWithAi} disabled={!canGenerate || aiBusy}>
+                    <Button variant="default" onClick={handleGenerateWithAi} disabled={!canGenerate || aiBusy} loading={aiBusy}>
                       Generate With Local AI
                     </Button>
                     <Button color="ember" variant="light" onClick={handleClear}>
@@ -309,7 +300,7 @@ export default function SceneForgePage() {
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, xl: 6 }}>
-              <Paper className="km-panel km-content-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat km-scene-forge-card">
                 <Stack gap="md">
                   <Group justify="space-between" align="flex-start">
                     <div>
@@ -357,7 +348,7 @@ export default function SceneForgePage() {
         <Tabs.Content value="reference" className="km-radix-content">
           <Grid gutter="lg">
             <Grid.Col span={{ base: 12, xl: 6 }}>
-              <Paper className="km-panel km-content-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat">
                 <Stack gap="md">
                   <Text className="km-section-kicker">Latest Session</Text>
                   <Title order={3}>{model.latestSession?.title || "No session logged yet"}</Title>
@@ -371,7 +362,7 @@ export default function SceneForgePage() {
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, xl: 6 }}>
-              <Paper className="km-panel km-content-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat">
                 <Stack gap="md">
                   <Text className="km-section-kicker">Quest Pressure</Text>
                   {model.activeQuests.length ? (
@@ -398,7 +389,7 @@ export default function SceneForgePage() {
 
           <Grid gutter="lg" mt="sm">
             <Grid.Col span={{ base: 12, xl: 6 }}>
-              <Paper className="km-panel km-content-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat">
                 <Stack gap="md">
                   <Text className="km-section-kicker">Event Pressure</Text>
                   {model.activeEvents.length ? (
@@ -423,7 +414,7 @@ export default function SceneForgePage() {
             </Grid.Col>
 
             <Grid.Col span={{ base: 12, xl: 6 }}>
-              <Paper className="km-panel km-content-panel">
+              <Paper className="km-panel km-content-panel km-content-panel--flat">
                 <Stack gap="md">
                   <Text className="km-section-kicker">Companion Watch</Text>
                   {model.companions.length ? (

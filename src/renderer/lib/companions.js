@@ -1,4 +1,5 @@
 import { buildKingdomModel } from "./kingdom";
+import { getActiveStoryPhase, isLiveCampaignRecord, recordMatchesActiveStoryPhase, shouldSurfaceRecordForFocus } from "./kingmakerFlow";
 
 const ACTIVE_COMPANION_STATUSES = new Set(["prospective", "recruited", "traveling", "kingdom-role"]);
 const QUEST_PRESSURE_STAGES = new Set(["available", "active"]);
@@ -97,6 +98,7 @@ export function getCompanionInfluenceBand(value) {
 }
 
 export function buildCompanionsModel(campaign) {
+  const storyPhase = getActiveStoryPhase(campaign);
   const companions = [...(campaign?.companions || [])]
     .sort((left, right) => {
       const statusDelta = statusRank(left) - statusRank(right);
@@ -108,21 +110,26 @@ export function buildCompanionsModel(campaign) {
       return stringValue(left?.name).localeCompare(stringValue(right?.name));
     });
 
-  const activeCompanions = companions.filter((entry) => ACTIVE_COMPANION_STATUSES.has(stringValue(entry?.status).toLowerCase()));
+  const activeCompanions = companions.filter((entry) => isLiveCampaignRecord(entry) && ACTIVE_COMPANION_STATUSES.has(stringValue(entry?.status).toLowerCase()));
+  const focusReferenceCompanions = companions.filter((entry) => !isLiveCampaignRecord(entry) && recordMatchesActiveStoryPhase(entry, campaign));
+  const visibleCompanions = [...activeCompanions, ...focusReferenceCompanions].filter(
+    (entry, index, list) => list.findIndex((candidate) => stringValue(candidate?.id) === stringValue(entry?.id)) === index
+  );
+  const focusedRecords = (records = []) => records.filter((entry) => shouldSurfaceRecordForFocus(entry, campaign));
   const partyHex = stringValue(campaign?.hexMap?.party?.hex);
-  const withParty = companions.filter(
+  const withParty = activeCompanions.filter(
     (entry) =>
       stringValue(entry?.travelState).toLowerCase() === "with-party"
       || (partyHex && stringValue(entry?.currentHex).toUpperCase() === partyHex.toUpperCase())
   );
-  const questPressure = companions.filter(
+  const questPressure = activeCompanions.filter(
     (entry) =>
       QUEST_PRESSURE_STAGES.has(stringValue(entry?.questStage).toLowerCase())
       || Boolean(stringValue(entry?.nextScene))
       || Boolean(stringValue(entry?.linkedQuest))
   );
-  const kingdomRoleWatch = companions.filter((entry) => stringValue(entry?.kingdomRole));
-  const attentionRoster = companions
+  const kingdomRoleWatch = activeCompanions.filter((entry) => stringValue(entry?.kingdomRole));
+  const attentionRoster = activeCompanions
     .filter(
       (entry) =>
         stringValue(entry?.spotlight).toLowerCase() === "urgent"
@@ -131,13 +138,13 @@ export function buildCompanionsModel(campaign) {
         || Boolean(stringValue(entry?.nextScene))
     )
     .slice(0, 6);
-  const folderOptions = [...new Set(companions.map((entry) => stringValue(entry?.folder)).filter(Boolean))]
+  const folderOptions = [...new Set(visibleCompanions.map((entry) => stringValue(entry?.folder)).filter(Boolean))]
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({
       value,
       label: value,
     }));
-  const questOptions = [...(campaign?.quests || [])]
+  const questOptions = focusedRecords(campaign?.quests)
     .map((entry) => stringValue(entry?.title))
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right))
@@ -145,7 +152,7 @@ export function buildCompanionsModel(campaign) {
       value,
       label: value,
     }));
-  const eventOptions = [...(campaign?.events || [])]
+  const eventOptions = focusedRecords(campaign?.events)
     .map((entry) => stringValue(entry?.title))
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right))
@@ -153,14 +160,17 @@ export function buildCompanionsModel(campaign) {
       value,
       label: value,
     }));
-  const locationWatch = [...(campaign?.locations || [])];
-  const eventWatch = [...(campaign?.events || [])];
+  const locationWatch = focusedRecords(campaign?.locations);
+  const eventWatch = focusedRecords(campaign?.events);
   const kingdomModel = buildKingdomModel(campaign);
   const sourceAnchors = [...COMPANION_SOURCE_ANCHORS];
 
   return {
-    companions,
+    companions: visibleCompanions,
+    allCompanions: companions,
+    storyPhase,
     activeCompanions,
+    focusReferenceCompanions,
     withParty,
     questPressure,
     kingdomRoleWatch,
@@ -173,13 +183,15 @@ export function buildCompanionsModel(campaign) {
     partyLabel: stringValue(campaign?.hexMap?.party?.label) || "Charter Party",
     locations: locationWatch,
     events: eventWatch,
-    quests: [...(campaign?.quests || [])],
+    quests: focusedRecords(campaign?.quests),
     roleOptions: kingdomModel.roleOptions || [],
     summaryCards: [
       {
         label: "Tracked Roster",
-        value: `${companions.length}`,
-        helper: `${activeCompanions.length} active or recruitable / ${companions.filter((entry) => stringValue(entry?.status).toLowerCase() === "departed").length} departed`,
+        value: `${activeCompanions.length}`,
+        helper: activeCompanions.length
+          ? `${activeCompanions.length} active or recruitable / ${companions.filter((entry) => isLiveCampaignRecord(entry) && stringValue(entry?.status).toLowerCase() === "departed").length} departed`
+          : `No live companions yet. ${focusReferenceCompanions.length} ${storyPhase.shortLabel} reference companion(s) are available.`,
         valueTone: "number",
       },
       {
@@ -217,9 +229,10 @@ export function collectLinkedCompanionEvents(campaign, companionDraft) {
   const linkedEventTitle = stringValue(companionDraft?.linkedEvent);
   return [...(campaign?.events || [])].filter(
     (entry) =>
-      matchesCompanionName({ name: entry?.linkedCompanion }, companionName)
-      || stringValue(entry?.title) === linkedEventTitle
-      || stringValue(entry?.hex) === stringValue(companionDraft?.currentHex)
+      shouldSurfaceRecordForFocus(entry, campaign) &&
+      (matchesCompanionName({ name: entry?.linkedCompanion }, companionName)
+        || stringValue(entry?.title) === linkedEventTitle
+        || stringValue(entry?.hex) === stringValue(companionDraft?.currentHex))
   );
 }
 
@@ -228,13 +241,14 @@ export function collectLinkedCompanionQuests(campaign, companionDraft) {
   const linkedQuestTitle = stringValue(companionDraft?.linkedQuest);
   return [...(campaign?.quests || [])].filter(
     (entry) =>
-      matchesCompanionName({ name: entry?.linkedCompanion }, companionName)
-      || stringValue(entry?.title) === linkedQuestTitle
+      shouldSurfaceRecordForFocus(entry, campaign) &&
+      (matchesCompanionName({ name: entry?.linkedCompanion }, companionName)
+        || stringValue(entry?.title) === linkedQuestTitle)
   );
 }
 
 export function collectCompanionHexLocations(campaign, companionDraft) {
   const hex = stringValue(companionDraft?.currentHex).toUpperCase();
   if (!hex) return [];
-  return [...(campaign?.locations || [])].filter((entry) => stringValue(entry?.hex).toUpperCase() === hex);
+  return [...(campaign?.locations || [])].filter((entry) => shouldSurfaceRecordForFocus(entry, campaign) && stringValue(entry?.hex).toUpperCase() === hex);
 }

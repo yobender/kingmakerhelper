@@ -1,3 +1,5 @@
+import { getActiveStoryPhase, isLiveCampaignRecord, recordMatchesActiveStoryPhase, shouldSurfaceRecordForFocus } from "./kingmakerFlow";
+
 const ACTIVE_NPC_STATUSES = new Set(["ally", "neutral", "watch", "rival", "hostile"]);
 const PRESSURE_NPC_STATUSES = new Set(["watch", "rival", "hostile"]);
 const KINGDOM_SIGNAL_FIELDS = ["kingdomRole", "kingdomNotes"];
@@ -72,6 +74,7 @@ function buildNpcSummary(entry) {
 }
 
 export function buildNpcsModel(campaign) {
+  const storyPhase = getActiveStoryPhase(campaign);
   const npcs = [...(campaign?.npcs || [])].sort((left, right) => {
     const statusDelta = statusRank(left) - statusRank(right);
     if (statusDelta !== 0) return statusDelta;
@@ -82,38 +85,46 @@ export function buildNpcsModel(campaign) {
     return stringValue(left?.name).localeCompare(stringValue(right?.name));
   });
 
-  const activeNpcs = npcs.filter((entry) => ACTIVE_NPC_STATUSES.has(stringValue(entry?.status).toLowerCase()));
-  const pressureRoster = npcs.filter(
+  const activeNpcs = npcs.filter((entry) => isLiveCampaignRecord(entry) && ACTIVE_NPC_STATUSES.has(stringValue(entry?.status).toLowerCase()));
+  const focusReferenceNpcs = npcs.filter((entry) => !isLiveCampaignRecord(entry) && recordMatchesActiveStoryPhase(entry, campaign));
+  const visibleNpcs = [...activeNpcs, ...focusReferenceNpcs].filter(
+    (entry, index, list) => list.findIndex((candidate) => stringValue(candidate?.id) === stringValue(entry?.id)) === index
+  );
+  const pressureRoster = activeNpcs.filter(
     (entry) =>
       PRESSURE_NPC_STATUSES.has(stringValue(entry?.status).toLowerCase())
       || Boolean(stringValue(entry?.pressure))
       || Boolean(stringValue(entry?.linkedEvent))
   );
-  const kingdomActors = npcs.filter((entry) => KINGDOM_SIGNAL_FIELDS.some((key) => Boolean(stringValue(entry?.[key]))));
-  const frontierContacts = npcs.filter((entry) => Boolean(stringValue(entry?.location)) || Boolean(stringValue(entry?.hex)));
-  const factionOptions = [...new Set(npcs.map((entry) => stringValue(entry?.faction)).filter(Boolean))]
+  const kingdomActors = activeNpcs.filter((entry) => KINGDOM_SIGNAL_FIELDS.some((key) => Boolean(stringValue(entry?.[key]))));
+  const frontierContacts = activeNpcs.filter((entry) => Boolean(stringValue(entry?.location)) || Boolean(stringValue(entry?.hex)));
+  const focusedRecords = (records = []) => records.filter((entry) => shouldSurfaceRecordForFocus(entry, campaign));
+  const factionOptions = [...new Set(visibleNpcs.map((entry) => stringValue(entry?.faction)).filter(Boolean))]
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ value, label: value }));
   const locationOptions = [...new Set([
-    ...npcs.map((entry) => stringValue(entry?.location)),
-    ...(campaign?.locations || []).map((entry) => stringValue(entry?.name)),
+    ...visibleNpcs.map((entry) => stringValue(entry?.location)),
+    ...focusedRecords(campaign?.locations).map((entry) => stringValue(entry?.name)),
   ].filter(Boolean))]
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ value, label: value }));
-  const questOptions = [...(campaign?.quests || [])]
+  const questOptions = focusedRecords(campaign?.quests)
     .map((entry) => stringValue(entry?.title))
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ value, label: value }));
-  const eventOptions = [...(campaign?.events || [])]
+  const eventOptions = focusedRecords(campaign?.events)
     .map((entry) => stringValue(entry?.title))
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ value, label: value }));
 
   return {
-    npcs,
+    npcs: visibleNpcs,
+    allNpcs: npcs,
+    storyPhase,
     activeNpcs,
+    focusReferenceNpcs,
     pressureRoster,
     kingdomActors,
     frontierContacts,
@@ -122,14 +133,16 @@ export function buildNpcsModel(campaign) {
     questOptions,
     eventOptions,
     sourceAnchors: [...NPC_SOURCE_ANCHORS],
-    locations: [...(campaign?.locations || [])],
-    events: [...(campaign?.events || [])],
-    quests: [...(campaign?.quests || [])],
+    locations: focusedRecords(campaign?.locations),
+    events: focusedRecords(campaign?.events),
+    quests: focusedRecords(campaign?.quests),
     summaryCards: [
       {
         label: "Tracked NPCs",
-        value: `${npcs.length}`,
-        helper: activeNpcs[0] ? `${activeNpcs[0].name} / ${stringValue(activeNpcs[0].role) || "No role"}` : "No active NPC records are being tracked yet.",
+        value: `${activeNpcs.length}`,
+        helper: activeNpcs[0]
+          ? `${activeNpcs[0].name} / ${stringValue(activeNpcs[0].role) || "No role"}`
+          : `No live NPC records yet. ${focusReferenceNpcs.length} ${storyPhase.shortLabel} reference NPC(s) are available.`,
         valueTone: "number",
       },
       {
@@ -159,9 +172,10 @@ export function collectLinkedNpcQuests(campaign, npcDraft) {
   const linkedQuestTitle = stringValue(npcDraft?.linkedQuest);
   return [...(campaign?.quests || [])].filter(
     (entry) =>
-      stringValue(entry?.title) === linkedQuestTitle
-      || matchesNpcName({ name: entry?.giver }, npcName)
-      || stringValue(entry?.hex).toUpperCase() === stringValue(npcDraft?.hex).toUpperCase()
+      shouldSurfaceRecordForFocus(entry, campaign) &&
+      (stringValue(entry?.title) === linkedQuestTitle
+        || matchesNpcName({ name: entry?.giver }, npcName)
+        || stringValue(entry?.hex).toUpperCase() === stringValue(npcDraft?.hex).toUpperCase())
   );
 }
 
@@ -169,8 +183,9 @@ export function collectLinkedNpcEvents(campaign, npcDraft) {
   const linkedEventTitle = stringValue(npcDraft?.linkedEvent);
   return [...(campaign?.events || [])].filter(
     (entry) =>
-      stringValue(entry?.title) === linkedEventTitle
-      || stringValue(entry?.hex).toUpperCase() === stringValue(npcDraft?.hex).toUpperCase()
+      shouldSurfaceRecordForFocus(entry, campaign) &&
+      (stringValue(entry?.title) === linkedEventTitle
+        || stringValue(entry?.hex).toUpperCase() === stringValue(npcDraft?.hex).toUpperCase())
   );
 }
 
@@ -178,6 +193,7 @@ export function collectNpcLocations(campaign, npcDraft) {
   const location = stringValue(npcDraft?.location).toLowerCase();
   const hex = stringValue(npcDraft?.hex).toUpperCase();
   return [...(campaign?.locations || [])].filter((entry) => {
+    if (!shouldSurfaceRecordForFocus(entry, campaign)) return false;
     const entryName = stringValue(entry?.name).toLowerCase();
     const entryHex = stringValue(entry?.hex).toUpperCase();
     return (location && entryName === location) || (hex && entryHex === hex);

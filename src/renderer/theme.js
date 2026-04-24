@@ -1,11 +1,127 @@
 import { createTheme, rem } from "@mantine/core";
 
-export const UI_THEME_STORAGE_KEY = "kingmaker-companion.ui-theme.v2";
+export const UI_THEME_STORAGE_KEY = "kingmaker-companion.ui-theme.v3";
 
 const OBSIDIAN_FONT_STACK = '"Segoe UI", system-ui, sans-serif';
 const OBSIDIAN_MONO_STACK = '"JetBrains Mono", "Cascadia Code", monospace';
 
 export const UI_THEME_PRESETS = [
+  {
+    id: "kingmaker-atlas",
+    label: "Kingmaker Atlas",
+    shortLabel: "Atlas",
+    description: "High-contrast forest, bright parchment, and brass trim built for the current Kingmaker look.",
+    colorScheme: "dark",
+    preview: {
+      top: "#0c1d1d",
+      bottom: "#061014",
+      accent: "#49c585",
+      warm: "#f0c86b",
+    },
+    fonts: {
+      body: OBSIDIAN_FONT_STACK,
+      heading: OBSIDIAN_FONT_STACK,
+      mono: OBSIDIAN_MONO_STACK,
+    },
+    black: "#061014",
+    defaultRadius: "md",
+    colors: {
+      moss: ["#eefbf4", "#d9f6e6", "#b1ecca", "#85e0ab", "#5fd38f", "#49c585", "#329b66", "#24734c", "#174b32", "#092519"],
+      brass: ["#fff7e5", "#ffedc0", "#ffe09a", "#f8d277", "#f0c86b", "#dca94d", "#aa7f33", "#7a5920", "#4d3511", "#251707"],
+      ember: ["#fff0e9", "#fbd7c9", "#f2b9a5", "#e89478", "#d97851", "#bd5f3d", "#93472c", "#6a301d", "#431d10", "#220b05"],
+    },
+    shadows: {
+      md: "0 14px 34px rgba(0, 0, 0, 0.3)",
+      xl: "0 24px 62px rgba(0, 0, 0, 0.42)",
+    },
+  },
+  {
+    id: "brevoy-banner",
+    label: "Brevoy Banner",
+    shortLabel: "Brevoy",
+    description: "Noble blue-black, ivory text, warm gold, and a restrained Aldori red accent.",
+    colorScheme: "dark",
+    preview: {
+      top: "#102033",
+      bottom: "#071016",
+      accent: "#78b7d7",
+      warm: "#d4a24f",
+    },
+    fonts: {
+      body: OBSIDIAN_FONT_STACK,
+      heading: OBSIDIAN_FONT_STACK,
+      mono: OBSIDIAN_MONO_STACK,
+    },
+    black: "#071016",
+    defaultRadius: "md",
+    colors: {
+      moss: ["#eff8ff", "#d9edf8", "#b7ddf0", "#8fc9e5", "#68b4d8", "#4ea2ca", "#367e9e", "#265d75", "#173d4e", "#09202a"],
+      brass: ["#fff5e7", "#f6e2c1", "#edce95", "#e3b863", "#d4a24f", "#b88337", "#8f6428", "#66451a", "#40290d", "#201104"],
+      ember: ["#faeeeb", "#f0d1ca", "#e2ada1", "#d18776", "#c2614d", "#a94936", "#833526", "#5d2418", "#3a140d", "#1d0704"],
+    },
+    shadows: {
+      md: "0 15px 36px rgba(0, 0, 0, 0.32)",
+      xl: "0 26px 66px rgba(0, 0, 0, 0.44)",
+    },
+  },
+  {
+    id: "river-kingdoms",
+    label: "River Kingdoms",
+    shortLabel: "River",
+    description: "Deep river teal, moonlit cyan, and trade-road copper for map and travel-heavy sessions.",
+    colorScheme: "dark",
+    preview: {
+      top: "#09212a",
+      bottom: "#041013",
+      accent: "#6bd7d1",
+      warm: "#cf8f51",
+    },
+    fonts: {
+      body: OBSIDIAN_FONT_STACK,
+      heading: OBSIDIAN_FONT_STACK,
+      mono: OBSIDIAN_MONO_STACK,
+    },
+    black: "#041013",
+    defaultRadius: "md",
+    colors: {
+      moss: ["#eafffd", "#cef8f4", "#9debe5", "#6bd7d1", "#43c3bd", "#28aaa5", "#1f837f", "#185f5c", "#0f3f3d", "#052120"],
+      brass: ["#fff2e6", "#f4d9be", "#e8bd8e", "#d99d62", "#cf8f51", "#b36f35", "#8b5227", "#633719", "#3e210d", "#1f0e04"],
+      ember: ["#faece6", "#f2d0c1", "#e7b097", "#d98d6d", "#ca6e4d", "#ae5639", "#854029", "#5f2b1b", "#3c190e", "#1d0904"],
+    },
+    shadows: {
+      md: "0 15px 36px rgba(0, 0, 0, 0.34)",
+      xl: "0 26px 66px rgba(0, 0, 0, 0.46)",
+    },
+  },
+  {
+    id: "stag-lord-ember",
+    label: "Stag Lord Ember",
+    shortLabel: "Ember",
+    description: "Charcoal, campfire amber, and bandit-rust accents for a rougher frontier board.",
+    colorScheme: "dark",
+    preview: {
+      top: "#241811",
+      bottom: "#0d0d0c",
+      accent: "#e18b50",
+      warm: "#f0c36a",
+    },
+    fonts: {
+      body: OBSIDIAN_FONT_STACK,
+      heading: OBSIDIAN_FONT_STACK,
+      mono: OBSIDIAN_MONO_STACK,
+    },
+    black: "#0d0d0c",
+    defaultRadius: "md",
+    colors: {
+      moss: ["#fff2e8", "#f8dcc8", "#efbd9d", "#e69a6d", "#e18b50", "#c96f37", "#9c5228", "#71381a", "#48220d", "#220e04"],
+      brass: ["#fff7e5", "#f7e7bf", "#efd493", "#e8bf66", "#f0c36a", "#d19c3f", "#a1752a", "#724f1a", "#49300c", "#241504"],
+      ember: ["#ffefe7", "#f8d3c2", "#efaF94", "#e58a65", "#d96d45", "#bd5634", "#934026", "#692b18", "#42180c", "#210704"],
+    },
+    shadows: {
+      md: "0 15px 36px rgba(0, 0, 0, 0.36)",
+      xl: "0 26px 68px rgba(0, 0, 0, 0.48)",
+    },
+  },
   {
     id: "obsidian-vault",
     label: "Obsidian Vault",
@@ -124,7 +240,7 @@ export const UI_THEME_PRESETS = [
   },
 ];
 
-export const DEFAULT_UI_THEME_ID = "obsidian-vault";
+export const DEFAULT_UI_THEME_ID = "kingmaker-atlas";
 
 export function getUiThemePreset(uiThemeId) {
   return UI_THEME_PRESETS.find((preset) => preset.id === uiThemeId) || UI_THEME_PRESETS[0];

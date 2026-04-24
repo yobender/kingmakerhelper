@@ -2,6 +2,8 @@ import { useDeferredValue, useEffect, useState } from "react";
 import { Badge, Button, Drawer, Grid, Group, Paper, Select, Stack, Text, TextInput, Textarea, Title } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import * as Tabs from "@radix-ui/react-tabs";
+import { useNavigate } from "react-router-dom";
+import CompactMetaStrip from "../components/CompactMetaStrip";
 import PageHeader from "../components/PageHeader";
 import { useCampaign } from "../context/CampaignContext";
 import { createSessionDraft, SESSION_TYPE_OPTIONS, getSessionTypeLabel } from "../lib/campaignState";
@@ -13,6 +15,7 @@ const SESSION_TYPE_SELECT = SESSION_TYPE_OPTIONS.map((value) => ({
 }));
 
 export default function AdventureLogPage() {
+  const navigate = useNavigate();
   const { campaign, actions } = useCampaign();
   const model = buildAdventureLogModel(campaign);
   const [query, setQuery] = useState("");
@@ -25,6 +28,35 @@ export default function AdventureLogPage() {
     const matchesQuery = !deferredQuery || getSessionSearchText(session).includes(deferredQuery);
     return matchesType && matchesQuery;
   });
+  const latestSession = model.latestSession;
+  const openThreadCount = model.activeQuests.length + model.activeEvents.length;
+  const deskStats = [
+    {
+      label: "Current Month",
+      value: model.monthContext.monthLabel,
+      helper: `${model.monthContext.daysRemaining} days remain in the current kingdom month.`,
+      valueTone: "compact",
+    },
+    {
+      label: "Sessions This Month",
+      value: `${model.sessionsThisMonth.length}`,
+      helper: model.kingdomTurnsThisMonth.length ? "Kingdom handoff already logged." : "No kingdom turn logged this month.",
+      valueTone: "number",
+    },
+    {
+      label: "Open Threads",
+      value: `${openThreadCount}`,
+      helper: `${model.activeQuests.length} active quests / ${model.activeEvents.length} active events`,
+      valueTone: "number",
+      onClick: () => navigate("/world/events"),
+    },
+    {
+      label: "Latest Session",
+      value: latestSession?.title || "No session logged",
+      helper: latestSession ? getSessionDateLabel(latestSession) : "Add a session to anchor Campaign Desk.",
+      valueTone: "compact",
+    },
+  ];
 
   return (
     <Stack gap="xl">
@@ -39,41 +71,52 @@ export default function AdventureLogPage() {
         }
       />
 
-      <Grid gutter="lg">
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <Paper className="km-panel metric-card">
-            <Stack gap="sm">
-              <Text className="metric-label">Current Month</Text>
-              <Text className="metric-value">{model.monthContext.monthLabel}</Text>
-              <Text size="sm" c="dimmed">
-                {model.monthContext.daysRemaining} days remain in the current kingdom month.
-              </Text>
-            </Stack>
-          </Paper>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <Paper className="km-panel metric-card">
-            <Stack gap="sm">
-              <Text className="metric-label">Sessions This Month</Text>
-              <Text className="metric-value">{model.sessionsThisMonth.length}</Text>
-              <Text size="sm" c="dimmed">
-                {model.kingdomTurnsThisMonth.length ? "Kingdom handoff already logged." : "No kingdom turn logged for this month yet."}
-              </Text>
-            </Stack>
-          </Paper>
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <Paper className="km-panel metric-card">
-            <Stack gap="sm">
-              <Text className="metric-label">Open Threads</Text>
-              <Text className="metric-value">{model.activeQuests.length + model.activeEvents.length}</Text>
-              <Text size="sm" c="dimmed">
-                {model.activeQuests.length} active quests / {model.activeEvents.length} active events
-              </Text>
-            </Stack>
-          </Paper>
-        </Grid.Col>
-      </Grid>
+      <Paper className="km-panel km-content-panel km-campaign-desk-hero">
+        <div className="km-campaign-desk-hero__main">
+          <Text className="km-section-kicker">Session Record</Text>
+          <Title order={2} className="km-campaign-desk-hero__title">
+            {latestSession?.title || "Start The Campaign Desk"}
+          </Title>
+          <Text c="dimmed" className="km-campaign-desk-hero__lede">
+            {latestSession?.summary ||
+              "Adventure Log should be the durable memory of play: what happened, what pressure advanced, and what the next session needs."}
+          </Text>
+          <Group gap="xs" wrap="wrap">
+            {latestSession ? <Badge color="moss" variant="light">{getSessionDateLabel(latestSession)}</Badge> : null}
+            {latestSession?.type ? <Badge variant="outline">{getSessionTypeLabel(latestSession.type)}</Badge> : null}
+            {latestSession?.focusHex ? <Badge variant="outline">{latestSession.focusHex}</Badge> : null}
+          </Group>
+          <Group gap="sm" wrap="wrap" className="km-campaign-desk-hero__actions">
+            <Button color="moss" onClick={() => setDrawerOpened(true)}>
+              Add Session
+            </Button>
+            <Button variant="default" onClick={() => navigate("/campaign/table-notes")}>
+              Capture Notes
+            </Button>
+            <Button variant="default" onClick={() => navigate("/campaign/scene-forge")}>
+              Forge Scene Text
+            </Button>
+          </Group>
+        </div>
+
+        <div className="km-campaign-desk-hero__rail">
+          <Text className="km-section-kicker">Next Handoff</Text>
+          {model.latestPrepItems.length ? (
+            <div className="km-campaign-desk-hero__list">
+              {model.latestPrepItems.slice(0, 4).map((item) => (
+                <div key={item} className="km-bullet-row">
+                  <span className="km-bullet-dot" />
+                  <Text>{item}</Text>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <Text c="dimmed">No prep handoff is recorded yet. Add it before the next session starts.</Text>
+          )}
+        </div>
+      </Paper>
+
+      <CompactMetaStrip items={deskStats} className="km-campaign-desk-strip" />
 
       <Tabs.Root defaultValue="timeline" className="km-radix-tabs">
         <Tabs.List className="km-radix-list" aria-label="Adventure Log views">
@@ -113,7 +156,7 @@ export default function AdventureLogPage() {
           <Stack gap="lg" mt="lg">
             {filteredSessions.length ? (
               filteredSessions.map((session) => (
-                <Paper key={session.id} className="km-panel km-content-panel session-card">
+                <Paper key={session.id} className="km-panel km-content-panel session-card km-session-timeline-card">
                   <Stack gap="md">
                     <Group justify="space-between" align="flex-start">
                       <div>
@@ -163,7 +206,9 @@ export default function AdventureLogPage() {
               ))
             ) : (
               <Paper className="km-panel km-content-panel">
-                <Text c="dimmed">No sessions match the current filter.</Text>
+                <Text c="dimmed">
+                  {model.sessions.length ? "No sessions match the current filter." : "No sessions are recorded yet. Add the first real session when play starts."}
+                </Text>
               </Paper>
             )}
           </Stack>

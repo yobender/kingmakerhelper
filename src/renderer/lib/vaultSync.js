@@ -1,5 +1,11 @@
+import { isLiveCampaignRecord } from "./kingmakerFlow";
+
 function stringValue(value) {
   return value == null ? "" : String(value).trim();
+}
+
+function liveRecords(records = []) {
+  return (Array.isArray(records) ? records : []).filter(isLiveCampaignRecord);
 }
 
 function intValue(value, fallback = 0) {
@@ -85,15 +91,23 @@ export function buildVaultSyncPayload(campaign, settingsOverride = {}) {
     vaultPath: normalizedSettings.vaultPath,
     baseFolder: normalizedSettings.baseFolder,
     campaignName: stringValue(campaign?.meta?.campaignName) || "Kingmaker",
+    storyFocus: campaign?.meta?.storyFocus || {},
     sessions: Array.isArray(campaign?.sessions) ? campaign.sessions : [],
-    npcs: Array.isArray(campaign?.npcs) ? campaign.npcs : [],
-    companions: Array.isArray(campaign?.companions) ? campaign.companions : [],
-    quests: Array.isArray(campaign?.quests) ? campaign.quests : [],
-    events: Array.isArray(campaign?.events) ? campaign.events : [],
-    locations: Array.isArray(campaign?.locations) ? campaign.locations : [],
+    npcs: liveRecords(campaign?.npcs),
+    companions: liveRecords(campaign?.companions),
+    quests: liveRecords(campaign?.quests),
+    events: liveRecords(campaign?.events),
+    locations: liveRecords(campaign?.locations),
     kingdom: campaign?.kingdom || {},
     hexMap: campaign?.hexMap || {},
     liveCapture: Array.isArray(campaign?.liveCapture) ? campaign.liveCapture : [],
+    referenceCounts: {
+      npcs: Math.max(0, (Array.isArray(campaign?.npcs) ? campaign.npcs.length : 0) - liveRecords(campaign?.npcs).length),
+      companions: Math.max(0, (Array.isArray(campaign?.companions) ? campaign.companions.length : 0) - liveRecords(campaign?.companions).length),
+      quests: Math.max(0, (Array.isArray(campaign?.quests) ? campaign.quests.length : 0) - liveRecords(campaign?.quests).length),
+      events: Math.max(0, (Array.isArray(campaign?.events) ? campaign.events.length : 0) - liveRecords(campaign?.events).length),
+      locations: Math.max(0, (Array.isArray(campaign?.locations) ? campaign.locations.length : 0) - liveRecords(campaign?.locations).length),
+    },
   };
 }
 
@@ -134,7 +148,7 @@ export function buildVaultSyncModel(campaign) {
       {
         label: "Last Sync",
         value: formatVaultTimestamp(settings.lastSyncAt),
-        helper: lastSyncSummary || "Sync writes campaign home, sessions, NPCs, companions, quests, events, locations, kingdom, hex map, and table notes.",
+        helper: lastSyncSummary || "Sync writes confirmed table state by default; Kingmaker reference records stay in the app until activated.",
         valueTone: settings.lastSyncAt ? "compact" : "auto",
       },
     ],

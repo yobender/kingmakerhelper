@@ -5,12 +5,13 @@ const fs = require("fs/promises");
 const path = require("path");
 const { pathToFileURL } = require("url");
 const pdfParse = require("pdf-parse");
+const aiRouting = require("./src/shared/aiRouting.cjs");
 
 const DEFAULT_PDF_FOLDER = "C:\\Users\\Chris Bender\\Downloads\\PathfinderKingmakerAdventurePathPDF-SingleFile";
 const CAMPAIGN_STATE_FILENAME = "campaign-state.v1.json";
 const RENDERER_BUILD_DIR = "renderer-dist";
 const VITE_DEV_SERVER_URL = String(process.env.VITE_DEV_SERVER_URL || "").trim();
-const MAX_CHARS_PER_FILE = 300000;
+const MAX_CHARS_PER_FILE = 5000000;
 const DEFAULT_AI_ENDPOINT = "http://127.0.0.1:11434";
 const DEFAULT_AI_MODEL = "llama3.1:8b";
 const AI_TIMEOUT_MS = 120000;
@@ -27,6 +28,17 @@ const PDF_RETRIEVAL_CHUNK_OVERLAP = 240;
 const PDF_EMBED_BATCH_SIZE = 16;
 const PDF_HYBRID_CANDIDATE_FILE_LIMIT = 6;
 const PDF_HYBRID_MATCH_LIMIT = 60;
+const FAST_AI_MODEL_CANDIDATES = Object.freeze([
+  "lorebound-pf2e-pure:latest",
+  "lorebound-pf2e-ultra-fast:latest",
+  "lorebound-pf2e-v2:latest",
+  "llama3.1:8b",
+  "qwen2.5:3b",
+  "qwen2.5:7b",
+  "llama3.2:3b",
+  "mistral:7b",
+  "qwen2.5-coder:1.5b-base",
+]);
 const PDF_EMBEDDING_MODEL_CANDIDATES = [
   "all-minilm:latest",
   "all-minilm",
@@ -48,6 +60,7 @@ const AI_MODEL_LABELS = Object.freeze({
   "lorebound-pf2e:latest": "LoreBound PF2e Deep (20B)",
   "lorebound-pf2e-fast:latest": "LoreBound PF2e Fast (20B)",
   "lorebound-pf2e-minimal:latest": "LoreBound PF2e Minimal (20B)",
+  "lorebound-pf2e-pure:latest": "LoreBound PF2e Pure",
   "lorebound-pf2e-ultra-fast:latest": "LoreBound PF2e Ultra-Fast (1.5B)",
   "lorebound-pf2e-qwen:latest": "LoreBound PF2e Qwen Deep (32B)",
   "lorebound-pf2e-cpu:latest": "LoreBound PF2e CPU (20B)",
@@ -59,6 +72,10 @@ const AI_MODEL_LABELS = Object.freeze({
   "gpt-oss-20b-optimized:latest": "GPT-OSS Optimized (20B)",
   "gpt-oss-20b-cpu:latest": "GPT-OSS CPU (20B)",
   "llama3.1:8b": "Llama 3.1 (8B)",
+  "qwen2.5:3b": "Qwen 2.5 (3B)",
+  "qwen2.5:7b": "Qwen 2.5 (7B)",
+  "llama3.2:3b": "Llama 3.2 (3B)",
+  "mistral:7b": "Mistral (7B)",
   "qwen2.5-coder:1.5b-base": "Qwen 2.5 Coder Base (1.5B)",
   "qwen2.5-coder:32b": "Qwen 2.5 Coder (32B)",
 });
@@ -1442,11 +1459,16 @@ function buildRetrievalChunksForPages(pages, chunkSize = PDF_RETRIEVAL_CHUNK_SIZ
 
 function sanitizeRetrievalChunk(rawChunk, fallbackChunk = null) {
   const source = rawChunk && typeof rawChunk === "object" ? rawChunk : {};
-  const baseText = normalizePdfText(String(source.text || fallbackChunk?.text || ""));
+  const sourceText = normalizePdfText(String(source.text || ""));
+  const fallbackText = normalizePdfText(String(fallbackChunk?.text || ""));
+  const sourceMatchesFallback = sourceText && (!fallbackText || sourceText === fallbackText);
+  const baseText = sourceMatchesFallback ? sourceText : fallbackText || sourceText;
   if (!baseText) return null;
   const page = Number.parseInt(String(source.page ?? fallbackChunk?.page ?? 1), 10) || 1;
   const pageEnd = Number.parseInt(String(source.pageEnd ?? fallbackChunk?.pageEnd ?? page), 10) || page;
-  const embedding = sanitizeEmbeddingVector(source.embedding || fallbackChunk?.embedding);
+  const embedding = sourceMatchesFallback
+    ? sanitizeEmbeddingVector(source.embedding || fallbackChunk?.embedding)
+    : sanitizeEmbeddingVector(fallbackChunk?.embedding);
   return {
     id: String(source.id || fallbackChunk?.id || `p${page}-c1`).trim() || `p${page}-c1`,
     page,
@@ -1574,6 +1596,77 @@ function buildPdfIndexSummary() {
   };
 }
 
+function buildRagStatus(rawConfig = {}) {
+  const config = normalizeAiConfig(rawConfig);
+  const files = Array.isArray(pdfIndexCache.files) ? pdfIndexCache.files : [];
+  const embeddingModels = new Map();
+  let pageCount = 0;
+  let chunkCount = 0;
+  let embeddedChunks = 0;
+  let embeddedFiles = 0;
+  let charCount = 0;
+  const filesStatus = [];
+
+  for (const file of files) {
+    const pages = getIndexedPages(file);
+    const retrieval = ensureFileRetrievalState(file);
+    const chunks = Array.isArray(retrieval?.chunks) ? retrieval.chunks : [];
+    const fileEmbeddedChunks = chunks.filter((chunk) => Array.isArray(chunk?.embedding) && chunk.embedding.length).length;
+    const fileCharCount = Number.parseInt(String(file?.charCount || 0), 10) || 0;
+    pageCount += pages.length;
+    charCount += fileCharCount;
+    const modelName = String(retrieval?.embeddingModel || "").trim();
+    if (modelName) embeddingModels.set(modelName, (embeddingModels.get(modelName) || 0) + 1);
+    if (Array.isArray(retrieval?.fileEmbedding) && retrieval.fileEmbedding.length) embeddedFiles += 1;
+    chunkCount += chunks.length;
+    embeddedChunks += fileEmbeddedChunks;
+    filesStatus.push({
+      fileName: String(file?.fileName || "").trim(),
+      path: String(file?.path || "").trim(),
+      pageCount: pages.length,
+      charCount: fileCharCount,
+      retrievalChunks: chunks.length,
+      embeddedChunks: fileEmbeddedChunks,
+      semanticCoverage: chunks.length ? Math.round((fileEmbeddedChunks / chunks.length) * 100) : 0,
+      indexLimitChars: MAX_CHARS_PER_FILE,
+      likelyTruncated: fileCharCount >= MAX_CHARS_PER_FILE - 1000,
+    });
+  }
+  filesStatus.sort((a, b) => b.charCount - a.charCount || a.fileName.localeCompare(b.fileName));
+
+  const semanticCoverage = chunkCount ? Math.round((embeddedChunks / chunkCount) * 100) : 0;
+
+  return {
+    endpoint: config.endpoint,
+    generationModel: config.model,
+    configuredEmbeddingModel: config.embeddingModel,
+    retrievalMode: config.retrievalMode,
+    retrievalLimit: config.retrievalLimit,
+    rerankEnabled: config.rerankEnabled,
+    indexedAt: String(pdfIndexCache.indexedAt || "").trim(),
+    indexedFiles: files.length,
+    indexedPages: pageCount,
+    indexedCharacters: charCount,
+    retrievalChunks: chunkCount,
+    embeddedFiles,
+    embeddedChunks,
+    semanticCoverage,
+    maxIndexedCharactersPerPdf: MAX_CHARS_PER_FILE,
+    files: filesStatus,
+    activeEmbeddingModels: [...embeddingModels.entries()]
+      .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0) || String(a[0]).localeCompare(String(b[0])))
+      .map(([model, filesUsingModel]) => ({ model, filesUsingModel })),
+    candidateEmbeddingModels: PDF_EMBEDDING_MODEL_CANDIDATES,
+    note: files.length
+      ? embeddedChunks >= chunkCount && chunkCount
+        ? "PDF index is searchable. Semantic chunk embeddings cover the indexed library."
+        : embeddedChunks
+          ? "PDF index is searchable. Semantic chunk embeddings cover part of the library; missing chunks will be embedded lazily by search."
+          : "PDF index is searchable. Semantic embeddings will be created lazily on the next RAG search."
+      : "No PDFs are indexed yet. Index the Source Library before using PDF RAG.",
+  };
+}
+
 async function loadPdfIndexCacheFromDisk() {
   try {
     const cachePath = getPdfIndexCachePath();
@@ -1633,6 +1726,19 @@ function emitPdfSummarizeProgress(sender, payload) {
   try {
     if (typeof sender.isDestroyed === "function" && sender.isDestroyed()) return;
     sender.send("pdf:summarize-progress", {
+      at: new Date().toISOString(),
+      ...payload,
+    });
+  } catch {
+    // Ignore renderer IPC delivery issues.
+  }
+}
+
+function emitSemanticIndexProgress(sender, payload) {
+  if (!sender) return;
+  try {
+    if (typeof sender.isDestroyed === "function" && sender.isDestroyed()) return;
+    sender.send("ai:semantic-index-progress", {
       at: new Date().toISOString(),
       ...payload,
     });
@@ -1739,16 +1845,13 @@ function registerIpc() {
         const pages = await extractPdfPages(buffer, MAX_CHARS_PER_FILE);
         const existing = existingByPath.get(pdfPath);
         const merged = normalizePdfText(pages.map((page) => page.text).join(" "));
-        const canReuseRetrieval =
-          existing &&
-          normalizePdfText(String(existing?.text || existing?.pages?.map((page) => page.text || "").join(" ") || "")) === merged;
         indexedFiles.push(sanitizeIndexedFile({
           path: pdfPath,
           fileName: path.basename(pdfPath),
           pages,
           summary: normalizeStoredPdfSummaryText(existing?.summary),
           summaryUpdatedAt: String(existing?.summaryUpdatedAt || "").trim(),
-          retrieval: canReuseRetrieval ? existing?.retrieval : null,
+          retrieval: existing?.retrieval || null,
         }));
       } catch {
         failed += 1;
@@ -1781,7 +1884,7 @@ function registerIpc() {
     const query = String(payload?.query || "").trim();
     const limitRaw = Number.parseInt(String(payload?.limit || "20"), 10);
     const limit = Number.isNaN(limitRaw) ? 20 : Math.max(1, Math.min(limitRaw, 100));
-    const config = normalizeAiConfig(payload?.config);
+    const config = await prepareAiGenerationConfig(normalizeAiConfig(payload?.config));
 
     if (!query) return { results: [] };
     if (!pdfIndexCache.files.length) {
@@ -1979,6 +2082,12 @@ function registerIpc() {
     };
   });
 
+  ipcMain.handle("ai:get-rag-status", async (_event, rawConfig) => buildRagStatus(rawConfig));
+
+  ipcMain.handle("ai:build-semantic-index", async (event, rawConfig) => {
+    return buildSemanticIndexForLibrary(event.sender, rawConfig);
+  });
+
   ipcMain.handle("ai:generate-text", async (_event, payload) => {
     const input = String(payload?.input || "").trim();
     if (!input) {
@@ -2004,9 +2113,41 @@ function registerIpc() {
       aonRulesEnabled: false,
       aonRulesMatches: Array.isArray(context?.aonRulesMatches) ? context.aonRulesMatches : [],
     };
+    const assistantRouteResult =
+      String(mode || "").toLowerCase() === "assistant" ? resolveAssistantRoute(input, enrichedContext) : null;
+    if (assistantRouteResult) {
+      enrichedContext.askIntent = assistantRouteResult.intent;
+      enrichedContext.answerMode = assistantRouteResult.answerMode;
+      enrichedContext.contextPlan = {
+        included: assistantRouteResult.includedBuckets,
+        excluded: assistantRouteResult.excludedBuckets,
+      };
+      enrichedContext.routeDebug = {
+        intent: assistantRouteResult.intent,
+        answerMode: assistantRouteResult.answerMode,
+        included: assistantRouteResult.includedBuckets,
+        excluded: assistantRouteResult.excludedBuckets,
+        reasons: assistantRouteResult.reasons,
+      };
+      enrichedContext.routeReason = assistantRouteResult.reasons.join("; ");
+      if (assistantRouteResult.intent === "player_build") {
+        enrichedContext.taskType = "player_build_advice";
+        enrichedContext.playerBuildRequested = true;
+        enrichedContext.campaignOpeningRequested = false;
+      } else if (assistantRouteResult.intent === "rules_question") {
+        enrichedContext.taskType = "rules_question";
+      } else if (assistantRouteResult.intent === "campaign_recall") {
+        enrichedContext.taskType = "campaign_recall";
+      } else {
+        enrichedContext.taskType = String(enrichedContext.taskType || "");
+      }
+      if (assistantRouteResult.intent === "session_start_or_opening") {
+        enrichedContext.campaignOpeningRequested = true;
+      }
+    }
     if (
       config.useAonRules &&
-      String(context?.taskType || "").trim() === "rules_question" &&
+      String(enrichedContext?.askIntent || enrichedContext?.taskType || "").trim() === "rules_question" &&
       !enrichedContext.aonRulesMatches.length
     ) {
       try {
@@ -2019,39 +2160,73 @@ function registerIpc() {
     } else {
       enrichedContext.aonRulesEnabled = enrichedContext.aonRulesMatches.length > 0;
     }
-    if (config.usePdfContext && pdfIndexCache.files.length) {
+    const assistantIntent = String(assistantRouteResult?.intent || enrichedContext?.askIntent || "").trim();
+    const shouldFetchPdfContext =
+      config.usePdfContext &&
+      pdfIndexCache.files.length &&
+      assistantIntent !== "player_build" &&
+      assistantIntent !== "campaign_recall" &&
+      assistantIntent !== "general_chat";
+    if (shouldFetchPdfContext) {
+      const campaignOpeningRequested = assistantRouteResult?.intent === "session_start_or_opening";
       const query = [
         input,
-        String(context?.tabContext || ""),
-        String(context?.latestSession?.summary || ""),
-        String(context?.latestSession?.nextPrep || ""),
+        String(enrichedContext?.tabContext || ""),
+        String(enrichedContext?.knowledgeGraph?.route?.queryExpansion || ""),
+        Array.isArray(enrichedContext?.knowledgeGraph?.sourceTypes)
+          ? enrichedContext.knowledgeGraph.sourceTypes.map((source) => String(source?.label || source?.id || "")).join(" ")
+          : "",
+        Array.isArray(enrichedContext?.knowledgeGraph?.matchedNodes)
+          ? enrichedContext.knowledgeGraph.matchedNodes
+              .slice(0, 8)
+              .map((node) => String(node?.label || ""))
+              .join(" ")
+          : "",
+        campaignOpeningRequested
+          ? "Jamandi Aldori Restov invitation charter ceremony opening prologue first session Aldori mansion manor"
+          : String(enrichedContext?.latestSession?.summary || ""),
+        campaignOpeningRequested ? "" : String(enrichedContext?.latestSession?.nextPrep || ""),
       ]
         .join(" ")
         .trim();
-      const snippetLimit = config.compactContext ? Math.min(3, AI_PDF_SNIPPET_LIMIT) : AI_PDF_SNIPPET_LIMIT;
-      enrichedContext.pdfSnippets = await collectPdfContextForAi(query, snippetLimit, {
-        config,
-        preferredFileName: selectedPdfFile,
-      });
-      if (!enrichedContext.pdfSnippets.length && selectedPdfFile && (activeTab === "pdf" || isPdfGroundedQuestion(input))) {
-        enrichedContext.pdfSnippets = collectSelectedPdfFallbackContext(selectedPdfFile, query, snippetLimit);
+      const configuredSnippetLimit = Math.max(1, Math.min(Number(config.retrievalLimit || AI_PDF_SNIPPET_LIMIT), 12));
+      const snippetLimit = config.compactContext
+        ? Math.min(configuredSnippetLimit, AI_PDF_SNIPPET_LIMIT)
+        : Math.max(configuredSnippetLimit, AI_PDF_SNIPPET_LIMIT);
+      try {
+        enrichedContext.pdfSnippets = await collectPdfContextForAi(query, snippetLimit, {
+          config,
+          preferredFileName: selectedPdfFile,
+        });
+        if (!enrichedContext.pdfSnippets.length && selectedPdfFile && (activeTab === "pdf" || isPdfGroundedQuestion(input))) {
+          enrichedContext.pdfSnippets = collectSelectedPdfFallbackContext(selectedPdfFile, query, snippetLimit);
+        }
+        enrichedContext.pdfContextEnabled = enrichedContext.pdfSnippets.length > 0;
+      } catch (error) {
+        enrichedContext.pdfSnippets = [];
+        enrichedContext.pdfContextEnabled = false;
+        enrichedContext.pdfContextError = String(error?.message || error || "PDF retrieval failed.").slice(0, 260);
       }
-      enrichedContext.pdfContextEnabled = enrichedContext.pdfSnippets.length > 0;
     }
 
-    const userPrompt = buildAiUserPrompt({
-      mode,
-      input,
-      context: enrichedContext,
-      compactContext: config.compactContext,
-    });
-    const text = await generateWithOllama(config, userPrompt);
-    const finalized = finalizeAiOutput({
-      rawText: text,
-      mode,
-      input,
-      tabId: String(enrichedContext?.activeTab || "").trim(),
-    });
+    const promptPayload =
+      String(mode || "").toLowerCase() === "assistant"
+        ? buildAssistantPromptPayload({
+            input,
+            context: enrichedContext,
+            compactContext: config.compactContext,
+          })
+        : {
+            routeResult: null,
+            systemPrompt:
+              "You are the Kingmaker Steward, a practical Pathfinder 2e Kingmaker GM aide. If the prompt asks for JSON, a schema, or exact labels, obey that structure exactly and do not add extra conversational text.",
+            userPrompt: buildDraftModePrompt({
+              mode,
+              input,
+              context: enrichedContext,
+              compactContext: config.compactContext,
+            }),
+          };
     const scopedSourceReply = maybeBuildSourceScopeReply(mode, input, enrichedContext);
     if (scopedSourceReply) {
       return {
@@ -2061,15 +2236,42 @@ function registerIpc() {
         usedFallback: false,
         filtered: true,
         fallbackReason: "",
+        routeDebug: enrichedContext.routeDebug || null,
       };
     }
+
+    let generation;
+    try {
+      generation = await generateWithOllamaFastFallback(config, promptPayload);
+    } catch (error) {
+      if (isAiTimeoutError(error) && String(mode || "").toLowerCase() === "assistant") {
+        return {
+          text: buildAssistantTimeoutFallback({ mode, input, context: enrichedContext }),
+          model: config.model,
+          endpoint: config.endpoint,
+          usedFallback: true,
+          filtered: true,
+          fallbackReason: String(error?.message || error || "Local AI timed out."),
+          routeDebug: enrichedContext.routeDebug || null,
+        };
+      }
+      throw error;
+    }
+    const finalized = finalizeAiOutput({
+      rawText: generation.text,
+      mode,
+      input,
+      tabId: String(enrichedContext?.activeTab || "").trim(),
+      context: enrichedContext,
+    });
     return {
       text: finalized.text,
-      model: config.model,
-      endpoint: config.endpoint,
-      usedFallback: finalized.usedFallback,
+      model: generation.config?.model || config.model,
+      endpoint: generation.config?.endpoint || config.endpoint,
+      usedFallback: finalized.usedFallback || generation.usedGenerationFallback,
       filtered: finalized.filtered,
-      fallbackReason: finalized.fallbackReason || "",
+      fallbackReason: finalized.fallbackReason || generation.fallbackReason || "",
+      routeDebug: enrichedContext.routeDebug || null,
     };
   });
 }
@@ -2239,16 +2441,20 @@ function collectLexicalChunkMatches(files, query, limit = PDF_HYBRID_MATCH_LIMIT
   return ranked.slice(0, Math.max(1, Math.min(Number(limit) || PDF_HYBRID_MATCH_LIMIT, 120)));
 }
 
-async function pickAvailableEmbeddingModel(endpoint, timeoutMs = 10000) {
+async function pickAvailableEmbeddingModel(endpoint, timeoutMs = 10000, preferredModel = "") {
   const safeEndpoint = String(endpoint || DEFAULT_AI_ENDPOINT).replace(/\/+$/g, "");
+  const preferred = String(preferredModel || "").trim();
   const now = Date.now();
   if (
     pdfEmbeddingModelCache.endpoint === safeEndpoint &&
     now - Number(pdfEmbeddingModelCache.checkedAt || 0) < 120000
   ) {
-    return pdfEmbeddingModelCache.model || "";
+    if (!preferred) return pdfEmbeddingModelCache.model || "";
   }
   const models = await listOllamaModelsWithRecovery(safeEndpoint, timeoutMs);
+  if (preferred) {
+    return models.some((model) => String(model || "").trim().toLowerCase() === preferred.toLowerCase()) ? preferred : "";
+  }
   const match = PDF_EMBEDDING_MODEL_CANDIDATES.find((candidate) =>
     models.some((model) => String(model || "").trim().toLowerCase() === candidate.toLowerCase())
   );
@@ -2388,6 +2594,146 @@ async function ensureChunkEmbeddingsForFiles(files, endpoint, model, timeoutMs =
   return changed;
 }
 
+function getSemanticIndexStats(files = pdfIndexCache.files) {
+  let indexedFiles = 0;
+  let retrievalChunks = 0;
+  let embeddedChunks = 0;
+  let embeddedFiles = 0;
+  for (const file of Array.isArray(files) ? files : []) {
+    indexedFiles += 1;
+    const retrieval = ensureFileRetrievalState(file);
+    const chunks = Array.isArray(retrieval?.chunks) ? retrieval.chunks : [];
+    retrievalChunks += chunks.length;
+    embeddedChunks += chunks.filter((chunk) => Array.isArray(chunk?.embedding) && chunk.embedding.length).length;
+    if (Array.isArray(retrieval?.fileEmbedding) && retrieval.fileEmbedding.length) embeddedFiles += 1;
+  }
+  return {
+    indexedFiles,
+    retrievalChunks,
+    embeddedChunks,
+    embeddedFiles,
+    semanticCoverage: retrievalChunks ? Math.round((embeddedChunks / retrievalChunks) * 100) : 0,
+  };
+}
+
+async function buildSemanticIndexForLibrary(sender, rawConfig = {}) {
+  const config = normalizeAiConfig(rawConfig);
+  const files = Array.isArray(pdfIndexCache.files) ? pdfIndexCache.files : [];
+  if (!files.length) {
+    throw new Error("No indexed PDFs found. Index the Source Library before building semantic embeddings.");
+  }
+
+  emitSemanticIndexProgress(sender, {
+    stage: "starting",
+    current: 0,
+    total: 1,
+    message: "Finding local embedding model...",
+  });
+
+  const embeddingModel = await pickAvailableEmbeddingModel(
+    config.endpoint,
+    Math.max(15000, Number(config.timeoutMs || 0)),
+    config.embeddingModel
+  );
+  if (!embeddingModel) {
+    throw new Error(
+      config.embeddingModel
+        ? `Configured embedding model "${config.embeddingModel}" is not installed in Ollama.`
+        : "No local embedding model is installed in Ollama. Install nomic-embed-text to build the semantic index."
+    );
+  }
+
+  for (const file of files) {
+    const retrieval = ensureFileRetrievalState(file);
+    if (retrieval.embeddingModel && retrieval.embeddingModel !== embeddingModel) {
+      retrieval.fileEmbedding = null;
+      retrieval.fileEmbeddingUpdatedAt = "";
+      for (const chunk of retrieval.chunks) {
+        chunk.embedding = null;
+      }
+      retrieval.embeddingModel = "";
+    }
+  }
+
+  let changed = false;
+  const timeoutMs = Math.max(120000, Number(config.timeoutMs || 0));
+  const beforeStats = getSemanticIndexStats(files);
+  emitSemanticIndexProgress(sender, {
+    stage: "files",
+    current: beforeStats.embeddedFiles,
+    total: beforeStats.indexedFiles,
+    message: `Embedding ${beforeStats.indexedFiles} PDF-level summaries with ${embeddingModel}...`,
+  });
+
+  changed = (await ensureFileEmbeddings(files, config.endpoint, embeddingModel, timeoutMs)) || changed;
+
+  const pending = [];
+  for (const file of files) {
+    const retrieval = ensureFileRetrievalState(file);
+    for (const chunk of retrieval.chunks) {
+      if (Array.isArray(chunk?.embedding) && chunk.embedding.length) continue;
+      pending.push({ file, chunk });
+    }
+  }
+
+  const totalChunks = getSemanticIndexStats(files).retrievalChunks;
+  let embeddedChunks = getSemanticIndexStats(files).embeddedChunks;
+  emitSemanticIndexProgress(sender, {
+    stage: "chunks",
+    current: embeddedChunks,
+    total: totalChunks,
+    message: pending.length
+      ? `Embedding ${pending.length} missing PDF chunks with ${embeddingModel}...`
+      : "All PDF chunks already have semantic embeddings.",
+  });
+
+  for (let index = 0; index < pending.length; index += PDF_EMBED_BATCH_SIZE) {
+    const batch = pending.slice(index, index + PDF_EMBED_BATCH_SIZE);
+    const vectors = await requestOllamaEmbeddings(config.endpoint, embeddingModel, batch.map((item) => item.chunk.text), timeoutMs);
+    for (let offset = 0; offset < batch.length; offset += 1) {
+      const vector = vectors[offset];
+      if (!vector) continue;
+      const { file, chunk } = batch[offset];
+      const retrieval = ensureFileRetrievalState(file);
+      const target = retrieval.chunks.find((entry) => entry.id === chunk.id);
+      if (!target) continue;
+      target.embedding = vector;
+      retrieval.embeddingModel = embeddingModel;
+      changed = true;
+    }
+
+    embeddedChunks = getSemanticIndexStats(files).embeddedChunks;
+    emitSemanticIndexProgress(sender, {
+      stage: "chunks",
+      current: embeddedChunks,
+      total: totalChunks,
+      message: `Embedded ${embeddedChunks} of ${totalChunks} PDF chunks.`,
+      embeddingModel,
+    });
+
+    if (changed && index % (PDF_EMBED_BATCH_SIZE * 8) === 0) {
+      await savePdfIndexCacheToDisk();
+    }
+  }
+
+  if (changed) {
+    await savePdfIndexCacheToDisk();
+  }
+
+  const status = buildRagStatus(config);
+  emitSemanticIndexProgress(sender, {
+    stage: "done",
+    current: status.embeddedChunks,
+    total: status.retrievalChunks,
+    message: `Semantic index ready: ${status.embeddedChunks} of ${status.retrievalChunks} chunks embedded.`,
+    embeddingModel,
+  });
+  return {
+    ...status,
+    embeddingModel,
+  };
+}
+
 function collectSemanticFileCandidates(files, queryEmbedding, preferredFileName = "", limit = PDF_HYBRID_CANDIDATE_FILE_LIMIT) {
   const preferred = String(preferredFileName || "").trim().toLowerCase();
   const ranked = [];
@@ -2464,6 +2810,106 @@ function fuseHybridMatches(lexicalMatches, semanticMatches, limit = 20) {
   return entries.slice(0, Math.max(1, Math.min(Number(limit) || 20, 100)));
 }
 
+function findChunkForSearchResult(result) {
+  const targetPath = String(result?.path || "").trim();
+  const targetChunkId = String(result?.chunkId || "").trim();
+  if (!targetPath || !targetChunkId) return null;
+  const file = pdfIndexCache.files.find((entry) => String(entry?.path || "").trim() === targetPath);
+  if (!file) return null;
+  const retrieval = ensureFileRetrievalState(file);
+  const chunk = (Array.isArray(retrieval?.chunks) ? retrieval.chunks : []).find((entry) => String(entry?.id || "").trim() === targetChunkId);
+  return chunk ? { file, chunk } : null;
+}
+
+function normalizeSearchScore(value, scale = 1) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return 0;
+  if (scale <= 1) return Math.max(0, Math.min(1, num));
+  return Math.max(0, Math.min(1, num / scale));
+}
+
+function scoreTitleAgainstQuery(fileName, words) {
+  const source = String(fileName || "").toLowerCase();
+  if (!source || !Array.isArray(words) || !words.length) return 0;
+  const matched = words.filter((word) => word.length >= 4 && source.includes(word)).length;
+  return matched ? Math.min(0.12, matched * 0.04) : 0;
+}
+
+function rerankPdfMatches(matches, query, limit = 20, config = {}) {
+  const candidates = Array.isArray(matches) ? matches : [];
+  const desired = Math.max(1, Math.min(Number(limit) || 20, 100));
+  if (!config?.rerankEnabled || candidates.length <= 1) {
+    return candidates.slice(0, desired).map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+      reranked: false,
+    }));
+  }
+
+  const searchParts = buildSearchParts(query);
+  const words = Array.isArray(searchParts.words) ? searchParts.words.filter((word) => word.length >= 3) : [];
+  const lexicalScale = Math.max(8, words.length * 4 + 8);
+  const phrase = String(searchParts.phrase || "");
+
+  const scored = candidates.map((entry) => {
+    const found = findChunkForSearchResult(entry);
+    const textLower = String(found?.chunk?.textLower || entry?.snippet || "").toLowerCase();
+    const queryScore = scoreTextAgainstQuery(textLower, searchParts);
+    const rawSemantic = Number(entry?.semanticScore);
+    const semantic = Number.isFinite(rawSemantic) && rawSemantic !== 0 ? normalizeSearchScore((rawSemantic + 1) / 2) : 0;
+    const lexical = Math.max(
+      normalizeSearchScore(entry?.lexicalScore, lexicalScale),
+      normalizeSearchScore(queryScore.score, lexicalScale)
+    );
+    const phraseBoost = phrase && textLower.includes(phrase) ? 0.08 : 0;
+    const titleBoost = scoreTitleAgainstQuery(entry?.fileName, words);
+    const hybridBoost = entry?.searchMode === "hybrid" ? 0.06 : 0;
+    const pageBoost = Number(entry?.page || 0) > 0 ? 0.01 : 0;
+    const rerankScore = semantic * 0.46 + lexical * 0.38 + phraseBoost + titleBoost + hybridBoost + pageBoost;
+    return {
+      ...entry,
+      lexicalScore: Number(entry?.lexicalScore || queryScore.score || 0),
+      matchedWords: queryScore.matchedWords || 0,
+      rerankScore: Number(rerankScore.toFixed(6)),
+      reranked: true,
+    };
+  });
+
+  scored.sort(
+    (a, b) =>
+      Number(b.rerankScore || 0) - Number(a.rerankScore || 0) ||
+      Number(b.semanticScore || 0) - Number(a.semanticScore || 0) ||
+      Number(b.lexicalScore || 0) - Number(a.lexicalScore || 0) ||
+      a.fileName.localeCompare(b.fileName) ||
+      a.page - b.page
+  );
+
+  const selected = [];
+  const perFile = new Map();
+  for (const entry of scored) {
+    const fileKey = String(entry?.path || entry?.fileName || "").trim();
+    const fileCount = perFile.get(fileKey) || 0;
+    if (fileCount >= 3 && selected.length < Math.min(desired, 8)) continue;
+    selected.push(entry);
+    perFile.set(fileKey, fileCount + 1);
+    if (selected.length >= desired) break;
+  }
+  if (selected.length < desired) {
+    for (const entry of scored) {
+      if (selected.some((existing) => existing.key === entry.key)) continue;
+      selected.push(entry);
+      if (selected.length >= desired) break;
+    }
+  }
+
+  return selected.slice(0, desired).map((entry, index) => ({
+    ...entry,
+    rank: index + 1,
+    score: Math.round(Number(entry.rerankScore || entry.score || 0) * 100000),
+    rerankStrategy: "local-hybrid",
+  }));
+}
+
 async function searchIndexedPdfHybrid(query, limit = 20, options = {}) {
   const normalizedQuery = normalizePdfText(String(query || ""));
   if (!normalizedQuery) {
@@ -2484,21 +2930,59 @@ async function searchIndexedPdfHybrid(query, limit = 20, options = {}) {
     if (!restrictFileName) return true;
     return String(file?.fileName || "").trim().toLowerCase() === restrictFileName;
   });
-  const lexicalMatches = collectLexicalChunkMatches(allFiles, normalizedQuery, Math.max(limit * 4, PDF_HYBRID_MATCH_LIMIT), preferredFileName);
+  const retrievalMode = config.retrievalMode || "hybrid";
+  const wantsSemantic = retrievalMode === "hybrid" || retrievalMode === "semantic";
+  const matchPoolLimit = Math.max(limit * 4, PDF_HYBRID_MATCH_LIMIT);
+  const lexicalMatches = collectLexicalChunkMatches(allFiles, normalizedQuery, matchPoolLimit, preferredFileName);
+
+  if (!wantsSemantic) {
+    const ranked = rerankPdfMatches(
+      lexicalMatches.map((entry) => ({ ...entry, searchMode: "lexical" })),
+      normalizedQuery,
+      limit,
+      config
+    );
+    return {
+      results: ranked,
+      retrieval: {
+        mode: "lexical",
+        requestedMode: retrievalMode,
+        embeddingModel: "",
+        reranked: config.rerankEnabled,
+        rerankStrategy: config.rerankEnabled ? "local-hybrid" : "off",
+        note: "Keyword retrieval only. Semantic embeddings were skipped by RAG settings.",
+      },
+    };
+  }
 
   let embeddingModel = "";
   try {
-    embeddingModel = await pickAvailableEmbeddingModel(config.endpoint, Math.min(15000, Number(config.timeoutMs || 15000)));
+    embeddingModel = await pickAvailableEmbeddingModel(
+      config.endpoint,
+      Math.min(15000, Number(config.timeoutMs || 15000)),
+      config.embeddingModel
+    );
   } catch {
     embeddingModel = "";
   }
   if (!embeddingModel) {
+    const note = config.embeddingModel
+      ? `Configured embedding model "${config.embeddingModel}" is not installed. Search used keyword ranking only.`
+      : "No local embedding model is installed. Search used keyword ranking only.";
     return {
-      results: lexicalMatches.slice(0, limit).map((entry) => ({ ...entry, searchMode: "lexical" })),
+      results: rerankPdfMatches(
+        lexicalMatches.map((entry) => ({ ...entry, searchMode: "lexical" })),
+        normalizedQuery,
+        limit,
+        config
+      ),
       retrieval: {
         mode: "lexical",
+        requestedMode: retrievalMode,
         embeddingModel: "",
-        note: "No local embedding model is installed. Search used keyword ranking only.",
+        reranked: config.rerankEnabled,
+        rerankStrategy: config.rerankEnabled ? "local-hybrid" : "off",
+        note,
       },
     };
   }
@@ -2509,10 +2993,18 @@ async function searchIndexedPdfHybrid(query, limit = 20, options = {}) {
     const queryEmbedding = (await requestOllamaEmbeddings(config.endpoint, embeddingModel, [normalizedQuery], Math.max(25000, Number(config.timeoutMs || 0))))[0];
     if (!queryEmbedding) {
       return {
-        results: lexicalMatches.slice(0, limit).map((entry) => ({ ...entry, searchMode: "lexical" })),
+        results: rerankPdfMatches(
+          lexicalMatches.map((entry) => ({ ...entry, searchMode: "lexical" })),
+          normalizedQuery,
+          limit,
+          config
+        ),
         retrieval: {
           mode: "lexical",
+          requestedMode: retrievalMode,
           embeddingModel,
+          reranked: config.rerankEnabled,
+          rerankStrategy: config.rerankEnabled ? "local-hybrid" : "off",
           note: `Embedding model "${embeddingModel}" did not return a query vector. Search used keyword ranking only.`,
         },
       };
@@ -2528,8 +3020,10 @@ async function searchIndexedPdfHybrid(query, limit = 20, options = {}) {
     }
     const semanticFileCandidates = collectSemanticFileCandidates(allFiles, queryEmbedding, preferredFileName, PDF_HYBRID_CANDIDATE_FILE_LIMIT);
     const candidateFiles = new Map(semanticFileCandidates.map((entry) => [String(entry.file?.path || "").trim(), entry.file]));
-    for (const [filePath, file] of lexicalCandidateFiles.entries()) {
-      candidateFiles.set(filePath, file);
+    if (retrievalMode === "hybrid") {
+      for (const [filePath, file] of lexicalCandidateFiles.entries()) {
+        candidateFiles.set(filePath, file);
+      }
     }
     const candidateList = [...candidateFiles.values()];
     changed = (await ensureChunkEmbeddingsForFiles(candidateList, config.endpoint, embeddingModel, Math.max(30000, Number(config.timeoutMs || 0)))) || changed;
@@ -2537,15 +3031,37 @@ async function searchIndexedPdfHybrid(query, limit = 20, options = {}) {
       await savePdfIndexCacheToDisk();
     }
 
-    const semanticMatches = collectSemanticChunkMatches(candidateList, queryEmbedding, Math.max(limit * 4, PDF_HYBRID_MATCH_LIMIT), preferredFileName);
-    const fused = fuseHybridMatches(lexicalMatches, semanticMatches, limit);
+    const semanticMatches = collectSemanticChunkMatches(candidateList, queryEmbedding, matchPoolLimit, preferredFileName);
+    const baseMatches =
+      retrievalMode === "semantic"
+        ? semanticMatches.length
+          ? semanticMatches.map((entry) => ({ ...entry, searchMode: "semantic" }))
+          : lexicalMatches.map((entry) => ({ ...entry, searchMode: "lexical" }))
+        : fuseHybridMatches(lexicalMatches, semanticMatches, matchPoolLimit);
+    const ranked = rerankPdfMatches(baseMatches, normalizedQuery, limit, config);
+    const effectiveMode = retrievalMode === "semantic"
+      ? semanticMatches.length
+        ? "semantic"
+        : "lexical"
+      : semanticMatches.length && lexicalMatches.length
+        ? "hybrid"
+        : semanticMatches.length
+          ? "semantic"
+          : "lexical";
     return {
-      results: fused,
+      results: ranked,
       retrieval: {
-        mode: semanticMatches.length && lexicalMatches.length ? "hybrid" : semanticMatches.length ? "semantic" : "lexical",
+        mode: effectiveMode,
+        requestedMode: retrievalMode,
         embeddingModel,
+        reranked: config.rerankEnabled,
+        rerankStrategy: config.rerankEnabled ? "local-hybrid" : "off",
+        lexicalCandidates: lexicalMatches.length,
+        semanticCandidates: semanticMatches.length,
         note:
-          semanticMatches.length && lexicalMatches.length
+          retrievalMode === "semantic" && semanticMatches.length
+            ? `Semantic retrieval used ${embeddingModel}; local reranking ${config.rerankEnabled ? "refined" : "was disabled for"} the final order.`
+            : semanticMatches.length && lexicalMatches.length
             ? `Hybrid search combined keyword and semantic retrieval using ${embeddingModel}.`
             : semanticMatches.length
               ? `Semantic retrieval used ${embeddingModel}.`
@@ -2557,10 +3073,18 @@ async function searchIndexedPdfHybrid(query, limit = 20, options = {}) {
       await savePdfIndexCacheToDisk();
     }
     return {
-      results: lexicalMatches.slice(0, limit).map((entry) => ({ ...entry, searchMode: "lexical" })),
+      results: rerankPdfMatches(
+        lexicalMatches.map((entry) => ({ ...entry, searchMode: "lexical" })),
+        normalizedQuery,
+        limit,
+        config
+      ),
       retrieval: {
         mode: "lexical",
+        requestedMode: retrievalMode,
         embeddingModel,
+        reranked: config.rerankEnabled,
+        rerankStrategy: config.rerankEnabled ? "local-hybrid" : "off",
         note: `Semantic retrieval failed, so search fell back to keyword ranking only. ${String(err?.message || err || "")}`.trim(),
       },
     };
@@ -2601,6 +3125,7 @@ function scoreTextAgainstQuery(textLower, searchParts) {
   return {
     score,
     firstHit,
+    matchedWords,
   };
 }
 
@@ -2980,11 +3505,18 @@ function normalizeAiConfig(rawConfig) {
   const endpointRaw = String(rawConfig?.endpoint || DEFAULT_AI_ENDPOINT).trim();
   const endpoint = endpointRaw.replace(/\/+$/g, "");
   const model = String(rawConfig?.model || DEFAULT_AI_MODEL).trim() || DEFAULT_AI_MODEL;
+  const embeddingModel = String(rawConfig?.embeddingModel || "").trim();
   const tempRaw = Number.parseFloat(String(rawConfig?.temperature ?? "0.2"));
   const temperature = Number.isFinite(tempRaw) ? Math.max(0, Math.min(tempRaw, 2)) : 0.2;
   const usePdfContext = rawConfig?.usePdfContext === false ? false : true;
   const useAonRules = rawConfig?.useAonRules === false ? false : true;
   const compactContext = rawConfig?.compactContext === false ? false : true;
+  const retrievalModeRaw = String(rawConfig?.retrievalMode || "hybrid").trim().toLowerCase();
+  const retrievalMode = ["hybrid", "semantic", "keyword"].includes(retrievalModeRaw) ? retrievalModeRaw : "hybrid";
+  const retrievalLimitRaw = Number.parseInt(String(rawConfig?.retrievalLimit ?? "4"), 10);
+  const retrievalLimit = Number.isFinite(retrievalLimitRaw) ? Math.max(1, Math.min(retrievalLimitRaw, 12)) : 4;
+  const rerankEnabled = rawConfig?.rerankEnabled === false ? false : true;
+  const preferFastModel = rawConfig?.preferFastModel === true;
   const maxOutputTokensRaw = Number.parseInt(String(rawConfig?.maxOutputTokens ?? "320"), 10);
   const maxOutputTokens = Number.isFinite(maxOutputTokensRaw)
     ? Math.max(64, Math.min(maxOutputTokensRaw, 2048))
@@ -2997,14 +3529,80 @@ function normalizeAiConfig(rawConfig) {
   return {
     endpoint: endpoint || DEFAULT_AI_ENDPOINT,
     model,
+    embeddingModel,
     temperature,
     usePdfContext,
     useAonRules,
     compactContext,
+    retrievalMode,
+    retrievalLimit,
+    rerankEnabled,
+    preferFastModel,
     maxOutputTokens,
     timeoutSec,
     timeoutMs: timeoutSec * 1000 || AI_TIMEOUT_MS,
   };
+}
+
+function normalizeModelName(model) {
+  return String(model || "").trim().toLowerCase();
+}
+
+function isFastAiCandidate(model) {
+  const target = normalizeModelName(model);
+  return FAST_AI_MODEL_CANDIDATES.some((candidate) => normalizeModelName(candidate) === target);
+}
+
+function isLikelySlowAiModel(model) {
+  const target = normalizeModelName(model);
+  return (
+    /\b(20b|32b|70b)\b/.test(target) ||
+    target.includes("cpu") ||
+    target.includes("deep") ||
+    target.includes("gpt-oss") ||
+    target.includes("qwen:latest")
+  );
+}
+
+function isAiTimeoutError(err) {
+  return err?.name === "AbortError" || /timed out|timeout/i.test(String(err?.message || err || ""));
+}
+
+async function pickAvailableFastAiModel(config, excludedModels = []) {
+  const excluded = new Set(excludedModels.map(normalizeModelName));
+  let modelNames = [];
+  try {
+    modelNames = await listOllamaModelsWithRecovery(
+      config.endpoint,
+      Math.min(12000, Math.max(5000, Number(config?.timeoutMs) || 10000))
+    );
+  } catch {
+    return "";
+  }
+  const available = new Set(modelNames.map(normalizeModelName));
+  return (
+    FAST_AI_MODEL_CANDIDATES.find((candidate) => available.has(normalizeModelName(candidate)) && !excluded.has(normalizeModelName(candidate))) ||
+    ""
+  );
+}
+
+function buildFastAiConfig(baseConfig, model) {
+  const timeoutSec = Math.max(45, Math.min(Number(baseConfig?.timeoutSec || 120), 180));
+  return {
+    ...baseConfig,
+    model,
+    compactContext: true,
+    maxOutputTokens: Math.max(360, Math.min(Number(baseConfig?.maxOutputTokens || 720), 900)),
+    timeoutSec,
+    timeoutMs: timeoutSec * 1000,
+  };
+}
+
+async function prepareAiGenerationConfig(config) {
+  if (!config?.preferFastModel) return config;
+  if (isFastAiCandidate(config.model) && !isLikelySlowAiModel(config.model)) return config;
+  const fastModel = await pickAvailableFastAiModel(config, [config.model]);
+  return fastModel ? buildFastAiConfig(config, fastModel) : config;
 }
 
 async function testOllamaConnection(config) {
@@ -3127,10 +3725,25 @@ async function listOllamaModels(endpoint, timeoutMs = 10000) {
   return modelNames.slice(0, 160);
 }
 
-async function generateWithOllama(config, userPrompt, recovered = false, timeoutRetried = false) {
+function normalizePromptPayload(promptPayload) {
+  if (promptPayload && typeof promptPayload === "object" && !Array.isArray(promptPayload)) {
+    return {
+      systemPrompt: String(promptPayload.systemPrompt || "").trim(),
+      userPrompt: String(promptPayload.userPrompt || "").trim(),
+    };
+  }
+  return {
+    systemPrompt:
+      "You are the Kingmaker Steward, a practical Pathfinder 2e Kingmaker GM aide. If the prompt asks for JSON, a schema, or exact labels, obey that structure exactly and do not add extra conversational text.",
+    userPrompt: String(promptPayload || "").trim(),
+  };
+}
+
+async function generateWithOllama(config, promptPayload, recovered = false, timeoutRetried = false) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Number(config?.timeoutMs) || AI_TIMEOUT_MS);
   try {
+    const prompts = normalizePromptPayload(promptPayload);
     const chatData = await requestOllamaJson(
       `${config.endpoint}/api/chat`,
       {
@@ -3144,10 +3757,9 @@ async function generateWithOllama(config, userPrompt, recovered = false, timeout
         messages: [
           {
             role: "system",
-            content:
-              "You are a tabletop GM writing assistant. Return practical, complete GM-facing text only. Match requested structure exactly and never omit requested fields.",
+            content: prompts.systemPrompt,
           },
-          { role: "user", content: userPrompt },
+          { role: "user", content: prompts.userPrompt },
         ],
       },
       controller.signal
@@ -3165,11 +3777,9 @@ async function generateWithOllama(config, userPrompt, recovered = false, timeout
             num_predict: config.maxOutputTokens,
           },
           prompt: [
-            "You are a tabletop GM writing assistant.",
-            "Return practical, complete GM-facing text only.",
-            "Match requested structure exactly and never omit requested fields.",
+            prompts.systemPrompt,
             "",
-            userPrompt,
+            prompts.userPrompt,
           ].join("\n"),
         },
         controller.signal
@@ -3192,7 +3802,7 @@ async function generateWithOllama(config, userPrompt, recovered = false, timeout
           timeoutSec: Math.max(Number(config?.timeoutSec) || 0, Math.round(retriedTimeoutMs / 1000)),
           maxOutputTokens: Math.max(192, Math.min(Number(config?.maxOutputTokens || 320), 1024)),
         };
-        return generateWithOllama(retriedConfig, userPrompt, recovered, true);
+        return generateWithOllama(retriedConfig, promptPayload, recovered, true);
       }
       throw new Error(
         `Local AI request timed out after ${Math.round(timeoutMs / 1000)}s. Try compact context, fewer output tokens, a faster model, or a longer timeout.`
@@ -3200,7 +3810,7 @@ async function generateWithOllama(config, userPrompt, recovered = false, timeout
     }
     if (!recovered && isLocalEndpoint(config.endpoint) && isLikelyOllamaConnectionError(err)) {
       await ensureOllamaAvailable(config.endpoint, Number(config?.timeoutMs) || AI_TIMEOUT_MS);
-      return generateWithOllama(config, userPrompt, true, timeoutRetried);
+      return generateWithOllama(config, promptPayload, true, timeoutRetried);
     }
     const message = String(err?.message || "");
     if (/fetch failed/i.test(message) || /ECONNREFUSED/i.test(message)) {
@@ -3210,6 +3820,71 @@ async function generateWithOllama(config, userPrompt, recovered = false, timeout
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function generateWithOllamaFastFallback(config, promptPayload) {
+  try {
+    const text = await generateWithOllama(config, promptPayload);
+    return {
+      text,
+      config,
+      usedGenerationFallback: false,
+      fallbackReason: "",
+    };
+  } catch (err) {
+    if (!isAiTimeoutError(err)) throw err;
+
+    const fastModel = await pickAvailableFastAiModel(config, [config.model]);
+    if (!fastModel) throw err;
+
+    const retryConfig = buildFastAiConfig(config, fastModel);
+    const retryPrompt = compactPromptForTimeoutRetry(promptPayload);
+    const text = await generateWithOllama(retryConfig, retryPrompt);
+    return {
+      text,
+      config: retryConfig,
+      usedGenerationFallback: true,
+      fallbackReason: `Timed out on ${getAiModelDisplayName(config.model)}; retried with ${getAiModelDisplayName(fastModel)} and compact context.`,
+    };
+  }
+}
+
+function compactPromptForTimeoutRetry(promptPayload) {
+  const prompts = normalizePromptPayload(promptPayload);
+  const lines = String(prompts.userPrompt || "").split(/\r?\n/);
+  const head = lines.slice(0, 80).join("\n");
+  const tail = lines.slice(-14).join("\n");
+  return {
+    systemPrompt: prompts.systemPrompt,
+    userPrompt: [
+      summarizeForPrompt(head, 5200),
+      "",
+      "Retry note: previous local model timed out. Answer concisely from the available campaign context.",
+      "",
+      summarizeForPrompt(tail, 1200),
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}
+
+function buildAssistantTimeoutFallback({ mode, input, context }) {
+  const tabId = String(context?.activeTab || "").trim();
+  const fallback = generateFallbackAiOutput(mode, input, tabId, context);
+  const intent = detectAssistantIntent(input, context);
+  const graphFacts = Array.isArray(context?.knowledgeGraph?.graphFacts)
+    ? context.knowledgeGraph.graphFacts.slice(0, 5).map((fact, index) => `${index + 1}. ${summarizeForPrompt(String(fact || ""), 180)}`)
+    : [];
+  return [
+    intent === "player_build"
+      ? "The local model timed out before it could finish, so I am giving you a concise built-in character-advice fallback."
+      : "The local model timed out before it could finish, so I am giving you a concise context-only fallback.",
+    "",
+    ...(intent === "player_build" ? [] : graphFacts.length ? ["Graph facts I can use right now:", ...graphFacts, ""] : []),
+    fallback,
+    "",
+    "If you want the full AI answer, switch AI / RAG Settings to a faster model like lorebound-pf2e-pure:latest or llama3.1:8b, or ask with @campaign instead of @app.",
+  ].join("\n");
 }
 
 async function requestOllamaJson(url, payload, signal) {
@@ -3258,7 +3933,7 @@ function extractOllamaText(data) {
   return "";
 }
 
-function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
+function buildDraftModePrompt({ mode, input, context, compactContext = true }) {
   const latestSession = context?.latestSession || {};
   const recentSessions = Array.isArray(context?.recentSessions) ? context.recentSessions : [];
   const openQuests = Array.isArray(context?.openQuests) ? context.openQuests : [];
@@ -3277,8 +3952,17 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
   const indexedPdfCount = Number.parseInt(String(context?.pdfIndexedFileCount || indexedPdfFiles.length || 0), 10) || 0;
   const retrievalSummary = context?.retrievalSummary && typeof context.retrievalSummary === "object" ? context.retrievalSummary : {};
   const retrievedChunks = Array.isArray(context?.retrievedChunks) ? context.retrievedChunks : [];
+  const knowledgeGraph = context?.knowledgeGraph && typeof context.knowledgeGraph === "object" ? context.knowledgeGraph : {};
+  const knowledgeGraphPrompt = summarizeForPrompt(String(context?.knowledgeGraphPrompt || ""), compactContext ? 2200 : 3400);
+  const graphRoute = knowledgeGraph?.route && typeof knowledgeGraph.route === "object" ? knowledgeGraph.route : {};
+  const graphSourceTypes = Array.isArray(graphRoute?.sourceTypes) ? graphRoute.sourceTypes : [];
+  const graphQueryExpansion = summarizeForPrompt(String(graphRoute?.queryExpansion || ""), compactContext ? 220 : 360);
   const aonRulesMatches = Array.isArray(context?.aonRulesMatches) ? context.aonRulesMatches : [];
   const aonRulesEnabled = context?.aonRulesEnabled === true;
+  const aiPersona = summarizeForPrompt(String(context?.aiPersona || "kingmaker-steward"), 80);
+  const storyFocus = context?.storyFocus && typeof context.storyFocus === "object" ? context.storyFocus : {};
+  const storyFocusLabel = summarizeForPrompt(String(storyFocus?.label || ""), 120);
+  const storyFocusSummary = summarizeForPrompt(String(storyFocus?.summary || ""), compactContext ? 260 : 420);
   const campaignMemorySummary = summarizeForPrompt(String(aiMemory?.campaignSummary || ""), compactContext ? 700 : 1100);
   const recentSessionMemory = summarizeForPrompt(String(aiMemory?.recentSessionSummary || ""), compactContext ? 700 : 1100);
   const activeQuestMemory = summarizeForPrompt(String(aiMemory?.activeQuestsSummary || ""), compactContext ? 700 : 1100);
@@ -3305,20 +3989,24 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
   const aiHistory = Array.isArray(context?.aiHistory) ? context.aiHistory : [];
   const activeTab = summarizeForPrompt(String(context?.activeTab || ""), 40);
   const tabLabel = summarizeForPrompt(String(context?.tabLabel || ""), 80);
+  const campaignOpeningRequested = isCampaignOpeningRequest(input, context);
+  const playerBuildRequested = isPlayerBuildRequest(input, context);
   const limits = compactContext
     ? { draft: 1500, tab: 900, latest: 220, snippet: 180 }
     : { draft: 2400, tab: 1800, latest: 360, snippet: 280 };
   const tabContext = summarizeForPrompt(String(context?.tabContext || ""), limits.tab);
   const pdfSnippets = Array.isArray(context?.pdfSnippets) ? context.pdfSnippets : [];
   const pdfEnabled = context?.pdfContextEnabled === true;
+  const pdfContextError = summarizeForPrompt(String(context?.pdfContextError || ""), compactContext ? 220 : 360);
   const appRoleLines = getKingmakerAppRoleLines(activeTab);
-  const recentSessionLines = summarizeRecentSessionsForPrompt(recentSessions, compactContext ? 3 : 5);
-  const trackedNpcLines = summarizeTrackedNpcsForPrompt(npcs, compactContext ? 5 : 8);
-  const trackedCompanionLines = summarizeTrackedCompanionsForPrompt(companions, compactContext ? 5 : 8);
-  const trackedQuestLines = summarizeTrackedQuestsForPrompt(quests, compactContext ? 5 : 8);
-  const activeEventLines = summarizeTrackedEventsForPrompt(events, compactContext ? 5 : 8);
-  const trackedLocationLines = summarizeTrackedLocationsForPrompt(locations, compactContext ? 5 : 8);
-  const kingdomLines = summarizeKingdomForPrompt(kingdom, compactContext);
+  const suppressCampaignRecords = campaignOpeningRequested || playerBuildRequested;
+  const recentSessionLines = suppressCampaignRecords ? [] : summarizeRecentSessionsForPrompt(recentSessions, compactContext ? 3 : 5);
+  const trackedNpcLines = suppressCampaignRecords ? [] : summarizeTrackedNpcsForPrompt(npcs, compactContext ? 5 : 8);
+  const trackedCompanionLines = suppressCampaignRecords ? [] : summarizeTrackedCompanionsForPrompt(companions, compactContext ? 5 : 8);
+  const trackedQuestLines = suppressCampaignRecords ? [] : summarizeTrackedQuestsForPrompt(quests, compactContext ? 5 : 8);
+  const activeEventLines = suppressCampaignRecords ? [] : summarizeTrackedEventsForPrompt(events, compactContext ? 5 : 8);
+  const trackedLocationLines = suppressCampaignRecords ? [] : summarizeTrackedLocationsForPrompt(locations, compactContext ? 5 : 8);
+  const kingdomLines = suppressCampaignRecords ? [] : summarizeKingdomForPrompt(kingdom, compactContext);
   const historyLimit = compactContext ? 6 : 10;
   const historyTurns = aiHistory
     .slice(-historyLimit)
@@ -3331,7 +4019,8 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
     .filter((line) => line.endsWith(": ") === false);
 
   const modeGuide = {
-    assistant: "Answer the GM's question directly with practical, table-ready guidance.",
+    assistant:
+      "Answer like a trusted Kingmaker GM aide: give your read, explain the table reason, then provide practical next steps.",
     session:
       "Produce structured, table-ready session notes. Follow requested section labels exactly and provide substantive detail (not just one short paragraph).",
     recap: "Rewrite as a short read-aloud recap for players (3-6 sentences).",
@@ -3347,6 +4036,32 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
   const lines = [
     `Mode: ${mode}`,
     `Goal: ${modeGuide[mode] || modeGuide.session}`,
+    `Persona: ${aiPersona === "kingmaker-steward" ? "Kingmaker Steward - opinionated when useful, source-aware, concise, and table-ready." : aiPersona}`,
+    ...(storyFocusLabel
+      ? [
+          `Story focus: ${storyFocusLabel}${storyFocusSummary ? ` - ${storyFocusSummary}` : ""}`,
+          "Campaign-state rule: confirmed/user records are what has happened at this table. Kingmaker reference records are canon prep only; do not describe them as completed campaign history unless the GM or saved session notes confirms it.",
+        ]
+      : []),
+    ...(String(mode || "").toLowerCase() === "assistant"
+      ? playerBuildRequested
+        ? [
+          "Assistant voice rules:",
+          "- Start with Quick take: one clear class recommendation in 1-3 concise sentences.",
+          "- Then use Why it fits this party, How it plays, and Alternatives if useful.",
+          "- Do not include table-running sections, scene framing, active pressure, campaign-start prep, or app record updates unless the GM explicitly asks for campaign prep.",
+          "- Focus on PF2e party role coverage, playstyle, expected ability focus, and why the recommendation helps the listed group.",
+          "- Keep the answer compact unless the GM asks for a build plan.",
+        ]
+        : [
+          "Assistant voice rules:",
+          "- Start with Quick take: one clear recommendation in 1-3 concise sentences.",
+          "- Answer the exact question asked. Do not add campaign prep, extra scenes, or record updates unless the GM asks for those.",
+          "- Only include table-running advice when the GM asks for prep, scenes, session planning, or running advice.",
+          "- Use at most one short bullet block by default.",
+          "- If there are multiple viable paths, say which one you would choose and why.",
+        ]
+      : []),
     "",
     ...appRoleLines,
     ...(modeSpecificLines.length ? ["", ...modeSpecificLines] : []),
@@ -3358,15 +4073,42 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
     `Task class: ${taskType || "unspecified"}${taskLabel ? ` (${taskLabel})` : ""}`,
     `Task save target: ${taskSaveTarget || "unspecified"}`,
     ...(routeReason ? [`Routing reason: ${routeReason}`] : []),
+    ...(campaignOpeningRequested
+      ? [
+          "Campaign opening override: The GM is asking how to begin a new Kingmaker campaign. Start with the Jamandi Aldori / Restov invitation, Aldori manor or mansion prologue, charter stakes, and first-session table setup. Do not use saved trading-post, Linzi-scouting, bandit-tribute, Animal Panic, or Blood for Blood records as the first scene unless the GM explicitly says the opening is complete.",
+          "Source priority for this opening answer: use indexed PDF/RAG source snippets and knowledge-graph opening terms before saved app records, because saved app records may reflect a later test state.",
+        ]
+      : []),
+    ...(playerBuildRequested
+      ? [
+          "Player build advice override: The GM is asking what class or character role to play. Answer as PF2e party-composition advice. Do not turn this into Kingmaker scene prep, opening campaign guidance, active pressure, or app record updates.",
+        ]
+      : []),
     ...(entityType ? [`Target entity type: ${entityType}`] : []),
     `Active tab: ${activeTab || "unknown"} (${tabLabel || "unknown"})`,
     `Tab context: ${tabContext || "None provided."}`,
-    `Latest session: ${summarizeForPrompt(String(latestSession?.title || ""), 120)} | ${summarizeForPrompt(
-      String(latestSession?.summary || ""),
-      limits.latest
-    )}`,
+    ...(knowledgeGraphPrompt
+      ? [
+          "Knowledge graph context:",
+          knowledgeGraphPrompt,
+          graphSourceTypes.length ? `Graph source types: ${graphSourceTypes.map((type) => summarizeForPrompt(String(type), 40)).join(", ")}` : "",
+          graphQueryExpansion ? `Graph query expansion: ${graphQueryExpansion}` : "",
+        ]
+      : []),
+    campaignOpeningRequested
+      ? "Latest session: saved live records are later than the campaign opening. Do not use saved trading-post, bandit tribute, or frontier pressure as the first scene unless the GM explicitly says the opening is already complete."
+      : playerBuildRequested
+        ? "Latest session: held aside because this is player class advice, not campaign scene prep."
+      : `Latest session: ${summarizeForPrompt(String(latestSession?.title || ""), 120)} | ${summarizeForPrompt(
+          String(latestSession?.summary || ""),
+          limits.latest
+        )}`,
     ...(recentSessionLines.length ? ["Recent sessions in app:", ...recentSessionLines] : []),
-    `Open quests: ${openQuests.map((q) => summarizeForPrompt(String(q?.title || ""), 80)).join("; ") || "None listed."}`,
+    campaignOpeningRequested
+      ? "Open quests: held aside for opening routing. The first answer should cover the Jamandi / Restov mansion setup before saved live quest pressure."
+      : playerBuildRequested
+        ? "Open quests: held aside because this is player class advice, not quest or session prep."
+      : `Open quests: ${openQuests.map((q) => summarizeForPrompt(String(q?.title || ""), 80)).join("; ") || "None listed."}`,
     ...(trackedQuestLines.length ? ["Tracked quest records:", ...trackedQuestLines] : ["Tracked quest records: None listed."]),
     ...(trackedNpcLines.length ? ["Tracked NPC records:", ...trackedNpcLines] : ["Tracked NPC records: None listed."]),
     ...(trackedCompanionLines.length ? ["Tracked companion records:", ...trackedCompanionLines] : ["Tracked companion records: None listed."]),
@@ -3389,6 +4131,7 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
     ...(retrievalSourceSummary ? [`Retrieval sources: ${retrievalSourceSummary}`] : []),
     `Archives of Nethys rules lookup enabled: ${aonRulesEnabled ? "yes" : "no"}`,
     `PDF context enabled: ${pdfEnabled ? "yes" : "no"}`,
+    ...(pdfContextError ? [`PDF context warning: ${pdfContextError}`] : []),
     `Indexed PDF files (${indexedPdfCount}): ${
       indexedPdfFiles.length
         ? indexedPdfFiles.map((name) => summarizeForPrompt(String(name || ""), 70)).join("; ")
@@ -3477,6 +4220,346 @@ function buildAiUserPrompt({ mode, input, context, compactContext = true }) {
   return lines.join("\n");
 }
 
+function getAssistantRoleLabel(answerMode) {
+  const roleByMode = {
+    advice: "player advisor",
+    rules: "rules explainer",
+    prep: "GM prep assistant",
+    recall: "campaign recall assistant",
+    create: "content drafting assistant",
+    narration: "opening narrator",
+  };
+  return roleByMode[answerMode] || "Kingmaker helper";
+}
+
+function normalizeAssistantPageMode(value) {
+  const clean = String(value || "").trim().toLowerCase();
+  return clean === "prep" || clean === "recall" || clean === "create" ? clean : "ask";
+}
+
+function normalizeAssistantScopeTag(value) {
+  const clean = String(value || "").trim().toLowerCase().replace(/^@+/, "");
+  return clean ? `@${clean}` : "@app";
+}
+
+function formatAssistantRuleNote(entry, compactContext = true) {
+  if (!entry || typeof entry !== "object") return "";
+  const title = summarizeForPrompt(String(entry?.title || "Rule"), 90);
+  const snippet = summarizeForPrompt(String(entry?.snippet || ""), compactContext ? 220 : 320);
+  if (!title && !snippet) return "";
+  return `${title || "Rule"}${snippet ? ` - ${snippet}` : ""}`;
+}
+
+function formatAssistantRetrievedNote(entry, compactContext = true) {
+  if (!entry || typeof entry !== "object") return "";
+  const label = summarizeForPrompt(String(entry?.sourceLabel || entry?.sourceType || "context"), 48);
+  const title = summarizeForPrompt(String(entry?.title || ""), 90);
+  const text = summarizeForPrompt(String(entry?.text || ""), compactContext ? 220 : 320);
+  const heading = [label, title].filter(Boolean).join(" / ");
+  if (!heading && !text) return "";
+  return `${heading || "Context"}${text ? ` - ${text}` : ""}`;
+}
+
+function formatAssistantPdfNote(entry, compactContext = true) {
+  if (!entry || typeof entry !== "object") return "";
+  const fileName = summarizeForPrompt(String(entry?.fileName || "PDF"), 90);
+  const snippet = summarizeForPrompt(String(entry?.snippet || ""), compactContext ? 220 : 320);
+  if (!fileName && !snippet) return "";
+  return `${fileName}${entry?.page ? ` p.${entry.page}` : ""}${snippet ? ` - ${snippet}` : ""}`;
+}
+
+function formatAssistantSessionNote(session, compactContext = true) {
+  if (!session || typeof session !== "object") return "";
+  const title = summarizeForPrompt(String(session?.title || ""), 90);
+  const summary = summarizeForPrompt(String(session?.summary || session?.nextPrep || ""), compactContext ? 220 : 320);
+  if (!title && !summary) return "";
+  return `${title || "Session"}${summary ? ` - ${summary}` : ""}`;
+}
+
+function formatAssistantQuestNote(quest, compactContext = true) {
+  if (!quest || typeof quest !== "object") return "";
+  const title = summarizeForPrompt(String(quest?.title || ""), 90);
+  const objective = summarizeForPrompt(String(quest?.objective || quest?.nextBeat || quest?.stakes || ""), compactContext ? 220 : 320);
+  if (!title && !objective) return "";
+  return `${title || "Quest"}${objective ? ` - ${objective}` : ""}`;
+}
+
+function formatAssistantEventNote(eventItem, compactContext = true) {
+  if (!eventItem || typeof eventItem !== "object") return "";
+  const title = summarizeForPrompt(String(eventItem?.title || ""), 90);
+  const summary = summarizeForPrompt(String(eventItem?.trigger || eventItem?.consequenceSummary || ""), compactContext ? 220 : 320);
+  if (!title && !summary) return "";
+  return `${title || "Event"}${summary ? ` - ${summary}` : ""}`;
+}
+
+function formatAssistantKingdomNote(kingdom) {
+  if (!kingdom || typeof kingdom !== "object") return "";
+  const parts = [
+    summarizeForPrompt(String(kingdom?.currentTurnLabel || ""), 48),
+    kingdom?.controlDC != null ? `Control DC ${kingdom.controlDC}` : "",
+    kingdom?.unrest != null ? `Unrest ${kingdom.unrest}` : "",
+    kingdom?.renown != null ? `Renown ${kingdom.renown}` : "",
+  ].filter(Boolean);
+  return parts.join(" | ");
+}
+
+function resolveAssistantRoute(userMessage, context = {}) {
+  const rawQuestion = String(context?.userQuestion || userMessage || "").trim();
+  const selectedPageMode = normalizeAssistantPageMode(context?.workspaceModeId || context?.selectedPageMode);
+  const scopeTag = normalizeAssistantScopeTag(context?.scopeTag || context?.tabTag || context?.activeTab);
+  let routeResult = aiRouting.resolveAiRoute(rawQuestion, selectedPageMode, scopeTag);
+  if (routeResult.intent === "general_chat" && isPlayerBuildFollowupText(rawQuestion) && hasRecentPlayerBuildContext(context)) {
+    const contextPlan = aiRouting.selectContextBuckets("player_build", selectedPageMode, scopeTag);
+    routeResult = {
+      ...routeResult,
+      intent: "player_build",
+      answerMode: aiRouting.selectAnswerMode("player_build", selectedPageMode),
+      includedBuckets: contextPlan.includedBuckets,
+      excludedBuckets: contextPlan.excludedBuckets,
+      included: contextPlan.includedBuckets,
+      excluded: contextPlan.excludedBuckets,
+      reasons: ["follow-up to recent player-build discussion", ...routeResult.reasons].slice(0, 4),
+    };
+  }
+  return routeResult;
+}
+
+function buildAssistantBucketLines(bucket, context = {}, compactContext = true) {
+  const limit = compactContext ? 220 : 320;
+  const intent = String(context?.askIntent || context?.routeDebug?.intent || "").trim();
+  const isPlayerBuild = intent === "player_build" || context?.playerBuildRequested === true;
+  const aiMemory = context?.aiMemory && typeof context.aiMemory === "object" ? context.aiMemory : {};
+  const latestSession = context?.latestSession && typeof context.latestSession === "object" ? context.latestSession : null;
+  const recentSessions = Array.isArray(context?.recentSessions) ? context.recentSessions : [];
+  const openQuests = Array.isArray(context?.openQuests) ? context.openQuests : [];
+  const companions = Array.isArray(context?.companions) ? context.companions : [];
+  const events = Array.isArray(context?.events) ? context.events : [];
+  const kingdom = context?.kingdom && typeof context.kingdom === "object" ? context.kingdom : null;
+  const aonRulesMatches = Array.isArray(context?.aonRulesMatches) ? context.aonRulesMatches : [];
+  const retrievedChunks = Array.isArray(context?.retrievedChunks) ? context.retrievedChunks : [];
+  const pdfSnippets = Array.isArray(context?.pdfSnippets) ? context.pdfSnippets : [];
+  const obsidianVaultNotes = Array.isArray(context?.obsidianVaultNotes) ? context.obsidianVaultNotes : [];
+  const knowledgeGraph = context?.knowledgeGraph && typeof context.knowledgeGraph === "object" ? context.knowledgeGraph : {};
+  const graphFacts = Array.isArray(knowledgeGraph?.graphFacts) ? knowledgeGraph.graphFacts : [];
+  const matchedNodes = Array.isArray(knowledgeGraph?.matchedNodes) ? knowledgeGraph.matchedNodes : [];
+  const secondSession = recentSessions.find((session) => String(session?.id || "") !== String(latestSession?.id || ""));
+  const openingPattern = /\b(opening|opener|jamandi|aldori|restov|feast|charter|first session|oleg|trading post|arrival)\b/i;
+
+  const lines = [];
+  const push = (value) => {
+    const clean = summarizeForPrompt(String(value || ""), limit);
+    if (clean) lines.push(clean);
+  };
+
+  switch (bucket) {
+    case "party":
+      if (isPlayerBuild) {
+        push("No PC party composition was provided unless the user included it in the question. Do not infer party makeup from NPC, companion, quest, or session records.");
+      } else {
+        companions.slice(0, compactContext ? 3 : 4).forEach((companion) => {
+          push(`${summarizeForPrompt(String(companion?.name || "Companion"), 80)} - ${summarizeForPrompt(String(companion?.currentNeed || companion?.nextBeat || companion?.kingdomRole || ""), 120)}`);
+        });
+        if (!lines.length) push(aiMemory?.activeEntitiesSummary);
+      }
+      break;
+    case "campaign_summary":
+      if (isPlayerBuild) {
+        push("Kingmaker character context: wilderness exploration, social scenes, kingdom leadership, hexploration, and varied threat types reward versatile PCs. Keep named campaign NPCs, quests, and opening scenes out unless the user asks for story integration.");
+      } else {
+        push(aiMemory?.campaignSummary);
+        push(formatAssistantSessionNote(latestSession, compactContext));
+        push(formatAssistantQuestNote(openQuests[0], compactContext));
+      }
+      break;
+    case "rules":
+      push(formatAssistantRuleNote(aonRulesMatches[0], compactContext));
+      push(aiMemory?.rulingsDigest);
+      push(formatAssistantRetrievedNote(retrievedChunks.find((entry) => /\brule|rules|kingdom\b/i.test(String(entry?.sourceLabel || entry?.sourceType || entry?.title || ""))), compactContext));
+      if (isPlayerBuild && !lines.length) push("Use Pathfinder 2e Remastered character-building assumptions. Give practical class pointers without pretending to know unprovided feats, bloodline, ancestry, or party composition.");
+      break;
+    case "gm_notes":
+      push(formatAssistantQuestNote(openQuests[0], compactContext));
+      push(formatAssistantEventNote(events[0], compactContext));
+      push(obsidianVaultNotes[0] ? `${summarizeForPrompt(String(obsidianVaultNotes[0]?.title || "Vault note"), 80)} - ${summarizeForPrompt(String(obsidianVaultNotes[0]?.excerpt || ""), 120)}` : "");
+      break;
+    case "session_history":
+      push(formatAssistantSessionNote(latestSession, compactContext));
+      push(formatAssistantSessionNote(secondSession, compactContext));
+      break;
+    case "kingdom_state":
+      push(formatAssistantKingdomNote(kingdom));
+      break;
+    case "lore":
+      push(graphFacts[0]);
+      push(graphFacts[1]);
+      push(aiMemory?.canonSummary);
+      break;
+    case "opening_notes":
+      push(formatAssistantPdfNote(pdfSnippets.find((entry) => openingPattern.test(String(entry?.snippet || "")) || openingPattern.test(String(entry?.fileName || ""))), compactContext));
+      push(formatAssistantRetrievedNote(retrievedChunks.find((entry) => openingPattern.test(String(entry?.text || "")) || openingPattern.test(String(entry?.title || ""))), compactContext));
+      push(graphFacts.find((fact) => openingPattern.test(String(fact || ""))));
+      break;
+    case "selected_target_record":
+      push(
+        matchedNodes[0]
+          ? `${summarizeForPrompt(String(matchedNodes[0]?.type || "record"), 24)} ${summarizeForPrompt(String(matchedNodes[0]?.label || ""), 80)} - ${summarizeForPrompt(
+              String((matchedNodes[0]?.facts || []).slice(0, 2).join("; ") || ""),
+              140
+            )}`
+          : ""
+      );
+      break;
+    case "relevant_npc_location_notes":
+      matchedNodes
+        .filter((node) => node?.type === "npc" || node?.type === "location")
+        .slice(0, compactContext ? 2 : 3)
+        .forEach((node) => {
+          push(`${summarizeForPrompt(String(node?.type || "note"), 24)} ${summarizeForPrompt(String(node?.label || ""), 80)} - ${summarizeForPrompt(String((node?.facts || []).slice(0, 2).join("; ") || ""), 140)}`);
+        });
+      break;
+    default:
+      break;
+  }
+
+  return unique(lines).slice(0, compactContext ? 2 : 3);
+}
+
+function buildSystemPrompt(answerMode = "advice", intent = "general_chat") {
+  const roleLabel = getAssistantRoleLabel(answerMode);
+  const modeGuidance = {
+    advice: [
+      "- Give a direct recommendation first, then brief reasons.",
+      "- Keep campaign flavor in the background unless it materially affects the answer.",
+    ],
+    rules: [
+      "- Explain the rule directly before discussing tactics or prep.",
+      "- Do not drift into narration or scene framing unless asked.",
+    ],
+    prep: [
+      "- Keep the answer structured and table-practical.",
+      "- Focus on what the GM should run, prep, or decide next.",
+    ],
+    recall: [
+      "- Summarize stored notes only.",
+      "- Distinguish known facts from inference.",
+    ],
+    create: [
+      "- Return the requested artifact directly.",
+      "- Keep formatting focused on the requested deliverable.",
+    ],
+    narration: [
+      "- Cinematic prose is allowed here because the user explicitly asked for an opener or read-aloud.",
+      "- Keep the narration grounded in the provided Kingmaker context.",
+    ],
+  };
+  const intentGuidance = {
+    player_build: [
+      "- Answer as player-facing Pathfinder 2e character advice, not GM prep.",
+      "- Do not mention Jamandi, Oleg, active quests, NPCs, scene framing, campaign-opening narration, or app record updates unless the user explicitly asks for story integration.",
+      "- Do not use canned prep labels like 'My read' or 'At the table'. Use natural headings such as 'Quick take', 'Pointers', 'Good options', and 'Watch-outs'.",
+      "- For class pointers, cover the class role, key ability/playstyle, early spell or feat priorities, and common mistakes.",
+      "- If ancestry, bloodline, level, or party composition is missing, give broadly useful guidance instead of inventing details.",
+    ],
+    general_chat: [
+      "- If the user asks for personal/player advice, answer from that perspective instead of the app workflow.",
+    ],
+  };
+
+  return [
+    "You are a Pathfinder 2e Remastered Kingmaker helper.",
+    `Current role: ${roleLabel}.`,
+    "Campaign: Kingmaker.",
+    `Mode: ${answerMode}.`,
+    "",
+    "Priorities:",
+    "- Answer the user's immediate question first.",
+    "- Do not foreground workflow, UI, or internal app state.",
+    "- Never mention task class, route intent, context buckets, debug routing, or app implementation details.",
+    "- Do not switch into narration, recap, or campaign-opening guidance unless the route explicitly calls for it.",
+    "- Prefer direct, practical answers.",
+    "- Use Pathfinder 2e Remastered assumptions.",
+    "- If you infer something from partial context, label it as an inference.",
+    ...(modeGuidance[answerMode] || []),
+    ...(intentGuidance[intent] || []),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildContextBlock(contextBuckets = {}) {
+  const includedBuckets = Array.isArray(contextBuckets?.includedBuckets)
+    ? contextBuckets.includedBuckets
+    : Array.isArray(contextBuckets?.included)
+      ? contextBuckets.included
+      : [];
+  const compactContext = contextBuckets?.compactContext !== false;
+  const context = contextBuckets?.context && typeof contextBuckets.context === "object" ? contextBuckets.context : {};
+  const bucketLabels = {
+    party: "Party",
+    campaign_summary: "Campaign Summary",
+    rules: "Rules",
+    gm_notes: "GM Notes",
+    session_history: "Session History",
+    kingdom_state: "Kingdom State",
+    lore: "Lore",
+    opening_notes: "Opening Notes",
+    selected_target_record: "Selected Target Record",
+    relevant_npc_location_notes: "Relevant NPC / Location Notes",
+  };
+
+  const sections = includedBuckets
+    .map((bucket) => {
+      const lines = buildAssistantBucketLines(bucket, context, compactContext);
+      if (!lines.length) return "";
+      return [bucketLabels[bucket] || bucket, ...lines.map((line, index) => `${index + 1}. ${line}`)].join("\n");
+    })
+    .filter(Boolean);
+
+  if (!sections.length) return "";
+  return ["Relevant context:", ...sections].join("\n");
+}
+
+function buildAiUserPrompt(userMessage, routeResult, contextBlock) {
+  const question = summarizeForPrompt(String(userMessage || ""), 1200);
+  const intent = String(routeResult?.intent || "general_chat");
+  const taskByIntent = {
+    player_build: "Give practical player-facing Pathfinder 2e character advice. Do not write GM prep, scene framing, campaign recap, or app-record instructions.",
+    rules_question: "Answer the rules question directly, then add brief table-use guidance if helpful.",
+    gm_prep: "Give GM-facing prep that can be run at the table.",
+    world_lore: "Answer the lore question clearly without turning it into session prep unless asked.",
+    campaign_recall: "Summarize known campaign/session state from stored notes only.",
+    create_or_update_content: "Create or update the requested content artifact.",
+    session_start_or_opening: "Write or advise on the requested opening narration/session opener.",
+    general_chat: "Answer the user's question directly.",
+  };
+  return [
+    `Task: ${taskByIntent[intent] || taskByIntent.general_chat}`,
+    "Use the relevant context only when it helps answer the question. Ignore context that would pull the answer away from the user's immediate ask.",
+    contextBlock,
+    "",
+    "User question:",
+    question,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function buildAssistantPromptPayload({ input, context = {}, compactContext = true }) {
+  const rawQuestion = String(context?.userQuestion || input || "").trim();
+  const routeResult = resolveAssistantRoute(rawQuestion, context);
+  const contextBlock = buildContextBlock({
+    includedBuckets: routeResult.includedBuckets,
+    context: { ...context, userQuestion: rawQuestion },
+    compactContext,
+    routeResult,
+  });
+  return {
+    routeResult,
+    systemPrompt: buildSystemPrompt(routeResult.answerMode, routeResult.intent),
+    userPrompt: buildAiUserPrompt(rawQuestion, routeResult, contextBlock),
+  };
+}
+
 function getKingmakerAppRoleLines(activeTab) {
   const tabId = String(activeTab || "").toLowerCase();
   const workflowByTab = {
@@ -3551,6 +4634,10 @@ function summarizeTrackedCompanionsForPrompt(companions, limit = 6) {
     .filter(Boolean);
 }
 
+function formatRecordTrustForPrompt(entry) {
+  return String(entry?.recordSource || "").trim() === "kingmaker-reference" || entry?.confirmed === false ? "reference only" : "confirmed";
+}
+
 function summarizeTrackedQuestsForPrompt(quests, limit = 6) {
   return (quests || [])
     .slice(0, Math.max(0, Number(limit) || 0))
@@ -3564,7 +4651,7 @@ function summarizeTrackedQuestsForPrompt(quests, limit = 6) {
       const stakes = summarizeForPrompt(String(quest?.stakes || ""), 110);
       const giver = summarizeForPrompt(String(quest?.giver || ""), 48);
       const nextBeat = summarizeForPrompt(String(quest?.nextBeat || ""), 100);
-      return `- ${title}${status ? ` (${status})` : ""}${priority ? ` | priority: ${priority}` : ""}${giver ? ` | giver: ${giver}` : ""}${hex ? ` | hex: ${hex}` : ""}${objective ? ` | objective: ${objective}` : ""}${stakes ? ` | stakes: ${stakes}` : ""}${nextBeat ? ` | next beat: ${nextBeat}` : ""}`;
+      return `- ${title}${status ? ` (${status})` : ""} | ${formatRecordTrustForPrompt(quest)}${priority ? ` | priority: ${priority}` : ""}${giver ? ` | giver: ${giver}` : ""}${hex ? ` | hex: ${hex}` : ""}${objective ? ` | objective: ${objective}` : ""}${stakes ? ` | stakes: ${stakes}` : ""}${nextBeat ? ` | next beat: ${nextBeat}` : ""}`;
     })
     .filter(Boolean);
 }
@@ -3583,7 +4670,7 @@ function summarizeTrackedEventsForPrompt(events, limit = 6) {
       const consequence = summarizeForPrompt(String(eventEntry?.consequenceSummary || ""), 90);
       const fallout = summarizeForPrompt(String(eventEntry?.fallout || ""), 90);
       const impact = summarizeForPrompt(describeEventImpactSummary(eventEntry), 120);
-      return `- ${title}${category ? ` (${category})` : ""}${status ? ` | ${status}` : ""}${clock ? ` | clock ${clock}` : ""}${hex ? ` | hex: ${hex}` : ""}${
+      return `- ${title}${category ? ` (${category})` : ""} | ${formatRecordTrustForPrompt(eventEntry)}${status ? ` | ${status}` : ""}${clock ? ` | clock ${clock}` : ""}${hex ? ` | hex: ${hex}` : ""}${
         trigger ? ` | trigger: ${trigger}` : ""
       }${consequence ? ` | consequence: ${consequence}` : ""}${fallout ? ` | fallout: ${fallout}` : ""}${impact && impact !== "No kingdom impact recorded." ? ` | impact: ${impact}` : ""}`;
     })
@@ -3602,7 +4689,7 @@ function summarizeTrackedLocationsForPrompt(locations, limit = 6) {
       const whatChanged = summarizeForPrompt(String(location?.whatChanged || ""), 90);
       const risks = summarizeForPrompt(String(location?.risks || ""), 90);
       const notes = summarizeForPrompt(String(location?.notes || ""), 110);
-      return `- ${name}${type ? ` (${type})` : ""}${status ? ` | ${status}` : ""}${hex ? ` [${hex}]` : ""}${whatChanged ? ` | changed: ${whatChanged}` : ""}${risks ? ` | risk: ${risks}` : ""}${notes ? ` | notes: ${notes}` : ""}`;
+      return `- ${name}${type ? ` (${type})` : ""} | ${formatRecordTrustForPrompt(location)}${status ? ` | ${status}` : ""}${hex ? ` [${hex}]` : ""}${whatChanged ? ` | changed: ${whatChanged}` : ""}${risks ? ` | risk: ${risks}` : ""}${notes ? ` | notes: ${notes}` : ""}`;
     })
     .filter(Boolean);
 }
@@ -3789,10 +4876,28 @@ function getModeSpecificPromptLines(mode, input, context = null) {
   return [];
 }
 
-function finalizeAiOutput({ rawText, mode, input, tabId }) {
+function finalizeAiOutput({ rawText, mode, input, tabId, context = {} }) {
   const raw = String(rawText || "").trim();
   const cleaned = sanitizeAiTextOutput(raw);
   const candidate = cleaned || raw;
+
+  if (candidate && isMisroutedOpeningAnswer(candidate, context, input)) {
+    return {
+      text: generateFallbackAiOutput(mode, input, tabId, { ...context, campaignOpeningRequested: true }),
+      usedFallback: true,
+      filtered: true,
+      fallbackReason: "opening-route",
+    };
+  }
+
+  if (candidate && isMismatchedPlayerBuildAnswer(candidate, context, input)) {
+    return {
+      text: generateFallbackAiOutput(mode, input, tabId, { ...context, playerBuildRequested: true }),
+      usedFallback: true,
+      filtered: true,
+      fallbackReason: "player-build-route",
+    };
+  }
 
   if (candidate && !isLikelyInstructionEcho(candidate) && !isLikelyWeakAiOutput(candidate, mode, input, tabId)) {
     return {
@@ -3806,7 +4911,7 @@ function finalizeAiOutput({ rawText, mode, input, tabId }) {
   const fallbackReason = !candidate ? "empty" : isLikelyInstructionEcho(candidate) ? "instruction" : "weak";
 
   return {
-    text: generateFallbackAiOutput(mode, input, tabId),
+    text: generateFallbackAiOutput(mode, input, tabId, context),
     usedFallback: true,
     filtered: true,
     fallbackReason,
@@ -3998,6 +5103,8 @@ function isConstraintInstructionLine(line) {
   if (/(do not|don[’']t)\s+generate\b/.test(text) && /\b(text|content|anything|output)\b/.test(text)) return true;
   if (/\boutside of\b/.test(text) && /(do not|don[’']t|only|must|keep|limit|avoid)/.test(text)) return true;
   if (/^(avoid|do not|don[’']t|must not|never)\b.*\b(answer|response|output)\b/.test(text)) return true;
+  if (/^remember to update your records\b/.test(text)) return true;
+  if (/\bkingmaker companion\b/.test(text) && /\b(update|save|record)\b/.test(text) && /^remember\b/.test(text)) return true;
   if (/^avoid\s+using\b/.test(text) && /\b(in the answer|in your answer|in the response|in output)\b/.test(text)) return true;
   if (/\bin the answer\b/.test(text) && /^(avoid|do not|don[’']t|must|only|keep|limit)/.test(text)) return true;
   if (/^only\s+(return|respond|output)\b/.test(text)) return true;
@@ -4083,11 +5190,185 @@ function normalizeEchoLine(line) {
     .trim();
 }
 
-function generateFallbackAiOutput(mode, input, tabId) {
+function normalizeAiLookupText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasBuildAskPattern(value) {
+  const lower = normalizeAiLookupText(value);
+  if (!lower) return false;
+  return (
+    /\b(what should i play|what should i build|what class|which class|recommend|suggest|advice|pointers?|tips?|help me|should i play|should i build|help round out|round out|fill the gap|good fit|best fit|what about|how about|instead)\b/.test(
+      lower
+    ) ||
+    /\b(build me|make me|good support|support character|fits our party|fits the party|party fit|party composition)\b/.test(lower) ||
+    /\blevel\s*\d+\b/.test(lower) ||
+    (/\bwhat\b/.test(lower) && /\bclasses?\b/.test(lower)) ||
+    (/\bgood\b/.test(lower) && /\bclasses?\b/.test(lower))
+  );
+}
+
+function isRulesQuestionText(value) {
+  const lower = normalizeAiLookupText(value);
+  if (!lower) return false;
+  if (isPlayerBuildText(lower)) return false;
+  if (/\b(how does|how do|can i|does this work|does this stack|what happens if|explain|rules for|rule for|remaster rule|action economy)\b/.test(lower)) {
+    return true;
+  }
+  return /\b(rule|rules|action economy|kingdom turns?|control dc|unrest|consumption|leadership activity|settlement activity|claim|ruin|conditions?|check|dc)\b/.test(
+    lower
+  );
+}
+
+function isGmPrepText(value) {
+  const lower = normalizeAiLookupText(value);
+  if (!lower) return false;
+  if (isCampaignOpeningText(lower) || isPlayerBuildText(lower) || isRulesQuestionText(lower) || isCampaignRecallText(lower) || isCreateOrUpdateText(lower)) {
+    return false;
+  }
+  return /\b(how should i run|session prep|prep this|prep for|encounter ideas?|hook|hooks|rumor|rumors|npc reaction|pacing|side quest|scene idea|what should i prep next|what should i prep|how do i run|where should i start|what should i prep first|what do i prep first|how should i start|how do i start)\b/.test(
+    lower
+  );
+}
+
+function isCampaignRecallText(value) {
+  const lower = normalizeAiLookupText(value);
+  if (!lower) return false;
+  return /\b(recap|what happened|where are we|what have we done|what has happened|last session|current status|kingdom status|what has the party completed|what s unresolved|what is unresolved)\b/.test(
+    lower
+  );
+}
+
+function isCreateOrUpdateText(value) {
+  const lower = normalizeAiLookupText(value);
+  if (!lower) return false;
+  return /\b(create|update|generate|make me|make an|write|draft)\b/.test(lower) && /\b(npc|quest|event|location|table note|read aloud|rumor table|summary)\b/.test(lower);
+}
+
+function isWorldLoreText(value) {
+  const lower = normalizeAiLookupText(value);
+  if (!lower) return false;
+  if (isPlayerBuildText(lower) || isRulesQuestionText(lower) || isGmPrepText(lower) || isCampaignRecallText(lower) || isCreateOrUpdateText(lower) || isCampaignOpeningText(lower)) {
+    return false;
+  }
+  return /\b(lore|tell me about|who is|what is|history of|background of|rostland|brevoy|stolen lands|river kingdoms)\b/.test(lower);
+}
+
+function isCampaignOpeningText(value) {
+  const lower = normalizeAiLookupText(value);
+  if (!lower) return false;
+  if (isPlayerBuildText(lower) || isRulesQuestionText(lower) || isCampaignRecallText(lower) || isCreateOrUpdateText(lower)) return false;
+  if (/\b(opening narration|opening scene|session opener|intro scene|read aloud|read aloud text|opening speech|campaign opening|campain opening|open the campaign|start of the campaign)\b/.test(lower)) {
+    return true;
+  }
+  if (/\b(first session|frist session|session one|session 1|session zero|session 0)\b/.test(lower) && /\b(opener|opening|intro|introduce|read aloud|narrat|scene)\b/.test(lower)) {
+    return true;
+  }
+  if (/\b(jamandi|aldori|restov|feast|charter ceremony|charter)\b/.test(lower) && /\b(introduce|intro|opening|opener|start|read aloud|narrat|speech|scene)\b/.test(lower)) {
+    return true;
+  }
+  if (/\b(oleg|trading post)\b/.test(lower) && /\b(arrive|arrival|introduce|intro|opening scene|opening|opener|first scene|read aloud|what would oleg say)\b/.test(lower)) {
+    return true;
+  }
+  return false;
+}
+
+function isCampaignOpeningRequest(input, context = {}) {
+  return resolveAssistantRoute(input, context).intent === "session_start_or_opening";
+}
+
+function isPlayerBuildText(value) {
+  const lower = normalizeAiLookupText(value);
+  if (!lower) return false;
+  const partyTerms = /\b(class|classes|build|character|pc|party|group|team|composition|comp|role|roles|frontline|frontliner|tank|healer|support|damage|dps|skill|skills|caster|spellcaster|spell caster|int|intelligence|int based|arcane|prepared caster|ancestry|background|feat|feats|spell|spells|archetype|archetypes|ranged|melee|face|scout|pointers?|tips?|advice|playstyle)\b/.test(
+    lower
+  );
+  const asksRecommendation = hasBuildAskPattern(lower);
+  const pf2eClassTerms = /\b(alchemist|animist|barbarian|bard|champion|cleric|druid|exemplar|fighter|gunslinger|inventor|investigator|kineticist|magus|monk|oracle|psychic|ranger|rogue|sor|sorc|sorcerer|sorceror|summoner|swashbuckler|thaumaturge|witch|wizard)\b/.test(lower);
+  const playingClass = pf2eClassTerms && /\b(play|playing|played|going to play|going to be playing|gonna play|pointers?|tips?|advice)\b/.test(lower);
+  const partyMention = /\b(we have|we will have|there will be|party has|group has|our party|right now|as of right now)\b/.test(lower);
+  if (/\b(int|intelligence|int based|arcane)\b/.test(lower) && /\b(caster|spellcaster|spell caster|class|build|character)\b/.test(lower)) return true;
+  if (/\blevel\s*\d+\b/.test(lower) && /\b(build|class|character|bard|cleric|fighter|rogue|wizard|witch|sor|sorc|sorcerer|sorceror|monk|ranger|champion)\b/.test(lower)) return true;
+  return (
+    (asksRecommendation && (partyTerms || pf2eClassTerms)) ||
+    playingClass ||
+    (partyTerms && pf2eClassTerms && (/\b(play|playing|party|group|team)\b/.test(lower) || partyMention)) ||
+    (partyTerms && /\b(kingmaker|stolen lands|brevoy|jamandi|restov)\b/.test(lower) && /\b(play|playing|build|class|character)\b/.test(lower))
+  );
+}
+
+function isPlayerBuildFollowupText(value) {
+  const lower = normalizeAiLookupText(value);
+  return /\b(what about|how about|instead|alternative|caster|spellcaster|spell caster|int|intelligence|str|strength|dex|dexterity|wis|wisdom|cha|charisma|class|build)\b/.test(lower);
+}
+
+function hasRecentPlayerBuildContext(context = {}) {
+  const history = Array.isArray(context?.aiHistory) ? context.aiHistory : [];
+  const recent = history
+    .slice(-6)
+    .map((entry) => String(entry?.text || ""))
+    .join(" ");
+  return isPlayerBuildText(recent);
+}
+
+function isPlayerBuildRequest(input, context = {}) {
+  return resolveAssistantRoute(input, context).intent === "player_build";
+}
+
+function isRulesQuestionRequest(input, context = {}) {
+  return resolveAssistantRoute(input, context).intent === "rules_question";
+}
+
+function detectAssistantIntent(input, context = {}) {
+  return resolveAssistantRoute(input, context).intent;
+}
+
+function isMismatchedPlayerBuildAnswer(text, context = {}, input = "") {
+  if (!isPlayerBuildRequest(input, context)) return false;
+  const lower = normalizeAiLookupText(text);
+  if (!lower) return true;
+  return /\b(at the table|best starting scene|immediate objective|active pressure|what to prep next|record update|records to update|update app records|adventure log|task class|general prep|face nyrissa|stag lord|linzi|akiros|armag|jamandi|aldori manor|restov invitation|charter ceremony)\b/.test(lower);
+}
+
+function hasKingmakerOpeningAnchor(text) {
+  return /\b(jamandi|aldori|restov|charter|invitation)\b/.test(normalizeAiLookupText(text));
+}
+
+function isMisroutedOpeningAnswer(text, context = {}, input = "") {
+  if (!isCampaignOpeningRequest(input, context)) return false;
+  const lower = normalizeAiLookupText(text);
+  if (!lower) return true;
+  const hasOpeningAnchor = hasKingmakerOpeningAnchor(lower);
+  if (!hasOpeningAnchor) return true;
+  const forbiddenOpeningDrift = [
+    /\bnew kingmaker campaign starting with (oleg|the trading post)\b/,
+    /\b(start|begin|open)\s+(at|with|in|around|on|from)\s+(oleg|the trading post|trading post)\b/,
+    /\bbest starting scene.{0,80}\b(oleg|trading post)\b/,
+    /\b(oleg|trading post).{0,40}\b(manor prologue|mansion prologue)\b/,
+    /\b(linzi).{0,80}\b(reconnaissance|scout|scouting)\b/,
+    /\b(reconnaissance|scout|scouting).{0,80}\b(linzi)\b/,
+    /\b(animal panic before the storm|blood for blood|bandit tribute|bandit collection)\b/,
+    /\bbandits are preparing\b/,
+  ].some((pattern) => pattern.test(lower));
+  if (forbiddenOpeningDrift) return true;
+
+  const tradingPostIndex = lower.search(/\b(oleg|trading post)\b/);
+  const openingIndex = lower.search(/\b(jamandi|aldori|restov|charter|invitation)\b/);
+  const saysNotFirst =
+    /\b(do not|don't|never)\s+(start|begin|open).{0,80}\b(oleg|trading post)\b/.test(lower) ||
+    /\b(oleg|trading post).{0,80}\b(after|later|next destination|not the first scene|not the opening)\b/.test(lower);
+  return tradingPostIndex >= 0 && openingIndex >= 0 && tradingPostIndex < openingIndex && !saysNotFirst;
+}
+
+function generateFallbackAiOutput(mode, input, tabId, context = {}) {
   const normalizedMode = String(mode || "").toLowerCase();
   const cleanInput = normalizeSentenceText(String(input || "").trim());
   if (normalizedMode === "assistant") {
-    return generateAssistantFallbackAnswer(cleanInput);
+    return generateAssistantFallbackAnswer(cleanInput, context);
   }
   if (normalizedMode === "npc") {
     return [
@@ -4358,9 +5639,10 @@ function generateCopilotFallbackByTab(tabId, input) {
   return "";
 }
 
-function generateAssistantFallbackAnswer(input) {
+function generateAssistantFallbackAnswer(input, context = {}) {
   const prompt = String(input || "").trim();
   const lower = prompt.toLowerCase();
+  const intent = detectAssistantIntent(prompt, context);
   if (!prompt) return "Ask one clear GM question and I will generate table-ready options.";
   if (/^(hi|hello|hey|yo)\b/.test(lower) || lower.includes("how are you")) {
     return [
@@ -4382,13 +5664,31 @@ function generateAssistantFallbackAnswer(input) {
   }
   if (/\bwhat can you do\b/.test(lower) || /^help\b/.test(lower)) {
     return [
-      "I can help right now with:",
+      "I work best when you ask for one concrete job: advice, prep, recall, or a draft.",
+      "",
+      "Best uses right now:",
       "- Session hook ideas",
       "- Kingdom turn planning and record updates",
       "- Encounter setup (objective, obstacle, consequence)",
       "- NPC or quest drafts",
       "- Cleanup of rough notes into clean prep text",
     ].join("\n");
+  }
+
+  if (intent === "player_build") {
+    return generatePlayerBuildFallback(prompt, context);
+  }
+
+  if (intent === "rules_question") {
+    return generateRulesFallback(prompt, context);
+  }
+
+  if (intent === "campaign_recall") {
+    return generateCampaignRecallFallback(context);
+  }
+
+  if (intent === "session_start_or_opening") {
+    return generateKingmakerOpeningFallback();
   }
 
   if (
@@ -4399,7 +5699,9 @@ function generateAssistantFallbackAnswer(input) {
     lower.includes("not sure where to start")
   ) {
     return [
-      "Try one of these opening hooks:",
+      "Quick take: open with pressure the players can answer immediately, then let the larger campaign breathe after they make the first choice. If the first scene has no decision point, it will feel like narration instead of play.",
+      "",
+      "I would pick one of these hooks:",
       "- Distress Hook: A messenger arrives injured and begs the party to act before nightfall.",
       "- Contract Hook: A local patron offers pay, supplies, and legal authority for one urgent job.",
       "- Personal Hook: The problem directly threatens one PC contact, home, or oath.",
@@ -4442,6 +5744,8 @@ function generateAssistantFallbackAnswer(input) {
 
   if (/\b(run|start with|starting point|first step|adventure|scenario|module|book|players)\b/.test(lower)) {
     return [
+      "Quick take: do not try to prep the whole book first. Prep the opening decision, the first pressure, and the first consequence; that gives you enough control without overbuilding.",
+      "",
       "Start here:",
       "- Read the adventure hook, final threat, and first 2 encounter areas before anything else.",
       "- Pick one clear opening scene that gets the party moving in the first 10 minutes.",
@@ -4451,6 +5755,24 @@ function generateAssistantFallbackAnswer(input) {
       "- What do the players need to care about immediately?",
       "- What blocks them in scene one?",
       "- What gets worse if they wait?",
+    ].join("\n");
+  }
+
+  if (/\b(prep|prepare|next|tonight|session)\b/.test(lower)) {
+    return [
+      "Quick take: prep one playable problem, not five possible chapters. The table will feel better if the next session has a strong first choice and one visible cost for delay.",
+      "",
+      "Next Prep Pass:",
+      "- Opening scene: put the party in front of one visible problem they can act on immediately.",
+      "- Immediate objective: define what success looks like before the first break in play.",
+      "- Active pressure: choose one clock or enemy move that escalates if the party delays.",
+      "- NPC beat: prepare one ally who needs help and one troublemaker who complicates the obvious solution.",
+      "- Location beat: prepare one practical route, one hazard, and one clue pointing toward the next choice.",
+      "",
+      "Save Into The App:",
+      "- Quest: the objective the party can complete next.",
+      "- Event: the pressure that advances if they ignore it.",
+      "- Table Note: the opening scene, obstacle, and consequence.",
     ].join("\n");
   }
 
@@ -4468,9 +5790,201 @@ function generateAssistantFallbackAnswer(input) {
   }
 
   return [
-    "Quick answer:",
-    ensureSentence(prompt),
-    "Turn this into one immediate scene objective, one obstacle, and one consequence.",
+    "Quick take: turn this into one table-facing decision, not just background text. Give the party something to choose, something that resists them, and something that changes if they wait.",
+    "",
+    "Recommended Prep:",
+    `- Core ask: ${ensureSentence(prompt)}`,
+    "- Scene objective: turn the question into one thing the party can accomplish on screen.",
+    "- Obstacle: add one social, travel, or combat problem that forces a meaningful choice.",
+    "- Consequence: decide what changes if the party waits or fails.",
+    "- App record: save the result as a quest, event, NPC, location, or table note so it stays connected to the campaign.",
+  ].join("\n");
+}
+
+function generateKingmakerOpeningFallback() {
+  return [
+    "Steward's Opening Counsel:",
+    "Quick take: start before Oleg's Trading Post. The campaign works better if the players first feel the weight of being chosen, watched, and politically useful before they are dropped into frontier logistics.",
+    "",
+    "Your first playable frame should be the Restov / Jamandi Aldori opening: the heroes are gathered under noble attention, offered legal authority, and measured as future frontier problem-solvers.",
+    "",
+    "Opening Scene:",
+    "- Put the party at Lady Jamandi Aldori's mansion or manor before the road north.",
+    "- Give each PC one quick table moment: why they answered the call, what they hope to gain, and what would make them walk away.",
+    "- Frame the charter as political leverage, not just permission to go adventuring.",
+    "",
+    "Immediate Pressure:",
+    "- The Stolen Lands are an opportunity, but everyone in the room should feel that rival ambition and frontier danger are already moving.",
+    "- Keep Oleg's Trading Post as the first frontier destination after the opening, not the campaign's first scene.",
+    "",
+    "What To Prep Next:",
+    "- Three mansion impressions: Jamandi as patron, one useful ally or contact, and one suspicious rival or nervous observer.",
+    "- Two table questions: what does each PC want from land and authority, and what line will they not cross to get it?",
+    "- One transition hook from the charter ceremony to the road toward Oleg's.",
+    "",
+    "Records To Update:",
+    "- Adventure Log: create a session zero or session one entry for the mansion opening.",
+    "- NPCs: add or review Jamandi Aldori as the active patron.",
+    "- Quests: keep Secure Oleg's Trading Post as the next quest after the mansion prologue.",
+  ].join("\n");
+}
+
+function generateRulesFallback(input, context = {}) {
+  const lower = normalizeAiLookupText(input);
+  const kingdom = context?.kingdom && typeof context.kingdom === "object" ? context.kingdom : {};
+  const kingdomState = [
+    kingdom?.currentTurnLabel ? `Turn ${kingdom.currentTurnLabel}` : "",
+    kingdom?.controlDC != null ? `Control DC ${kingdom.controlDC}` : "",
+    kingdom?.unrest != null ? `Unrest ${kingdom.unrest}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  if (/\b(kingdom turns?|kingdom turn|control dc|unrest|consumption|leadership activity|settlement activity|claim|ruin)\b/.test(lower)) {
+    return [
+      "Quick take: treat a kingdom turn as a fixed order of operations, not a loose checklist. Resolve upkeep and kingdom state first, spend actions second, then record every changed stat before ending the turn.",
+      "",
+      "Kingdom turn structure:",
+      "- Start with current kingdom state, including Control DC, unrest, and any automatic effects or unresolved events.",
+      "- Resolve the turn's required upkeep pieces before choosing discretionary actions.",
+      "- Spend leader, settlement, and region actions in a deliberate order so you do not lose track of prerequisites or resource costs.",
+      "- Finish by recording RP, commodities, unrest, ruin, construction progress, and any event clocks that advanced.",
+      kingdomState ? `Current app state: ${kingdomState}.` : "Current app state: no kingdom snapshot was attached to this fallback.",
+      "",
+      "Practical rule:",
+      "If you are unsure what changes first, update the kingdom sheet immediately after each action instead of waiting until the end of the turn.",
+    ].join("\n");
+  }
+
+  if (/\b(does this stack|stack)\b/.test(lower)) {
+    return [
+      "Quick take: check the exact effect types and wording first. In PF2e, things that look similar often do not stack if they are the same type of bonus, penalty, or named effect.",
+      "",
+      "How to judge it:",
+      "- Identify whether each effect is a bonus, penalty, circumstance effect, status effect, or item effect.",
+      "- Check whether the rule text says the effects combine, replace each other, or the higher value applies.",
+      "- If two effects are the same kind and target the same thing, assume they usually do not both fully stack unless the text clearly says otherwise.",
+    ].join("\n");
+  }
+
+  return [
+    "Quick take: answer the rule as directly as possible before talking tactics. If you cannot state the resolution in one sentence, you probably have not identified the actual rule question yet.",
+    "",
+    "Rules check:",
+    `- Question: ${ensureSentence(input)}`,
+    "- State the rule outcome first.",
+    "- Then note the condition, exception, or edge case that changes the answer.",
+    "- Only add table advice after the rule itself is clear.",
+  ].join("\n");
+}
+
+function generateCampaignRecallFallback(context = {}) {
+  const latestSession = context?.latestSession && typeof context.latestSession === "object" ? context.latestSession : {};
+  const recentSessions = Array.isArray(context?.recentSessions) ? context.recentSessions : [];
+  const openQuests = Array.isArray(context?.openQuests) ? context.openQuests : [];
+  const kingdom = context?.kingdom && typeof context.kingdom === "object" ? context.kingdom : {};
+  const secondSession = recentSessions.find((session) => String(session?.id || "") !== String(latestSession?.id || ""));
+  const currentState = [
+    latestSession?.title ? `Latest session: ${latestSession.title}` : "",
+    latestSession?.summary ? latestSession.summary : "",
+  ]
+    .filter(Boolean)
+    .join(" - ");
+  const kingdomState = [
+    kingdom?.currentTurnLabel ? `Turn ${kingdom.currentTurnLabel}` : "",
+    kingdom?.controlDC != null ? `Control DC ${kingdom.controlDC}` : "",
+    kingdom?.unrest != null ? `Unrest ${kingdom.unrest}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  return [
+    "Quick take: here is the current campaign picture from stored notes only.",
+    "",
+    currentState ? `Current state: ${currentState}` : "Current state: no latest session summary is stored.",
+    secondSession?.title ? `Prior point of reference: ${secondSession.title}${secondSession?.summary ? ` - ${secondSession.summary}` : ""}` : "",
+    openQuests[0]?.title ? `Open thread: ${openQuests[0].title}${openQuests[0]?.nextBeat ? ` - ${openQuests[0].nextBeat}` : openQuests[0]?.objective ? ` - ${openQuests[0].objective}` : ""}` : "",
+    kingdomState ? `Kingdom state: ${kingdomState}` : "",
+    "",
+    "If you want, ask for a tighter recap, unresolved threads only, or kingdom status only.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function generatePlayerBuildFallback(input, context = {}) {
+  const lower = normalizeAiLookupText(input);
+  const recentContext = Array.isArray(context?.aiHistory)
+    ? normalizeAiLookupText(context.aiHistory.slice(-6).map((entry) => entry?.text || "").join(" "))
+    : "";
+  const combined = `${lower} ${recentContext}`.trim();
+  const asksSorcerer = /\b(sor|sorc|sorcerer|sorceror)\b/.test(combined);
+  if (asksSorcerer) {
+    return [
+      "Quick take: Sorcerer is a strong Kingmaker pick if you want charisma, flexible magic, and a clear party role without preparing spells every day.",
+      "",
+      "Pointers:",
+      "- Decide your role first: blaster, controller, face/support, or strange bloodline utility. Sorcerers feel much better when your spell choices support one plan.",
+      "- Protect your limited spells known. Pick spells you expect to cast often, not niche answers that look cool once.",
+      "- Keep a reliable damage cantrip, one defensive option, and at least one spell that changes the battlefield or solves a non-combat problem.",
+      "- Charisma is your engine, so lean into social skills if nobody else is covering the party face role.",
+      "- Your bloodline matters because it shapes your spell list, focus spell, and overall vibe. Choose it for playstyle, not just theme.",
+      "",
+      "Watch-outs:",
+      "- Do not spend every known spell on damage. Kingmaker rewards travel, negotiation, investigation, and weird problem-solving.",
+      "- Do not stand still in bad positions. You are useful when you survive long enough to keep casting.",
+      "- If the party already has multiple full casters, pick spells that make you distinct instead of duplicating their job.",
+    ].join("\n");
+  }
+  const asksIntCaster = /\b(int|intelligence|int based|arcane)\b/.test(combined) && /\b(caster|spellcaster|spell caster|wizard|witch|psychic|magus)\b/.test(combined);
+  if (asksIntCaster) {
+    return [
+      "Quick take: yes, an INT-based caster can work well, and I would lean Wizard if you want the strongest party fit. With a Monk, Thaumaturge, and Cleric, Wizard gives you the missing piece: broad arcane utility, battlefield control, knowledge coverage, and problem-solving that is not already covered by divine magic.",
+      "",
+      "Why it fits:",
+      "- You add area control, utility rituals, knowledge skills, and flexible spell answers.",
+      "- You avoid competing directly with the Cleric's divine support role.",
+      "- You give the Monk and Thaumaturge better fights by shaping the battlefield instead of just adding more single-target damage.",
+      "",
+      "Alternatives:",
+      "- Witch if you want a more flavorful patron/familiar caster with a softer support angle.",
+      "- Magus if you want INT and weapons, but it overlaps more with the party's martial side.",
+      "- Psychic if you want a flashier caster, but it is less of a broad problem-solver than Wizard.",
+    ].join("\n");
+  }
+  const hasMonkThaumCleric = /\bmonk\b/.test(lower) && /\bthaumaturge\b/.test(lower) && /\bcleric\b/.test(lower);
+  if (hasMonkThaumCleric) {
+    return [
+      "Quick take: I would play a Fighter. With a Monk, Thaumaturge, and Cleric already present, the group benefits most from a reliable front-line anchor who turns the Cleric's support and the Thaumaturge's enemy knowledge into consistent results.",
+      "",
+      "Why it fits this party:",
+      "- The Monk is mobile, but not always built to stand still and hold enemy attention.",
+      "- The Thaumaturge brings strong identification, weaknesses, utility, and weird problem-solving, but can appreciate someone else controlling the front.",
+      "- The Cleric covers healing and divine support, which makes a durable martial even better.",
+      "",
+      "How it plays:",
+      "- Pick Fighter if you want dependable accuracy, simple turns, and strong teamwork.",
+      "- Use a shield or reach weapon if you want to protect the party; use two-handed weapons if the group needs more damage.",
+      "- Take Athletics options if you want to trip, shove, and lock enemies down for the Monk and Thaumaturge.",
+      "",
+      "Alternatives:",
+      "- Champion if you want more defense and party protection.",
+      "- Ranger if you want wilderness skill, tracking, and reliable ranged or dual-weapon pressure.",
+      "- Rogue if the group needs more skills and precision damage, but it is less sturdy than Fighter.",
+    ].join("\n");
+  }
+
+  return [
+    "Quick take: choose the class that fills the missing party role while still sounding fun to play for a long campaign. In PF2e, party coverage matters, but enjoying your turn every round matters more.",
+    "",
+    "How to choose:",
+    "- If the party lacks a steady front line, pick Fighter or Champion.",
+    "- If the party lacks skills and scouting, pick Rogue, Ranger, or Investigator.",
+    "- If the party lacks control or utility casting, pick Bard, Wizard, Druid, Witch, or Sorcerer.",
+    "- If the party lacks ranged pressure, pick Ranger, Gunslinger, Fighter, or Rogue.",
+    "",
+    "My practical rule:",
+    "Pick the class whose normal turn sounds fun even when the dice are cold. That is usually the class you will enjoy past the first few sessions.",
   ].join("\n");
 }
 

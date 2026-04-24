@@ -1,5 +1,6 @@
 import { formatGolarionDate, getGolarionMonthContext, sameGolarionMonth, toGolarionOrdinal } from "./golarion";
 import { getSessionTypeLabel } from "./campaignState";
+import { getActiveStoryPhase, isLiveCampaignRecord } from "./kingmakerFlow";
 
 const ACTIVE_QUEST_STATUSES = new Set(["open", "in-progress", "watch"]);
 const ACTIVE_EVENT_STATUSES = new Set(["seeded", "active", "escalated"]);
@@ -72,7 +73,7 @@ export function getLatestSession(state) {
 
 export function getActiveQuests(state) {
   return [...(state.quests || [])]
-    .filter((quest) => ACTIVE_QUEST_STATUSES.has(stringValue(quest.status).toLowerCase()))
+    .filter((quest) => isLiveCampaignRecord(quest) && ACTIVE_QUEST_STATUSES.has(stringValue(quest.status).toLowerCase()))
     .sort((left, right) => {
       const priorityDelta =
         (QUEST_PRIORITY_RANK[stringValue(left.priority).toLowerCase()] ?? 99) -
@@ -84,7 +85,7 @@ export function getActiveQuests(state) {
 
 export function getActiveEvents(state) {
   return [...(state.events || [])]
-    .filter((eventItem) => ACTIVE_EVENT_STATUSES.has(stringValue(eventItem.status).toLowerCase()))
+    .filter((eventItem) => isLiveCampaignRecord(eventItem) && ACTIVE_EVENT_STATUSES.has(stringValue(eventItem.status).toLowerCase()))
     .sort((left, right) => {
       const urgencyDelta = numberValue(right.urgency, 0) - numberValue(left.urgency, 0);
       if (urgencyDelta !== 0) return urgencyDelta;
@@ -96,7 +97,7 @@ export function getActiveEvents(state) {
 
 export function getTrackedCompanions(state) {
   return [...(state.companions || [])]
-    .filter((companion) => ACTIVE_COMPANION_STATUSES.has(stringValue(companion.status).toLowerCase()))
+    .filter((companion) => isLiveCampaignRecord(companion) && ACTIVE_COMPANION_STATUSES.has(stringValue(companion.status).toLowerCase()))
     .sort((left, right) => numberValue(right.influence, 0) - numberValue(left.influence, 0));
 }
 
@@ -129,6 +130,7 @@ export function buildCommandCenterModel(state) {
   const activeQuests = getActiveQuests(state);
   const activeEvents = getActiveEvents(state);
   const companions = getTrackedCompanions(state);
+  const storyPhase = getActiveStoryPhase(state);
   const kingdom = state.kingdom || {};
   const monthContext = getGolarionMonthContext(kingdom.currentDate || kingdom.calendarStartDate);
   const sessionsThisMonth = (state.sessions || []).filter((session) => sameGolarionMonth(session?.date, monthContext.currentDate));
@@ -191,6 +193,7 @@ export function buildCommandCenterModel(state) {
     activeQuests,
     activeEvents,
     companions,
+    storyPhase,
     kingdom,
     monthContext,
     sessionsThisMonth,
@@ -204,7 +207,7 @@ export function buildCommandCenterModel(state) {
         text: firstNonEmpty(
           splitNotes(latestSession?.summary)[0],
           activeQuests[0]?.objective,
-          "Start at the frontier edge and make the table choose between speed, safety, and rumor value."
+          `Start with the next ${storyPhase.shortLabel || "campaign"} decision and log what the table confirms.`
         ),
         path: "/campaign/adventure-log",
         actionLabel: "Open Adventure Log",
@@ -216,7 +219,7 @@ export function buildCommandCenterModel(state) {
           activeEvents[0]?.trigger,
           latestSession?.pressure,
           activeQuests[0]?.stakes,
-          "Advance one frontier clock and make the consequence visible before the party can ignore it."
+          "Activate one relevant clock when the table reaches it; reference material stays advisory until then."
         ),
         path: "/world/events",
         actionLabel: "Open Events",
@@ -227,7 +230,7 @@ export function buildCommandCenterModel(state) {
         text: firstNonEmpty(
           activeQuests[0]?.nextBeat,
           splitNotes(latestSession?.nextPrep)[0],
-          "Close on the next kingdom-facing decision so the following session opens with momentum."
+          "Close by recording the confirmed next beat so the following session opens from your table state."
         ),
         path: activeQuests[0] ? "/world/quests" : "/campaign/adventure-log",
         actionLabel: activeQuests[0] ? "Open Quests" : "Open Adventure Log",
@@ -237,7 +240,7 @@ export function buildCommandCenterModel(state) {
     spotlightText: firstNonEmpty(
       latestSession?.travelObjective,
       activeQuests[0]?.objective,
-      "Use the charter, Oleg's pressure, and the first unexplored hexes to keep the opening grounded."
+      `Currently focused on ${storyPhase.label}. Activate quests or fronts when the party reaches them.`
     ),
     summaryCards: [
       {

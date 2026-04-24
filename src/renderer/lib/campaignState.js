@@ -18,10 +18,50 @@ import {
   normalizeHexCoordinate,
 } from "./hexmap";
 import { KINGMAKER_EVENT_LIBRARY, KINGMAKER_EVENT_LIBRARY_VERSION } from "./kingmakerEventLibrary";
+import {
+  KINGMAKER_CONTENT_LIBRARY_VERSION,
+  KINGMAKER_LOCATION_LIBRARY,
+  KINGMAKER_NPC_LIBRARY,
+  KINGMAKER_QUEST_LIBRARY,
+} from "./kingmakerCanonLibrary";
+import { getStoryPhaseById, normalizeStoryFocus } from "./kingmakerFlow";
 
 export const STORAGE_KEY = "kingmaker_companion_v1";
 export const DEFAULT_PDF_FOLDER = "C:\\Users\\Chris Bender\\Downloads\\PathfinderKingmakerAdventurePathPDF-SingleFile";
-export const KINGMAKER_DEFAULT_START_LABEL = "Restov charter issued";
+export const KINGMAKER_DEFAULT_START_LABEL = "Campaign calendar anchor";
+
+const LEGACY_STARTER_SESSION_TITLE = "Session 00 - Jamandi's Charter";
+const LEGACY_STARTER_SESSION_SIGNATURES = Object.freeze([
+  {
+    title: LEGACY_STARTER_SESSION_TITLE,
+    arc: "Stolen Lands Opening",
+    chapter: "Chapter 1: A Call for Heroes",
+    focusHex: "A1",
+    leadCompanion: "Linzi",
+    travelObjective:
+      "Reach Oleg's Trading Post, decide the first Greenbelt route, and learn what the bandits have already taken.",
+    weather: "Late Calistril roads are cold, muddy, and still dangerous to camp on carelessly.",
+    pressure: "The Thorn River bandits keep harassing Oleg's supply line until the charter party takes the field.",
+    summary:
+      "The party earned a charter from Lady Jamandi Aldori and now heads toward Oleg's Trading Post to begin taming the Greenbelt.",
+    nextPrep:
+      "Prepare Oleg and Svetlana, early bandit pressure, Greenbelt rumor threads, and the first exploration choices.",
+  },
+  {
+    title: LEGACY_STARTER_SESSION_TITLE,
+    arc: "Stolen Lands Opening",
+    chapter: "",
+    focusHex: "",
+    leadCompanion: "",
+    travelObjective: "Reach Oleg's Trading Post and decide how the charter party presents itself.",
+    weather: "Clear Brevic road weather turning colder toward the Greenbelt.",
+    pressure: "The Thorn River bandits keep harassing Oleg's supply line until the charter party takes the field.",
+    summary:
+      "The party earned a charter from Lady Jamandi Aldori and now heads toward Oleg's Trading Post to begin taming the Greenbelt.",
+    nextPrep:
+      "Prepare Oleg and Svetlana, early bandit pressure, Greenbelt rumor threads, and the first exploration choices.",
+  },
+]);
 
 export const SESSION_TYPE_OPTIONS = ["expedition", "travel", "settlement", "kingdom", "companion", "downtime", "crisis"];
 export const SESSION_TYPE_LABELS = Object.freeze({
@@ -50,6 +90,7 @@ export const LOCATION_TYPE_OPTIONS = ["settlement", "landmark", "ruin", "lair", 
 export const LOCATION_STATUS_OPTIONS = ["active", "secured", "threatened", "unstable", "rumor", "cleared", "lost"];
 export const CAPTURE_KIND_OPTIONS = ["Hook", "NPC", "Rule", "Loot", "Retcon", "Scene", "Combat", "Note"];
 export const RULE_STORE_KIND_OPTIONS = ["accepted_ruling", "house_rule", "canon_memory", "official_note"];
+export const RECORD_SOURCE_OPTIONS = ["user", "imported", "kingmaker-reference"];
 export const RULE_STORE_KIND_LABELS = Object.freeze({
   accepted_ruling: "Accepted Ruling",
   house_rule: "House Rule",
@@ -59,6 +100,7 @@ export const RULE_STORE_KIND_LABELS = Object.freeze({
 export const DEFAULT_AI_CONFIG = Object.freeze({
   endpoint: "http://127.0.0.1:11434",
   model: "llama3.1:8b",
+  embeddingModel: "",
   temperature: 0.2,
   maxOutputTokens: 320,
   timeoutSec: 120,
@@ -66,7 +108,11 @@ export const DEFAULT_AI_CONFIG = Object.freeze({
   autoRunTabs: true,
   usePdfContext: true,
   useAonRules: true,
+  retrievalMode: "hybrid",
+  retrievalLimit: 4,
+  rerankEnabled: true,
   aiProfile: "fast",
+  aiPersona: "kingmaker-steward",
 });
 
 function stringValue(value) {
@@ -84,6 +130,43 @@ function ensureObject(value) {
 
 function ensureArray(value) {
   return Array.isArray(value) ? value : [];
+}
+
+function normalizeRecordSource(value, fallback = "user") {
+  const normalized = stringValue(value).toLowerCase();
+  return RECORD_SOURCE_OPTIONS.includes(normalized) ? normalized : fallback;
+}
+
+function normalizeRecordTrustFields(source = {}, fallbackSource = "user") {
+  const recordSource = normalizeRecordSource(source.recordSource, fallbackSource);
+  return {
+    recordSource,
+    confirmed: source.confirmed == null ? recordSource !== "kingmaker-reference" : source.confirmed === true,
+  };
+}
+
+function inferRecordFallbackSource(source = {}, type = "") {
+  const explicit = stringValue(source.recordSource);
+  if (explicit) return normalizeRecordSource(explicit);
+  const id = stringValue(source.id);
+  if (type === "quest" && id.startsWith("km-quest-")) return "kingmaker-reference";
+  if (type === "event" && id.startsWith("km-evt-")) return "kingmaker-reference";
+  if (type === "npc" && id.startsWith("km-npc-")) return "kingmaker-reference";
+  if (type === "location" && id.startsWith("km-location-")) return "kingmaker-reference";
+  if (type === "companion" && ["linzi", "amiri"].includes(comparableText(source.name))) return "kingmaker-reference";
+  if (type === "quest" && KINGMAKER_QUEST_LIBRARY.some((entry) => comparableText(entry.title) === comparableText(source.title))) {
+    return "kingmaker-reference";
+  }
+  if (type === "event" && KINGMAKER_EVENT_LIBRARY.some((entry) => comparableText(entry.title) === comparableText(source.title))) {
+    return "kingmaker-reference";
+  }
+  if (type === "npc" && KINGMAKER_NPC_LIBRARY.some((entry) => comparableText(entry.name) === comparableText(source.name))) {
+    return "kingmaker-reference";
+  }
+  if (type === "location" && KINGMAKER_LOCATION_LIBRARY.some((entry) => comparableText(entry.name) === comparableText(source.name))) {
+    return "kingmaker-reference";
+  }
+  return "user";
 }
 
 function normalizePdfSummaries(raw) {
@@ -223,10 +306,13 @@ export function normalizeAiConfig(raw = {}) {
   const temperatureRaw = Number.parseFloat(String(source.temperature ?? DEFAULT_AI_CONFIG.temperature));
   const maxOutputTokensRaw = Number.parseInt(String(source.maxOutputTokens ?? DEFAULT_AI_CONFIG.maxOutputTokens), 10);
   const timeoutSecRaw = Number.parseInt(String(source.timeoutSec ?? DEFAULT_AI_CONFIG.timeoutSec), 10);
+  const retrievalMode = stringValue(source.retrievalMode).toLowerCase();
+  const retrievalLimitRaw = Number.parseInt(String(source.retrievalLimit ?? DEFAULT_AI_CONFIG.retrievalLimit), 10);
 
   return {
     endpoint: stringValue(source.endpoint) || DEFAULT_AI_CONFIG.endpoint,
     model: stringValue(source.model) || DEFAULT_AI_CONFIG.model,
+    embeddingModel: stringValue(source.embeddingModel),
     temperature: Number.isFinite(temperatureRaw) ? Math.max(0, Math.min(temperatureRaw, 2)) : DEFAULT_AI_CONFIG.temperature,
     maxOutputTokens: Number.isFinite(maxOutputTokensRaw)
       ? Math.max(64, Math.min(maxOutputTokensRaw, 2048))
@@ -236,9 +322,15 @@ export function normalizeAiConfig(raw = {}) {
     autoRunTabs: source.autoRunTabs === false ? false : true,
     usePdfContext: source.usePdfContext === false ? false : true,
     useAonRules: source.useAonRules === false ? false : true,
+    retrievalMode: ["hybrid", "semantic", "keyword"].includes(retrievalMode) ? retrievalMode : DEFAULT_AI_CONFIG.retrievalMode,
+    retrievalLimit: Number.isFinite(retrievalLimitRaw)
+      ? Math.max(1, Math.min(retrievalLimitRaw, 12))
+      : DEFAULT_AI_CONFIG.retrievalLimit,
+    rerankEnabled: source.rerankEnabled === false ? false : true,
     aiProfile: ["fast", "deep", "custom"].includes(stringValue(source.aiProfile).toLowerCase())
       ? stringValue(source.aiProfile).toLowerCase()
       : DEFAULT_AI_CONFIG.aiProfile,
+    aiPersona: stringValue(source.aiPersona) || DEFAULT_AI_CONFIG.aiPersona,
   };
 }
 
@@ -266,14 +358,41 @@ export function normalizeSessionRecord(raw = {}) {
   };
 }
 
+function comparableText(value) {
+  return stringValue(value).replace(/\u2019/g, "'").replace(/\s+/g, " ").toLowerCase();
+}
+
+export function isLegacyStarterSessionRecord(raw = {}) {
+  const session = ensureObject(raw);
+  const title = comparableText(session.title);
+  if (title !== comparableText(LEGACY_STARTER_SESSION_TITLE)) return false;
+
+  return LEGACY_STARTER_SESSION_SIGNATURES.some((signature) =>
+    ["arc", "chapter", "focusHex", "leadCompanion", "travelObjective", "weather", "pressure", "summary", "nextPrep"].every(
+      (field) => comparableText(session[field]) === comparableText(signature[field])
+    )
+  );
+}
+
+function normalizeSessionRecords(rawSessions = []) {
+  return ensureArray(rawSessions)
+    .map(normalizeSessionRecord)
+    .filter((session) => !isLegacyStarterSessionRecord(session));
+}
+
 function normalizeQuestRecord(raw = {}) {
   const source = ensureObject(raw);
   const createdAt = timestamp(source.createdAt);
+  const trust = normalizeRecordTrustFields(source, inferRecordFallbackSource(source, "quest"));
   return {
     ...source,
+    ...trust,
     id: stringValue(source.id) || uid(),
     title: stringValue(source.title) || "Untitled Quest",
-    status: normalizeQuestStatus(source.status),
+    status:
+      trust.recordSource === "kingmaker-reference" && !trust.confirmed && ["open", "in-progress"].includes(stringValue(source.status).toLowerCase())
+        ? "watch"
+        : normalizeQuestStatus(source.status),
     objective: stringValue(source.objective),
     giver: stringValue(source.giver),
     folder: stringValue(source.folder),
@@ -295,8 +414,10 @@ function normalizeQuestRecord(raw = {}) {
 function normalizeCompanionRecord(raw = {}) {
   const source = ensureObject(raw);
   const createdAt = timestamp(source.createdAt);
+  const trust = normalizeRecordTrustFields(source, inferRecordFallbackSource(source, "companion"));
   return {
     ...source,
+    ...trust,
     id: stringValue(source.id) || uid(),
     name: stringValue(source.name) || "Unnamed Companion",
     status: normalizeCompanionStatus(source.status),
@@ -329,11 +450,17 @@ function normalizeEventRecord(raw = {}) {
   const source = ensureObject(raw);
   const createdAt = timestamp(source.createdAt);
   const category = normalizeEventCategory(source.category);
-  const status = normalizeEventStatus(source.status);
+  const trust = normalizeRecordTrustFields(source, inferRecordFallbackSource(source, "event"));
+  const rawStatus = normalizeEventStatus(source.status);
+  const status =
+    trust.recordSource === "kingmaker-reference" && !trust.confirmed && ["seeded", "active", "escalated", "cooldown"].includes(rawStatus)
+      ? "library"
+      : rawStatus;
   const baseAdvanceOn = status === "active" || status === "escalated" || category === "kingdom" ? "turn" : "manual";
   const baseImpactScope = category === "kingdom" ? "always" : stringValue(source.hex) ? "claimed-hex" : "none";
   return {
     ...source,
+    ...trust,
     id: stringValue(source.id) || uid(),
     title: stringValue(source.title) || "Untitled Event",
     category,
@@ -401,11 +528,64 @@ function mergeKingmakerEventLibrary(rawEvents = []) {
   return merged;
 }
 
+function buildLibraryRecordKey(raw = {}, fields = []) {
+  const source = ensureObject(raw);
+  for (const field of fields) {
+    const value = stringValue(source[field]).toLowerCase();
+    if (value) return value;
+  }
+  return "";
+}
+
+function mergeKingmakerRecordLibrary(rawRecords = [], library = [], normalizeRecord, keyFields = []) {
+  const normalizedRecords = ensureArray(rawRecords).map(normalizeRecord);
+  const libraryByKey = new Map();
+  library.forEach((entry) => {
+    const normalizedEntry = normalizeRecord(entry);
+    const key = buildLibraryRecordKey(normalizedEntry, keyFields);
+    if (key && !libraryByKey.has(key)) libraryByKey.set(key, normalizedEntry);
+  });
+
+  const merged = normalizedRecords.map((record) => {
+    const key = buildLibraryRecordKey(record, keyFields);
+    const libraryRecord = key ? libraryByKey.get(key) : null;
+    return libraryRecord ? normalizeRecord({ ...libraryRecord, ...record, id: record.id || libraryRecord.id }) : record;
+  });
+  const existingIds = new Set(merged.map((entry) => stringValue(entry.id)).filter(Boolean));
+  const existingKeys = new Set(merged.map((entry) => buildLibraryRecordKey(entry, keyFields)).filter(Boolean));
+
+  library.forEach((entry) => {
+    const normalizedEntry = normalizeRecord(entry);
+    const id = stringValue(normalizedEntry.id);
+    const key = buildLibraryRecordKey(normalizedEntry, keyFields);
+    if ((id && existingIds.has(id)) || (key && existingKeys.has(key))) return;
+    merged.push(normalizedEntry);
+    if (id) existingIds.add(id);
+    if (key) existingKeys.add(key);
+  });
+
+  return merged;
+}
+
+function mergeKingmakerNpcLibrary(rawNpcs = []) {
+  return mergeKingmakerRecordLibrary(rawNpcs, KINGMAKER_NPC_LIBRARY, normalizeNpcRecord, ["name"]);
+}
+
+function mergeKingmakerQuestLibrary(rawQuests = []) {
+  return mergeKingmakerRecordLibrary(rawQuests, KINGMAKER_QUEST_LIBRARY, normalizeQuestRecord, ["title"]);
+}
+
+function mergeKingmakerLocationLibrary(rawLocations = []) {
+  return mergeKingmakerRecordLibrary(rawLocations, KINGMAKER_LOCATION_LIBRARY, normalizeLocationRecord, ["name"]);
+}
+
 function normalizeNpcRecord(raw = {}) {
   const source = ensureObject(raw);
   const createdAt = timestamp(source.createdAt);
+  const trust = normalizeRecordTrustFields(source, inferRecordFallbackSource(source, "npc"));
   return {
     ...source,
+    ...trust,
     id: stringValue(source.id) || uid(),
     name: stringValue(source.name) || "Unnamed NPC",
     role: stringValue(source.role),
@@ -437,8 +617,10 @@ function normalizeNpcRecord(raw = {}) {
 function normalizeLocationRecord(raw = {}) {
   const source = ensureObject(raw);
   const createdAt = timestamp(source.createdAt);
+  const trust = normalizeRecordTrustFields(source, inferRecordFallbackSource(source, "location"));
   return {
     ...source,
+    ...trust,
     id: stringValue(source.id) || uid(),
     name: stringValue(source.name) || "Unnamed Location",
     type: normalizeLocationType(source.type),
@@ -653,7 +835,7 @@ export function createStarterKingdomState() {
       stone: 0,
     },
     consumption: 0,
-    renown: 1,
+    renown: 0,
     fame: 0,
     infamy: 0,
     unrest: 0,
@@ -664,7 +846,7 @@ export function createStarterKingdomState() {
       strife: 0,
       threshold: 5,
     },
-    notes: "Track charter progress, leadership assignments, and monthly kingdom fallout here.",
+    notes: "Track confirmed charter progress, leadership assignments, and monthly kingdom fallout here.",
     leaders: [
       {
         id: uid(),
@@ -677,49 +859,11 @@ export function createStarterKingdomState() {
         notes: "Assign once the table decides who speaks for the charter.",
       },
     ],
-    settlements: [
-      {
-        id: uid(),
-        name: "Future Capital Site",
-        size: "Village",
-        influence: 1,
-        civicStructure: "Town Hall",
-        resourceDice: 0,
-        consumption: 0,
-        notes: "Replace this once the party chooses and founds the capital.",
-      },
-    ],
-    regions: [
-      {
-        id: uid(),
-        hex: "D4",
-        status: "Claimed",
-        terrain: "Plains",
-        siteCategory: "Landmark",
-        workSite: "",
-        discovery: "Oleg's Trading Post",
-        kingdomValue: "Trade hub, rumor engine, and the first stable supply point.",
-        danger: "Bandit pressure",
-        improvement: "",
-        rumor: "The Thorn River bandits keep testing the outpost to see whether the new charter can hold ground.",
-        notes: "Starting heartland.",
-      },
-    ],
+    settlements: [],
+    regions: [],
     turns: [],
     eventHistory: [],
-    calendarHistory: [
-      {
-        id: uid(),
-        startDate: KINGMAKER_DEFAULT_START_DATE,
-        endDate: KINGMAKER_DEFAULT_START_DATE,
-        date: KINGMAKER_DEFAULT_START_DATE,
-        daysAdvanced: 0,
-        label: KINGMAKER_DEFAULT_START_LABEL,
-        notes: "Lady Jamandi Aldori issues the expedition charter and sends the party toward Oleg's Trading Post.",
-        source: "campaign-start",
-        createdAt: new Date().toISOString(),
-      },
-    ],
+    calendarHistory: [],
     pendingProjects: [
       "Choose the full leadership slate.",
       "Lock the charter, government, and heartland package.",
@@ -803,6 +947,7 @@ function normalizeMetaState(raw = {}) {
     aiConfig: normalizeAiConfig(source.aiConfig),
     aiHistory: ensureArray(source.aiHistory),
     aiMemory: ensureObject(source.aiMemory),
+    storyFocus: normalizeStoryFocus(source.storyFocus),
     obsidian: {
       vaultPath: stringValue(obsidian.vaultPath),
       baseFolder: stringValue(obsidian.baseFolder) || "Kingmaker Companion",
@@ -868,7 +1013,7 @@ function normalizeHexMapState(raw = {}) {
     partyMoveMode: source.partyMoveMode === true,
     party: {
       ...party,
-      hex: normalizeHexCoordinate(party.hex || "D4", columns, rows),
+      hex: normalizeHexCoordinate(party.hex, columns, rows),
       label: stringValue(party.label || "Charter Party"),
       notes: stringValue(party.notes),
       updatedAt: stringValue(party.updatedAt),
@@ -916,6 +1061,7 @@ export function createStarterState() {
       campaignName: "Kingmaker",
       createdAt: new Date().toISOString(),
       eventLibraryVersion: KINGMAKER_EVENT_LIBRARY_VERSION,
+      contentLibraryVersion: "",
       pdfFolder: DEFAULT_PDF_FOLDER,
       pdfIndexedAt: "",
       pdfIndexedCount: 0,
@@ -933,28 +1079,15 @@ export function createStarterState() {
         manualRulings: "",
         updatedAt: "",
       },
+      storyFocus: normalizeStoryFocus(),
     }),
     rulesStore: [],
-    sessions: [
-      normalizeSessionRecord({
-        id: uid(),
-        title: "Session 00 - Jamandi's Charter",
-        date: KINGMAKER_DEFAULT_START_DATE,
-        type: "expedition",
-        arc: "Stolen Lands Opening",
-        chapter: "Chapter 1: A Call for Heroes",
-        focusHex: "A1",
-        leadCompanion: "Linzi",
-        travelObjective: "Reach Oleg's Trading Post, decide the first Greenbelt route, and learn what the bandits have already taken.",
-        weather: "Late Calistril roads are cold, muddy, and still dangerous to camp on carelessly.",
-        pressure: "The Thorn River bandits keep harassing Oleg's supply line until the charter party takes the field.",
-        summary: "The party earned a charter from Lady Jamandi Aldori and now heads toward Oleg's Trading Post to begin taming the Greenbelt.",
-        nextPrep: "Prepare Oleg and Svetlana, early bandit pressure, Greenbelt rumor threads, and the first exploration choices.",
-      }),
-    ],
+    sessions: [],
     companions: [
       normalizeCompanionRecord({
         id: uid(),
+        recordSource: "kingmaker-reference",
+        confirmed: false,
         name: "Linzi",
         status: "prospective",
         influence: 2,
@@ -980,6 +1113,8 @@ export function createStarterState() {
       }),
       normalizeCompanionRecord({
         id: uid(),
+        recordSource: "kingmaker-reference",
+        confirmed: false,
         name: "Amiri",
         status: "prospective",
         influence: 1,
@@ -1004,10 +1139,19 @@ export function createStarterState() {
         folder: "Kingdom Roles",
       }),
     ],
-    events: KINGMAKER_EVENT_LIBRARY.map(normalizeEventRecord),
+    events: KINGMAKER_EVENT_LIBRARY.map((entry) =>
+      normalizeEventRecord({
+        ...entry,
+        status: "library",
+        recordSource: "kingmaker-reference",
+        confirmed: false,
+      })
+    ),
     npcs: [
       normalizeNpcRecord({
         id: uid(),
+        recordSource: "kingmaker-reference",
+        confirmed: false,
         name: "Jamandi Aldori",
         role: "Patron",
         faction: "Restov Swordlords",
@@ -1031,6 +1175,8 @@ export function createStarterState() {
       }),
       normalizeNpcRecord({
         id: uid(),
+        recordSource: "kingmaker-reference",
+        confirmed: false,
         name: "Oleg Leveton",
         role: "Outpost owner",
         faction: "Oleg's Trading Post",
@@ -1052,10 +1198,12 @@ export function createStarterState() {
         kingdomRole: "Trading post logistics anchor",
         kingdomNotes: "A stable Oleg means stable rumors, supply lines, and a believable frontier foothold.",
         notes: "The party's first real read on frontier pressure and who the bandits are hurting.",
-        folder: "Greenbelt",
+        folder: "Chapter 3 / Stolen Lands",
       }),
       normalizeNpcRecord({
         id: uid(),
+        recordSource: "kingmaker-reference",
+        confirmed: false,
         name: "Svetlana Leveton",
         role: "Trading post co-owner",
         faction: "Oleg's Trading Post",
@@ -1076,10 +1224,12 @@ export function createStarterState() {
         kingdomRole: "Community pulse",
         kingdomNotes: "Her read on trust and exhaustion tells you whether the frontier feels protected or merely occupied.",
         notes: "Useful for human-scale fallout and the emotional cost of frontier pressure.",
-        folder: "Greenbelt",
+        folder: "Chapter 3 / Stolen Lands",
       }),
       normalizeNpcRecord({
         id: uid(),
+        recordSource: "kingmaker-reference",
+        confirmed: false,
         name: "Kesten Garess",
         role: "Swordlord agent",
         faction: "Restov Swordlords",
@@ -1101,20 +1251,22 @@ export function createStarterState() {
         kingdomRole: "Potential military hardliner",
         kingdomNotes: "He is a future test case for how the kingdom handles force, legitimacy, and command.",
         notes: "Use when the campaign needs steel, scrutiny, or a sharper idea of frontier order.",
-        folder: "Greenbelt",
+        folder: "Chapter 3 / Stolen Lands",
       }),
     ],
     quests: [
       normalizeQuestRecord({
         id: uid(),
+        recordSource: "kingmaker-reference",
+        confirmed: false,
         title: "Secure Oleg's Trading Post",
-        status: "open",
+        status: "watch",
         objective: "End the immediate bandit threat and turn the trading post into a dependable expedition base.",
         giver: "Lady Jamandi Aldori",
-        folder: "Greenbelt",
+        folder: "Chapter 3 / Stolen Lands",
         stakes: "If the trading post falls, the charter starts from a position of weakness.",
         priority: "Now",
-        chapter: "Chapter 1: A Call for Heroes",
+        chapter: "Chapter 3: Stolen Lands",
         hex: "D4",
         linkedEvent: "First Bandit Collection Run",
         nextBeat: "Let the bandits make one visible move so the players feel the clock before they answer it.",
@@ -1124,8 +1276,10 @@ export function createStarterState() {
       }),
       normalizeQuestRecord({
         id: uid(),
+        recordSource: "kingmaker-reference",
+        confirmed: false,
         title: "Map the Greenbelt",
-        status: "open",
+        status: "watch",
         objective: "Explore nearby hexes, identify threats and opportunities, and build the expedition's first reliable route map.",
         giver: "Oleg Leveton",
         folder: "Exploration",
@@ -1144,6 +1298,8 @@ export function createStarterState() {
     locations: [
       normalizeLocationRecord({
         id: uid(),
+        recordSource: "kingmaker-reference",
+        confirmed: false,
         name: "Oleg's Trading Post",
         type: "settlement",
         status: "threatened",
@@ -1152,7 +1308,7 @@ export function createStarterState() {
         linkedQuest: "Secure Oleg's Trading Post",
         linkedEvent: "First Bandit Collection Run",
         linkedNpc: "Oleg Leveton",
-        folder: "Greenbelt",
+        folder: "Chapter 3 / Stolen Lands",
         whatChanged: "Established as the expedition's first stable frontier foothold.",
         sceneTexture: "Timber walls, anxious merchants, and the feeling that every quiet hour was recently bought at a price.",
         opportunities: "Rumor intake, supply resets, local trust building, and the first durable base of operations.",
@@ -1162,6 +1318,8 @@ export function createStarterState() {
       }),
       normalizeLocationRecord({
         id: uid(),
+        recordSource: "kingmaker-reference",
+        confirmed: false,
         name: "Restov",
         type: "settlement",
         status: "active",
@@ -1200,53 +1358,13 @@ export function createStarterState() {
       gridFillOpacity: 0.32,
       gridLineOpacity: 0.54,
       party: {
-        hex: "D4",
+        hex: "",
         label: "Charter Party",
-        notes: "Based out of Oleg's Trading Post while the first Greenbelt routes are being mapped.",
-        trail: [
-          { hex: "A1", at: "" },
-          { hex: "D4", at: "" },
-        ],
+        notes: "Set the party position once the table confirms where the expedition actually is.",
+        trail: [],
       },
-      forces: [
-        {
-          id: uid(),
-          hex: "E4",
-          type: "Enemy Force",
-          name: "Bandit Scouts",
-          notes: "Testing the trading post's defenses before the next tribute run.",
-          updatedAt: new Date().toISOString(),
-        },
-      ],
-      markers: [
-        {
-          id: uid(),
-          hex: "D4",
-          type: "Settlement",
-          icon: "house",
-          title: "Oleg's Trading Post",
-          notes: "Starting hub for rumors, supplies, and the charter's first visible foothold.",
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: uid(),
-          hex: "D4",
-          type: "Danger",
-          icon: "danger",
-          title: "Tribute Pressure",
-          notes: "The bandits expect payment soon and escalate if the outpost resists.",
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          id: uid(),
-          hex: "A1",
-          type: "Settlement",
-          icon: "capital",
-          title: "Restov",
-          notes: "Jamandi's charter origin and the expedition's political backer.",
-          updatedAt: new Date().toISOString(),
-        },
-      ],
+      forces: [],
+      markers: [],
     }),
     liveCapture: [],
   };
@@ -1258,22 +1376,47 @@ export function normalizeCampaignState(raw = {}) {
   const sourceMeta = ensureObject(source.meta);
   const sourceEvents = ensureArray(source.events);
   const shouldSeedEventLibrary = stringValue(sourceMeta.eventLibraryVersion) !== KINGMAKER_EVENT_LIBRARY_VERSION;
+  const shouldSeedContentLibrary = stringValue(sourceMeta.contentLibraryVersion) !== KINGMAKER_CONTENT_LIBRARY_VERSION;
   const normalizedEvents = sourceEvents.length
     ? shouldSeedEventLibrary
       ? mergeKingmakerEventLibrary(sourceEvents)
       : sourceEvents.map(normalizeEventRecord)
     : starter.events;
+  const sourceNpcs = ensureArray(source.npcs);
+  const sourceQuests = ensureArray(source.quests);
+  const sourceLocations = ensureArray(source.locations);
+  const normalizedSessions = normalizeSessionRecords(source.sessions);
+  const normalizedNpcs = shouldSeedContentLibrary
+    ? mergeKingmakerNpcLibrary(sourceNpcs.length ? sourceNpcs : starter.npcs)
+    : sourceNpcs.length
+      ? sourceNpcs.map(normalizeNpcRecord)
+      : starter.npcs;
+  const normalizedQuests = shouldSeedContentLibrary
+    ? mergeKingmakerQuestLibrary(sourceQuests.length ? sourceQuests : starter.quests)
+    : sourceQuests.length
+      ? sourceQuests.map(normalizeQuestRecord)
+      : starter.quests;
+  const normalizedLocations = shouldSeedContentLibrary
+    ? mergeKingmakerLocationLibrary(sourceLocations.length ? sourceLocations : starter.locations)
+    : sourceLocations.length
+      ? sourceLocations.map(normalizeLocationRecord)
+      : starter.locations;
   return {
     ...starter,
     ...source,
-    meta: normalizeMetaState({ ...starter.meta, ...sourceMeta, eventLibraryVersion: KINGMAKER_EVENT_LIBRARY_VERSION }),
+    meta: normalizeMetaState({
+      ...starter.meta,
+      ...sourceMeta,
+      eventLibraryVersion: KINGMAKER_EVENT_LIBRARY_VERSION,
+      contentLibraryVersion: KINGMAKER_CONTENT_LIBRARY_VERSION,
+    }),
     rulesStore: normalizeRulesStore(source.rulesStore),
-    sessions: ensureArray(source.sessions).length ? ensureArray(source.sessions).map(normalizeSessionRecord) : starter.sessions,
+    sessions: normalizedSessions,
     companions: ensureArray(source.companions).length ? ensureArray(source.companions).map(normalizeCompanionRecord) : starter.companions,
     events: normalizedEvents,
-    npcs: ensureArray(source.npcs).map(normalizeNpcRecord),
-    quests: ensureArray(source.quests).length ? ensureArray(source.quests).map(normalizeQuestRecord) : starter.quests,
-    locations: ensureArray(source.locations).length ? ensureArray(source.locations).map(normalizeLocationRecord) : starter.locations,
+    npcs: normalizedNpcs,
+    quests: normalizedQuests,
+    locations: normalizedLocations,
     kingdom: normalizeKingdomState(source.kingdom),
     hexMap: normalizeHexMapState(source.hexMap),
     liveCapture: ensureArray(source.liveCapture).map(normalizeCaptureEntry).filter((entry) => entry.note),
@@ -1283,13 +1426,14 @@ export function normalizeCampaignState(raw = {}) {
 export function createSessionDraft(campaign) {
   const normalized = normalizeCampaignState(campaign);
   const latestSession = normalized.sessions[0];
+  const storyPhase = getStoryPhaseById(normalized.meta?.storyFocus?.activePhaseId);
   return {
     title: "",
     date: normalized.kingdom.currentDate || KINGMAKER_DEFAULT_START_DATE,
     type: latestSession?.type || "expedition",
-    arc: stringValue(latestSession?.arc) || "Stolen Lands Opening",
-    chapter: stringValue(latestSession?.chapter) || "Chapter 2: Into the Wild",
-    focusHex: stringValue(latestSession?.focusHex) || "D4",
+    arc: stringValue(latestSession?.arc) || storyPhase.shortLabel || "",
+    chapter: stringValue(latestSession?.chapter) || storyPhase.chapter || "",
+    focusHex: stringValue(latestSession?.focusHex),
     leadCompanion: stringValue(latestSession?.leadCompanion),
     travelObjective: "",
     weather: "",
@@ -1316,7 +1460,7 @@ export async function loadCampaignState(desktopApi) {
     // Ignore legacy local storage parse failures and fall back below.
   }
 
-  return createStarterState();
+  return normalizeCampaignState({});
 }
 
 export async function saveCampaignState(nextState, desktopApi) {

@@ -1,3 +1,5 @@
+import { getActiveStoryPhase, isLiveCampaignRecord, recordMatchesActiveStoryPhase, shouldSurfaceRecordForFocus } from "./kingmakerFlow";
+
 const ACTIVE_QUEST_STATUSES = new Set(["open", "in-progress", "watch"]);
 const QUEST_PRIORITY_RANK = Object.freeze({ now: 0, soon: 1, later: 2, someday: 3 });
 
@@ -62,6 +64,7 @@ function buildQuestSummary(entry) {
 }
 
 export function buildQuestsModel(campaign) {
+  const storyPhase = getActiveStoryPhase(campaign);
   const quests = [...(campaign?.quests || [])].sort((left, right) => {
     const statusDelta = statusRank(left) - statusRank(right);
     if (statusDelta !== 0) return statusDelta;
@@ -70,29 +73,35 @@ export function buildQuestsModel(campaign) {
     return stringValue(left?.title).localeCompare(stringValue(right?.title));
   });
 
-  const activeQuests = quests.filter((entry) => ACTIVE_QUEST_STATUSES.has(stringValue(entry?.status).toLowerCase()));
+  const activeQuests = quests.filter((entry) => isLiveCampaignRecord(entry) && ACTIVE_QUEST_STATUSES.has(stringValue(entry?.status).toLowerCase()));
+  const focusReferenceQuests = quests.filter((entry) => !isLiveCampaignRecord(entry) && recordMatchesActiveStoryPhase(entry, campaign));
+  const availableQuests = [...activeQuests, ...focusReferenceQuests].filter(
+    (entry, index, list) => list.findIndex((candidate) => stringValue(candidate?.id) === stringValue(entry?.id)) === index
+  );
   const urgentQuests = quests.filter(
     (entry) =>
-      stringValue(entry?.priority).toLowerCase() === "now"
-      || stringValue(entry?.status).toLowerCase() === "in-progress"
+      isLiveCampaignRecord(entry)
+      && (stringValue(entry?.priority).toLowerCase() === "now"
+        || stringValue(entry?.status).toLowerCase() === "in-progress")
   );
-  const linkedEventQuests = quests.filter((entry) => Boolean(stringValue(entry?.linkedEvent)));
-  const frontierQuests = quests.filter((entry) => Boolean(stringValue(entry?.hex)));
+  const linkedEventQuests = activeQuests.filter((entry) => Boolean(stringValue(entry?.linkedEvent)));
+  const frontierQuests = activeQuests.filter((entry) => Boolean(stringValue(entry?.hex)));
   const chapterOptions = [...new Set(quests.map((entry) => stringValue(entry?.chapter)).filter(Boolean))]
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ value, label: value }));
+  const focusedRecords = (records = []) => records.filter((entry) => shouldSurfaceRecordForFocus(entry, campaign));
   const giverOptions = [...new Set([
     ...quests.map((entry) => stringValue(entry?.giver)),
-    ...(campaign?.npcs || []).map((entry) => stringValue(entry?.name)),
+    ...focusedRecords(campaign?.npcs).map((entry) => stringValue(entry?.name)),
   ].filter(Boolean))]
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ value, label: value }));
-  const companionOptions = [...(campaign?.companions || [])]
+  const companionOptions = focusedRecords(campaign?.companions)
     .map((entry) => stringValue(entry?.name))
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right))
     .map((value) => ({ value, label: value }));
-  const eventOptions = [...(campaign?.events || [])]
+  const eventOptions = focusedRecords(campaign?.events)
     .map((entry) => stringValue(entry?.title))
     .filter(Boolean)
     .sort((left, right) => left.localeCompare(right))
@@ -100,7 +109,10 @@ export function buildQuestsModel(campaign) {
 
   return {
     quests,
+    storyPhase,
+    availableQuests,
     activeQuests,
+    focusReferenceQuests,
     urgentQuests,
     linkedEventQuests,
     frontierQuests,
@@ -109,15 +121,17 @@ export function buildQuestsModel(campaign) {
     companionOptions,
     eventOptions,
     sourceAnchors: [...QUEST_SOURCE_ANCHORS],
-    companions: [...(campaign?.companions || [])],
-    events: [...(campaign?.events || [])],
-    npcs: [...(campaign?.npcs || [])],
-    locations: [...(campaign?.locations || [])],
+    companions: focusedRecords(campaign?.companions),
+    events: focusedRecords(campaign?.events),
+    npcs: focusedRecords(campaign?.npcs),
+    locations: focusedRecords(campaign?.locations),
     summaryCards: [
       {
         label: "Tracked Quests",
-        value: `${quests.length}`,
-        helper: activeQuests[0] ? `${activeQuests[0].title} / ${buildQuestSummary(activeQuests[0])}` : "No active quest is currently tracked.",
+        value: `${activeQuests.length}`,
+        helper: activeQuests[0]
+          ? `${activeQuests[0].title} / ${buildQuestSummary(activeQuests[0])}`
+          : `No active quest is currently tracked. ${focusReferenceQuests.length} ${storyPhase.shortLabel} reference quest(s) are available.`,
         valueTone: "number",
       },
       {
@@ -148,9 +162,10 @@ export function collectLinkedQuestEvents(campaign, questDraft) {
   const questHex = stringValue(questDraft?.hex).toUpperCase();
   return [...(campaign?.events || [])].filter(
     (entry) =>
-      stringValue(entry?.title) === linkedEventTitle
-      || stringValue(entry?.linkedQuest) === questTitle
-      || (questHex && stringValue(entry?.hex).toUpperCase() === questHex)
+      shouldSurfaceRecordForFocus(entry, campaign) &&
+      (stringValue(entry?.title) === linkedEventTitle
+        || stringValue(entry?.linkedQuest) === questTitle
+        || (questHex && stringValue(entry?.hex).toUpperCase() === questHex))
   );
 }
 
@@ -159,8 +174,9 @@ export function collectLinkedQuestCompanions(campaign, questDraft) {
   const questTitle = stringValue(questDraft?.title);
   return [...(campaign?.companions || [])].filter(
     (entry) =>
-      matchesName(entry?.name, linkedCompanion)
-      || stringValue(entry?.linkedQuest) === questTitle
+      shouldSurfaceRecordForFocus(entry, campaign) &&
+      (matchesName(entry?.name, linkedCompanion)
+        || stringValue(entry?.linkedQuest) === questTitle)
   );
 }
 
@@ -169,13 +185,14 @@ export function collectLinkedQuestNpcs(campaign, questDraft) {
   const questHex = stringValue(questDraft?.hex).toUpperCase();
   return [...(campaign?.npcs || [])].filter(
     (entry) =>
-      matchesName(entry?.name, giver)
-      || stringValue(entry?.linkedQuest) === stringValue(questDraft?.title)
-      || (questHex && stringValue(entry?.hex).toUpperCase() === questHex)
+      shouldSurfaceRecordForFocus(entry, campaign) &&
+      (matchesName(entry?.name, giver)
+        || stringValue(entry?.linkedQuest) === stringValue(questDraft?.title)
+        || (questHex && stringValue(entry?.hex).toUpperCase() === questHex))
   );
 }
 
 export function collectQuestLocations(campaign, questDraft) {
   const questHex = stringValue(questDraft?.hex).toUpperCase();
-  return [...(campaign?.locations || [])].filter((entry) => questHex && stringValue(entry?.hex).toUpperCase() === questHex);
+  return [...(campaign?.locations || [])].filter((entry) => shouldSurfaceRecordForFocus(entry, campaign) && questHex && stringValue(entry?.hex).toUpperCase() === questHex);
 }
